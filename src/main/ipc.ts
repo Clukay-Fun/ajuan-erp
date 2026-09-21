@@ -6,6 +6,10 @@ import { toAppError } from './services/errors'
 import { getProduct, updateProduct } from './services/products'
 import { getStock } from './services/inventory'
 import { createOpening, getOpening } from './services/opening'
+import {
+  listDocuments, getDocument, createDraft, updateDraft, deleteDraft, confirmDocument, voidDocument, findDuplicateOrder
+} from './services/documents'
+import { listChannels, createChannel, updateChannel } from './services/channels'
 
 const isDev = !app.isPackaged
 
@@ -43,4 +47,17 @@ export function registerIpc(db: Db, dbPath: string): void {
   handle(IPC.inventoryGetStock, (skuId: number) => getStock(db, skuId))
   handle(IPC.openingGet, (skuId: number) => getOpening(db, skuId))
   handle(IPC.openingCreate, (input) => createOpening(db, input))
+  handle(IPC.documentsList, (filter) => listDocuments(db, filter ?? {}))
+  handle(IPC.documentsGet, (id: number) => getDocument(db, id))
+  handle(IPC.documentsCreateDraft, (input) => createDraft(db, input))
+  handle(IPC.documentsUpdateDraft, (id: number, input) => updateDraft(db, id, input))
+  handle(IPC.documentsDeleteDraft, (id: number) => deleteDraft(db, id))
+  handle(IPC.documentsConfirm, (id: number) => confirmDocument(db, id))
+  handle(IPC.documentsVoid, (id: number, reason: string) => voidDocument(db, id, String(reason ?? '')))
+  handle(IPC.documentsFindDuplicate, (channelId: number | null, no: string, excludeId: number | null) =>
+    findDuplicateOrder(db, channelId, String(no ?? ''), excludeId)
+  )
+  handle(IPC.channelsList, () => listChannels(db))
+  handle(IPC.channelsCreate, (input) => createChannel(db, input))
+  handle(IPC.channelsUpdate, (id: number, input) => updateChannel(db, id, input))
 }

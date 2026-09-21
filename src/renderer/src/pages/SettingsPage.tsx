@@ -3,6 +3,7 @@ import { Info } from 'lucide-react'
 import type { AppInfo } from '@shared/ipc'
 import { PageHeader } from '@/components/PageHeader'
 import { EmptyState } from '@/components/EmptyState'
+import { ChannelSettings } from '@/features/settings/ChannelSettings'
 import { unwrap, errorMessage } from '@/lib/api'
 import styles from './SettingsPage.module.css'
 
@@ -19,6 +20,7 @@ export function SettingsPage(): ReactElement {
   return (
     <>
       <PageHeader title="设置" subtitle="销售渠道、数据备份与应用信息" />
+      <ChannelSettings />
       <section className={styles.card}>
         <h2 className={styles.cardTitle}>应用信息</h2>
         {error && <p className={styles.error}>读取失败：{error}</p>}
@@ -38,7 +40,7 @@ export function SettingsPage(): ReactElement {
           </dl>
         )}
       </section>
-      <EmptyState icon={Info} title="销售渠道与备份恢复尚未开放" description="将分别在 M2 和 M5 提供。" />
+      <EmptyState icon={Info} title="数据备份与恢复尚未开放" description="将在 M5 提供。" />
     </>
   )
 }

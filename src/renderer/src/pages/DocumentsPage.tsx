@@ -1,13 +1,19 @@
 import type { ReactElement } from 'react'
-import { FileText } from 'lucide-react'
-import { PageHeader } from '@/components/PageHeader'
-import { EmptyState } from '@/components/EmptyState'
+import { useNav } from '@/app/navigation'
+import { DocumentList } from '@/features/documents/DocumentList'
+import { DocumentEditor } from '@/features/documents/DocumentEditor'
+import { DocumentDetailView } from '@/features/documents/DocumentDetailView'
 
 export function DocumentsPage(): ReactElement {
-  return (
-    <>
-      <PageHeader title="单据" subtitle="入库单、出库单与期初库存" />
-      <EmptyState icon={FileText} title="还没有单据" description="M2" />
-    </>
-  )
+  const { location } = useNav()
+  const view = location.params.documents ?? { view: 'list' }
+  switch (view.view) {
+    case 'new':
+    case 'edit':
+      return <DocumentEditor key={view.view === 'edit' ? `edit-${view.id}` : `new-${view.type}`} mode={view} />
+    case 'detail':
+      return <DocumentDetailView key={view.id} id={view.id} />
+    default:
+      return <DocumentList />
+  }
 }

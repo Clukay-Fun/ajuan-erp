@@ -41,6 +41,8 @@ export interface DocumentSummary {
   totalQuantity: number
   totalAmountCents: number
   confirmedAt: string | null
+  channelName: string | null
+  externalOrderNo: string
 }
 
 export interface AppError {
@@ -49,3 +51,37 @@ export interface AppError {
 }
 
 export type IpcResult<T> = { ok: true; data: T } | { ok: false; error: AppError }
+
+export interface SalesChannel {
+  id: number
+  name: string
+  sortOrder: number
+  isActive: boolean
+}
+
+export interface DocumentItem {
+  id: number
+  lineNo: number
+  skuId: number
+  skuCode: string
+  productName: string
+  quantity: number
+  unitPriceCents: number
+  /** 出库确认时的平均成本快照（分），未确认或入库为 null */
+  costSnapshotCents: number | null
+}
+
+export interface DocumentDetail extends DocumentSummary {
+  channelId: number | null
+  channelName: string | null
+  externalOrderNo: string
+  voidedAt: string | null
+  voidReason: string | null
+  items: DocumentItem[]
+}
+
+export interface DocumentListFilter {
+  type?: DocumentType
+  status?: DocumentStatus
+  limit?: number
+}

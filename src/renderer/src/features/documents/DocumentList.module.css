@@ -1,0 +1,6 @@
+.filters { display: flex; gap: var(--space-4); margin-bottom: var(--space-4); flex-wrap: wrap; }
+.tabs { display: inline-flex; padding: 3px; gap: 2px; background: var(--color-sidebar); border-radius: var(--radius-md); }
+.tab { border: 0; background: transparent; padding: 5px 12px; border-radius: 7px; cursor: pointer; color: var(--color-text-secondary); font-size: 13px; }
+.tab:hover { color: var(--color-text); }
+.tab[aria-selected='true'] { background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-sm); font-weight: 500; }
+.error { color: var(--color-danger); }

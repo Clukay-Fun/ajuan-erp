@@ -30,6 +30,9 @@ src/
 ├─ preload/    contextBridge 白名单 API（window.ajuan.*）
 ├─ shared/     主进程与 renderer 共用的 IPC 契约与类型
 └─ renderer/   React 页面：概览 / 商品 / 库存 / 单据 / 汇总 / 设置
+   ├─ app/       页面路由与导航上下文（无 router 依赖，state 驱动）
+   ├─ components/ Button / Field / Select / Drawer / ConfirmDialog / Toast / Badge 等通用组件
+   └─ features/  按业务拆分的页面块（products / documents / settings）
 tests/         Vitest 单元测试
 docs/          产品与技术计划
 ```
@@ -49,7 +52,7 @@ docs/          产品与技术计划
 
 ## 里程碑
 
-M0 桌面安全外壳 ✅ → M1 SQLite/商品/期初 ✅ → M2 入库出库作废 → M3 流水搜索汇总 → M4 CSV → M5 附件备份 → M6 UI 精修与双平台验收
+M0 桌面安全外壳 ✅ → M1 SQLite/商品/期初 ✅ → M2 入库出库作废 ✅ → M3 流水搜索汇总 → M4 CSV → M5 附件备份 → M6 UI 精修与双平台验收
 
 ## 许可证
 

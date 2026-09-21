@@ -5,56 +5,20 @@ import { centsToE4 } from '@shared/money'
 import type { DocumentSummary } from '@shared/types'
 import { ServiceError } from './errors'
 import { nextDocNo } from './docNo'
+import { getDocumentSummary } from './documents'
 import { applyMovement } from './inventory'
-
-interface DocRow {
-  id: number
-  doc_no: string
-  type: DocumentSummary['type']
-  status: DocumentSummary['status']
-  doc_date: string
-  note: string
-  confirmed_at: string | null
-  total_qty: number | null
-  total_amount: number | null
-}
-
-const SUMMARY_SELECT = `
-  SELECT d.id, d.doc_no, d.type, d.status, d.doc_date, d.note, d.confirmed_at,
-         SUM(i.quantity) AS total_qty, SUM(i.quantity * i.unit_price_cents) AS total_amount
-  FROM documents d LEFT JOIN document_items i ON i.document_id = d.id`
-
-export function toSummary(r: DocRow): DocumentSummary {
-  return {
-    id: r.id,
-    docNo: r.doc_no,
-    type: r.type,
-    status: r.status,
-    docDate: r.doc_date,
-    note: r.note,
-    confirmedAt: r.confirmed_at,
-    totalQuantity: Number(r.total_qty ?? 0),
-    totalAmountCents: Number(r.total_amount ?? 0)
-  }
-}
-
-export function getDocumentSummary(db: Db, id: number): DocumentSummary {
-  const row = db.prepare(`${SUMMARY_SELECT} WHERE d.id = ? GROUP BY d.id`).get(id) as DocRow | undefined
-  if (!row) throw new ServiceError('NOT_FOUND', '单据不存在')
-  return toSummary(row)
-}
 
 /** 该 SKU 已确认的期初单（每个 SKU 最多一张）。 */
 export function getOpening(db: Db, skuId: number): DocumentSummary | null {
   const row = db
     .prepare(
-      `${SUMMARY_SELECT}
+      `SELECT d.id FROM documents d
        WHERE d.type = 'opening' AND d.status = 'confirmed'
          AND EXISTS (SELECT 1 FROM document_items x WHERE x.document_id = d.id AND x.sku_id = ?)
-       GROUP BY d.id LIMIT 1`
+       LIMIT 1`
     )
-    .get(skuId) as DocRow | undefined
-  return row ? toSummary(row) : null
+    .get(skuId) as { id: number } | undefined
+  return row ? getDocumentSummary(db, row.id) : null
 }
 
 /**

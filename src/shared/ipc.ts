@@ -1,5 +1,19 @@
-import type { ProductUpdateInput, OpeningStockInput } from './schemas'
-import type { DocumentSummary, IpcResult, Product, StockLevel } from './types'
+import type {
+  ProductUpdateInput,
+  OpeningStockInput,
+  DocumentDraftInput,
+  ChannelCreateInput,
+  ChannelUpdateInput
+} from './schemas'
+import type {
+  DocumentDetail,
+  DocumentListFilter,
+  DocumentSummary,
+  IpcResult,
+  Product,
+  SalesChannel,
+  StockLevel
+} from './types'
 
 // renderer ↔ main 的白名单 IPC 契约。
 // 通道名集中定义，preload 只暴露这里列出的方法，不暴露通用 invoke。
@@ -10,7 +24,18 @@ export const IPC = {
   productsUpdate: 'products:update',
   inventoryGetStock: 'inventory:getStock',
   openingGet: 'opening:get',
-  openingCreate: 'opening:create'
+  openingCreate: 'opening:create',
+  documentsList: 'documents:list',
+  documentsGet: 'documents:get',
+  documentsCreateDraft: 'documents:createDraft',
+  documentsUpdateDraft: 'documents:updateDraft',
+  documentsDeleteDraft: 'documents:deleteDraft',
+  documentsConfirm: 'documents:confirm',
+  documentsVoid: 'documents:void',
+  documentsFindDuplicate: 'documents:findDuplicate',
+  channelsList: 'channels:list',
+  channelsCreate: 'channels:create',
+  channelsUpdate: 'channels:update'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]
@@ -40,5 +65,21 @@ export interface AjuanApi {
     /** 该 SKU 已确认的期初单，没有则为 null */
     get(skuId: number): Promise<IpcResult<DocumentSummary | null>>
     create(input: OpeningStockInput): Promise<IpcResult<DocumentSummary>>
+  }
+  documents: {
+    list(filter: DocumentListFilter): Promise<IpcResult<DocumentSummary[]>>
+    get(id: number): Promise<IpcResult<DocumentDetail>>
+    createDraft(input: DocumentDraftInput): Promise<IpcResult<DocumentDetail>>
+    updateDraft(id: number, input: DocumentDraftInput): Promise<IpcResult<DocumentDetail>>
+    deleteDraft(id: number): Promise<IpcResult<void>>
+    confirm(id: number): Promise<IpcResult<DocumentDetail>>
+    void(id: number, reason: string): Promise<IpcResult<DocumentDetail>>
+    /** 同渠道下已存在相同外部订单号的单据（用于提示，不阻断） */
+    findDuplicate(channelId: number | null, externalOrderNo: string, excludeId: number | null): Promise<IpcResult<DocumentSummary | null>>
+  }
+  channels: {
+    list(): Promise<IpcResult<SalesChannel[]>>
+    create(input: ChannelCreateInput): Promise<IpcResult<SalesChannel>>
+    update(id: number, input: ChannelUpdateInput): Promise<IpcResult<SalesChannel>>
   }
 }
