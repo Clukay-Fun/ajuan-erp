@@ -49,10 +49,12 @@ docs/          产品与技术计划
 - 数据库位于用户数据目录下的 `ajuan.db`（WAL 模式）；`schema_migrations` 记录已执行版本，启动时自动补齐。
 - 对外金额一律整数分；库存成本总额与平均成本用 1/10000 元（e4）的定点整数，见 `src/shared/money.ts`。
 - `sku_stock` 是当前快照，`stock_movements` 是不可变流水，任意时点库存可由流水重放。
+- 业务时间（`doc_date` / `occurred_at`）用本地时间、无时区后缀；审计时间戳（`created_at` / `confirmed_at` / `voided_at`）用 ISO UTC。
+- 概览与汇总只统计 `status = 'confirmed'` 的入库 / 出库单，按 `doc_date` 归属；作废单与草稿不计。流水页则展示全部记录含作废冲回。
 
 ## 里程碑
 
-M0 桌面安全外壳 ✅ → M1 SQLite/商品/期初 ✅ → M2 入库出库作废 ✅ → M3 流水搜索汇总 → M4 CSV → M5 附件备份 → M6 UI 精修与双平台验收
+M0 桌面安全外壳 ✅ → M1 SQLite/商品/期初 ✅ → M2 入库出库作废 ✅ → M3 流水搜索汇总 ✅ → M4 CSV → M5 附件备份 → M6 UI 精修与双平台验收
 
 ## 许可证
 

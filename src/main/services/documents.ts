@@ -1,5 +1,5 @@
 import type { Db } from '../db/connection'
-import { nowIso, transaction } from '../db/connection'
+import { localDateTime, nowIso, transaction } from '../db/connection'
 import { documentDraftSchema, type DocumentDraftInput } from '@shared/schemas'
 import { centsToE4, e4ToCents } from '@shared/money'
 import type { DocumentDetail, DocumentItem, DocumentListFilter, DocumentSummary } from '@shared/types'
@@ -210,18 +210,13 @@ export function deleteDraft(db: Db, id: number): void {
   })
 }
 
-function localTimeOfDay(): string {
-  const d = new Date()
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
-}
-
 /** 草稿 → 已生效：逐行写流水并更新库存。库存不足时整单回滚。 */
 export function confirmDocument(db: Db, id: number): DocumentDetail {
   return transaction(db, () => {
     const doc = getDraftOrThrow(db, id)
     if (doc.items.length === 0) throw new ServiceError('VALIDATION', '单据没有商品明细')
-    const occurredAt = `${doc.docDate}T${localTimeOfDay()}`
+    // 业务时间取单据日期 + 当前时刻，保证同日流水按确认先后排序
+    const occurredAt = `${doc.docDate}T${localDateTime().slice(11)}`
     const setSnapshot = db.prepare(`UPDATE document_items SET cost_snapshot_e4 = ? WHERE id = ?`)
     for (const item of doc.items) {
       if (doc.type === 'inbound') {
@@ -270,7 +265,8 @@ export function voidDocument(db: Db, id: number, reason: string): DocumentDetail
          WHERE document_id = ? AND kind <> 'void' ORDER BY id`
       )
       .all(id) as { sku_id: number; document_item_id: number | null; quantity_delta: number; unit_cost_e4: number | bigint }[]
-    const occurredAt = nowIso()
+    const occurredAt = localDateTime()
+    const now = nowIso()
     for (const mv of movements) {
       applyMovement(db, {
         skuId: mv.sku_id,
@@ -283,9 +279,9 @@ export function voidDocument(db: Db, id: number, reason: string): DocumentDetail
       })
     }
     db.prepare(`UPDATE documents SET status = 'voided', voided_at = ?, void_reason = ?, updated_at = ? WHERE id = ?`).run(
-      occurredAt,
+      now,
       trimmed,
-      occurredAt,
+      now,
       id
     )
     return getDocument(db, id)

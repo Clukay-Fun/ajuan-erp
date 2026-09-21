@@ -85,3 +85,76 @@ export interface DocumentListFilter {
   status?: DocumentStatus
   limit?: number
 }
+
+export type MovementKind = 'opening' | 'inbound' | 'outbound' | 'void'
+
+export interface MovementRow {
+  id: number
+  occurredAt: string
+  kind: MovementKind
+  documentId: number
+  docNo: string
+  docType: DocumentType
+  channelName: string | null
+  externalOrderNo: string
+  quantityDelta: number
+  quantityAfter: number
+  /** 单据明细上的单价（进价 / 售价），分 */
+  unitPriceCents: number | null
+  /** 本次流水的结转成本，分 */
+  unitCostCents: number
+}
+
+export interface MovementFilter {
+  kind?: MovementKind
+  channelId?: number
+  from?: string
+  to?: string
+  /** 单号模糊匹配 */
+  docNo?: string
+  page?: number
+  pageSize?: number
+}
+
+export interface Page<T> {
+  rows: T[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+export interface DailyFlow {
+  date: string
+  inQty: number
+  inAmountCents: number
+  outQty: number
+  outAmountCents: number
+}
+
+export interface Overview {
+  product: Product
+  stock: StockLevel
+  lowStock: boolean
+  today: { inQty: number; inAmountCents: number; outQty: number; outAmountCents: number }
+  trend: DailyFlow[]
+  recentDocuments: DocumentSummary[]
+  hasOpening: boolean
+}
+
+export interface SummaryRange {
+  from: string
+  to: string
+}
+
+export interface Summary {
+  range: SummaryRange
+  inQty: number
+  inAmountCents: number
+  outQty: number
+  outAmountCents: number
+  /** 出库成本（按成本快照），分 */
+  outCostCents: number
+  inDocCount: number
+  outDocCount: number
+  daily: DailyFlow[]
+}

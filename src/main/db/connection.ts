@@ -32,3 +32,12 @@ export function transaction<T>(db: Db, fn: () => T): T {
 export function nowIso(): string {
   return new Date().toISOString()
 }
+
+/**
+ * 业务时间（occurred_at / doc_date）统一用本地时间、无时区后缀：YYYY-MM-DDTHH:mm:ss。
+ * 审计时间戳（created_at / confirmed_at 等）用 ISO UTC。两者不要混用于排序或筛选。
+ */
+export function localDateTime(now = new Date()): string {
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}T${p(now.getHours())}:${p(now.getMinutes())}:${p(now.getSeconds())}`
+}

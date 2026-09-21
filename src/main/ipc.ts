@@ -10,6 +10,8 @@ import {
   listDocuments, getDocument, createDraft, updateDraft, deleteDraft, confirmDocument, voidDocument, findDuplicateOrder
 } from './services/documents'
 import { listChannels, createChannel, updateChannel } from './services/channels'
+import { listMovements } from './services/movements'
+import { getOverview, getSummary } from './services/reports'
 
 const isDev = !app.isPackaged
 
@@ -60,4 +62,7 @@ export function registerIpc(db: Db, dbPath: string): void {
   handle(IPC.channelsList, () => listChannels(db))
   handle(IPC.channelsCreate, (input) => createChannel(db, input))
   handle(IPC.channelsUpdate, (id: number, input) => updateChannel(db, id, input))
+  handle(IPC.inventoryListMovements, (filter) => listMovements(db, filter ?? {}))
+  handle(IPC.overviewGet, () => getOverview(db))
+  handle(IPC.summaryGet, (range) => getSummary(db, range))
 }

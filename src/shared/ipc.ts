@@ -10,7 +10,13 @@ import type {
   DocumentListFilter,
   DocumentSummary,
   IpcResult,
+  MovementFilter,
+  MovementRow,
+  Overview,
+  Page,
   Product,
+  Summary,
+  SummaryRange,
   SalesChannel,
   StockLevel
 } from './types'
@@ -35,7 +41,10 @@ export const IPC = {
   documentsFindDuplicate: 'documents:findDuplicate',
   channelsList: 'channels:list',
   channelsCreate: 'channels:create',
-  channelsUpdate: 'channels:update'
+  channelsUpdate: 'channels:update',
+  inventoryListMovements: 'inventory:listMovements',
+  overviewGet: 'overview:get',
+  summaryGet: 'summary:get'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]
@@ -60,6 +69,13 @@ export interface AjuanApi {
   }
   inventory: {
     getStock(skuId: number): Promise<IpcResult<StockLevel>>
+    listMovements(filter: MovementFilter): Promise<IpcResult<Page<MovementRow>>>
+  }
+  overview: {
+    get(): Promise<IpcResult<Overview>>
+  }
+  summary: {
+    get(range: SummaryRange): Promise<IpcResult<Summary>>
   }
   opening: {
     /** 该 SKU 已确认的期初单，没有则为 null */

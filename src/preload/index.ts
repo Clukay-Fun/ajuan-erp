@@ -10,7 +10,14 @@ const api: AjuanApi = {
     update: (input) => ipcRenderer.invoke(IPC.productsUpdate, input)
   },
   inventory: {
-    getStock: (skuId) => ipcRenderer.invoke(IPC.inventoryGetStock, skuId)
+    getStock: (skuId) => ipcRenderer.invoke(IPC.inventoryGetStock, skuId),
+    listMovements: (filter) => ipcRenderer.invoke(IPC.inventoryListMovements, filter)
+  },
+  overview: {
+    get: () => ipcRenderer.invoke(IPC.overviewGet)
+  },
+  summary: {
+    get: (range) => ipcRenderer.invoke(IPC.summaryGet, range)
   },
   opening: {
     get: (skuId) => ipcRenderer.invoke(IPC.openingGet, skuId),

@@ -16,6 +16,8 @@ export interface RouteParams {
 export interface Location {
   key: RouteKey
   params: RouteParams
+  /** 每次 navigate 递增；页面以此为 key 重新挂载，保证重新进入时数据刷新 */
+  seq: number
 }
 
 interface Nav {
@@ -26,8 +28,11 @@ interface Nav {
 const NavContext = createContext<Nav | null>(null)
 
 export function NavProvider({ children }: { children: ReactNode }): ReactElement {
-  const [location, setLocation] = useState<Location>({ key: 'overview', params: {} })
-  const navigate = useCallback((key: RouteKey, params: RouteParams = {}) => setLocation({ key, params }), [])
+  const [location, setLocation] = useState<Location>({ key: 'overview', params: {}, seq: 0 })
+  const navigate = useCallback(
+    (key: RouteKey, params: RouteParams = {}) => setLocation((l) => ({ key, params, seq: l.seq + 1 })),
+    []
+  )
   const value = useMemo(() => ({ location, navigate }), [location, navigate])
   return <NavContext.Provider value={value}>{children}</NavContext.Provider>
 }

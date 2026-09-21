@@ -24,7 +24,7 @@ function Routed(): ReactElement {
   const Page = PAGES[location.key]
   return (
     <Shell route={location.key} onNavigate={(key) => navigate(key)}>
-      <Page />
+      <Page key={location.seq} />
     </Shell>
   )
 }
