@@ -1,0 +1,77 @@
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  margin-bottom: var(--space-4);
+}
+.profile {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: var(--space-6);
+}
+.image {
+  width: 160px;
+  height: 160px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  border: 1px dashed var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+}
+.name {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: var(--space-3);
+}
+.meta {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  row-gap: 6px;
+  color: var(--color-text-secondary);
+}
+.meta dd {
+  margin: 0;
+  color: var(--color-text);
+}
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+.stat {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+.statLabel {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.statValue {
+  font-size: 18px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+.sectionTitle {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: var(--space-3);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.openingRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
+}
+.muted {
+  color: var(--color-text-secondary);
+}
+.error {
+  color: var(--color-danger);
+}

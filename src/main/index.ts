@@ -1,6 +1,8 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'node:path'
-import { IPC, type AppInfo } from '@shared/ipc'
+import { openDatabase, type Db } from './db/connection'
+import { runMigrations } from './db/migrations'
+import { registerIpc } from './ipc'
 
 const isMac = process.platform === 'darwin'
 const isDev = !app.isPackaged
@@ -45,31 +47,22 @@ function createWindow(): BrowserWindow {
   return win
 }
 
-// 只接受来自本应用窗口的 IPC 请求。
-function assertTrustedSender(event: Electron.IpcMainInvokeEvent): void {
-  const url = event.senderFrame?.url ?? ''
-  const ok =
-    url.startsWith('file://') ||
-    (isDev && process.env.ELECTRON_RENDERER_URL && url.startsWith(process.env.ELECTRON_RENDERER_URL))
-  if (!ok) throw new Error(`Untrusted IPC sender: ${url}`)
-}
+let db: Db | null = null
 
-function registerIpc(): void {
-  ipcMain.handle(IPC.appGetInfo, (event): AppInfo => {
-    assertTrustedSender(event)
-    return {
-      name: app.getName(),
-      version: app.getVersion(),
-      platform: process.platform,
-      userDataPath: app.getPath('userData')
-    }
-  })
+function openAppDatabase(): { db: Db; path: string } {
+  const path = join(app.getPath('userData'), 'ajuan.db')
+  const database = openDatabase(path)
+  const ran = runMigrations(database)
+  if (ran.length) console.log(`[db] applied migrations: ${ran.join(', ')}`)
+  return { db: database, path }
 }
 
 app.setName('阿卷库存')
 
 app.whenReady().then(() => {
-  registerIpc()
+  const opened = openAppDatabase()
+  db = opened.db
+  registerIpc(db, opened.path)
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -78,6 +71,11 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (!isMac) app.quit()
+})
+
+app.on('will-quit', () => {
+  db?.close()
+  db = null
 })
 
 // 统一拒绝所有权限请求（摄像头、通知等），首版不需要。

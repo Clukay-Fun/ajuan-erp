@@ -1,5 +1,6 @@
 import { useState, type ReactElement } from 'react'
 import { Shell } from '@/components/Shell'
+import { ToastProvider } from '@/components/Toast'
 import type { RouteKey } from './routes'
 import { OverviewPage } from '@/pages/OverviewPage'
 import { ProductsPage } from '@/pages/ProductsPage'
@@ -21,8 +22,10 @@ export function App(): ReactElement {
   const [route, setRoute] = useState<RouteKey>('overview')
   const Page = PAGES[route]
   return (
-    <Shell route={route} onNavigate={setRoute}>
-      <Page />
-    </Shell>
+    <ToastProvider>
+      <Shell route={route} onNavigate={setRoute}>
+        <Page />
+      </Shell>
+    </ToastProvider>
   )
 }

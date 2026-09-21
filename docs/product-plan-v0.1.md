@@ -352,7 +352,7 @@
 | 样式 | CSS Modules + CSS Variables | 建立独立视觉系统，避免重型主题依赖 |
 | 图标 | Lucide | 图标一致且已有使用经验 |
 | 数据库 | SQLite | 本地单用户台账，无需服务端 |
-| SQLite 驱动 | better-sqlite3 | 仅在 Electron 主进程使用 |
+| SQLite 驱动 | `node:sqlite`（Node 24 内置） | 仅在 Electron 主进程使用；Electron 43 与本机 Node 均自带，免原生模块重编译，测试与运行时共用同一实现。M1 实施时由 better-sqlite3 改为此方案 |
 | 数据校验 | Zod | 共用表单、IPC 和 CSV 规则 |
 | CSV | csv-parse | 解析、预览和错误定位 |
 | 测试 | Vitest + 少量 Electron E2E | 重点覆盖库存账和关键操作流 |

@@ -32,7 +32,12 @@
     ],
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
       ]
     },
     "nsis": {
@@ -43,7 +48,12 @@
     },
     "mac": {
       "target": [
-        { "target": "dmg", "arch": ["arm64"] }
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
       ],
       "category": "public.app-category.business",
       "artifactName": "ajuan-inventory-v${version}-mac-arm64.${ext}"
@@ -52,7 +62,8 @@
   "dependencies": {
     "lucide-react": "^0.560.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/node": "^22.19.0",

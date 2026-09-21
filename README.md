@@ -6,7 +6,7 @@
 
 ## 技术栈
 
-Electron 43 · electron-vite · React 19 + TypeScript · CSS Modules + CSS Variables · Lucide · SQLite（M1 起）· Vitest · electron-builder
+Electron 43 · electron-vite · React 19 + TypeScript · CSS Modules + CSS Variables · Lucide · SQLite（`node:sqlite`，Node 24 内置）· Vitest · electron-builder
 
 ## 开发
 
@@ -24,7 +24,9 @@ npm run build:win    # Windows x64 NSIS 安装包
 
 ```text
 src/
-├─ main/       Electron 主进程：窗口、IPC 处理、后续的 SQLite 服务
+├─ main/       Electron 主进程：窗口、IPC 处理
+│  ├─ db/       node:sqlite 连接、事务与 migration
+│  └─ services/ 商品 / 库存流水 / 期初等业务服务（纯函数，可直接单测）
 ├─ preload/    contextBridge 白名单 API（window.ajuan.*）
 ├─ shared/     主进程与 renderer 共用的 IPC 契约与类型
 └─ renderer/   React 页面：概览 / 商品 / 库存 / 单据 / 汇总 / 设置
@@ -39,9 +41,15 @@ docs/          产品与技术计划
 - 主进程校验每个 IPC 请求的来源帧；拒绝所有权限请求；`window.open` 与跨页导航被拦截
 - 严格 CSP，不允许外部脚本与 CDN
 
+## 数据与金额约定
+
+- 数据库位于用户数据目录下的 `ajuan.db`（WAL 模式）；`schema_migrations` 记录已执行版本，启动时自动补齐。
+- 对外金额一律整数分；库存成本总额与平均成本用 1/10000 元（e4）的定点整数，见 `src/shared/money.ts`。
+- `sku_stock` 是当前快照，`stock_movements` 是不可变流水，任意时点库存可由流水重放。
+
 ## 里程碑
 
-M0 桌面安全外壳 ✅ → M1 SQLite/商品/期初 → M2 入库出库作废 → M3 流水搜索汇总 → M4 CSV → M5 附件备份 → M6 UI 精修与双平台验收
+M0 桌面安全外壳 ✅ → M1 SQLite/商品/期初 ✅ → M2 入库出库作废 → M3 流水搜索汇总 → M4 CSV → M5 附件备份 → M6 UI 精修与双平台验收
 
 ## 许可证
 

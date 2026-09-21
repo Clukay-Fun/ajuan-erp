@@ -3,6 +3,7 @@ import { Info } from 'lucide-react'
 import type { AppInfo } from '@shared/ipc'
 import { PageHeader } from '@/components/PageHeader'
 import { EmptyState } from '@/components/EmptyState'
+import { unwrap, errorMessage } from '@/lib/api'
 import styles from './SettingsPage.module.css'
 
 export function SettingsPage(): ReactElement {
@@ -10,10 +11,9 @@ export function SettingsPage(): ReactElement {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    window.ajuan.app
-      .getInfo()
+    unwrap(window.ajuan.app.getInfo())
       .then(setInfo)
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)))
+      .catch((err: unknown) => setError(errorMessage(err)))
   }, [])
 
   return (
@@ -33,6 +33,8 @@ export function SettingsPage(): ReactElement {
             <dd>{info.platform}</dd>
             <dt>数据目录</dt>
             <dd className={styles.mono}>{info.userDataPath}</dd>
+            <dt>数据库</dt>
+            <dd className={styles.mono}>{info.dbPath}</dd>
           </dl>
         )}
       </section>
