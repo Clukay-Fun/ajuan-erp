@@ -1,0 +1,84 @@
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) 1fr;
+  height: 100%;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-sidebar);
+  border-right: 1px solid var(--color-border);
+  padding: 0 var(--space-3) var(--space-3);
+}
+
+/* 顶部留出可拖拽区域；macOS 交通灯在此区域左侧 */
+.brand {
+  height: var(--titlebar-height);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  font-weight: 600;
+  font-size: 15px;
+  -webkit-app-region: drag;
+}
+
+.brandMac {
+  padding-left: 68px;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: var(--space-2);
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.navItem:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--color-text);
+}
+
+.navItem[aria-current='page'] {
+  background: var(--color-surface);
+  color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+  font-weight: 500;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.titlebar {
+  height: var(--titlebar-height);
+  flex: 0 0 auto;
+  -webkit-app-region: drag;
+}
+
+.content {
+  flex: 1;
+  overflow: auto;
+  padding: 0 var(--space-8) var(--space-8);
+}

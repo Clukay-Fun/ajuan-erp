@@ -1,45 +1,47 @@
-# ajuan-erp
+# 阿卷库存（ajuan-erp）
 
-> Ajuan ERP 是一个面向业务管理场景的 ERP 项目骨架，用于沉淀订单、库存、客户、财务等模块能力。
+> 本地、单用户的成品库存管理桌面应用。首版管理一个成品“电动车发光小饰品”的入库、出库、库存流水与日期汇总。
 
-## 特性
+产品与技术计划见 `docs/product-plan-v0.1.md`。
 
-- 项目文档与版本记录已初始化，便于后续协作和发布管理。
-- 仓库结构保持轻量，后续可以按业务模块逐步扩展。
+## 技术栈
 
-## 安装
-
-当前仓库尚未引入具体运行时或依赖管理工具。
-
-```bash
-git clone https://github.com/Clukay-Fun/ajuan-erp.git
-cd ajuan-erp
-```
-
-## 快速开始
-
-当前版本为项目初始化阶段，暂无可运行应用入口。
-
-```bash
-ls
-```
-
-预期可以看到项目文档，例如 `README.md` 和 `CHANGELOG.md`。
-
-## 用法
-
-后续可在此补充核心业务流程、命令行入口、服务启动方式和常见操作说明。
-
-## 配置（可选）
-
-当前版本暂无必需配置。后续如引入环境变量、配置文件或部署参数，请在本节记录。
+Electron 43 · electron-vite · React 19 + TypeScript · CSS Modules + CSS Variables · Lucide · SQLite（M1 起）· Vitest · electron-builder
 
 ## 开发
 
-- 开发约定见 `AGENTS.md`（如后续创建）。
-- 当前版本范围与完成线可记录在 `scope/v{N}-done.md`。
-- Git 工作流、提交规范、issue 规范和发布规范可在项目规范文档中维护。
-- 版本记录请持续更新 `CHANGELOG.md`。
+```bash
+npm install
+npm run dev          # 开发模式（热更新）
+npm run typecheck    # 主进程 / preload / renderer 类型检查
+npm test             # Vitest
+npm run build        # 产出 out/
+npm run build:mac    # macOS Apple Silicon DMG（未签名时设 CSC_IDENTITY_AUTO_DISCOVERY=false）
+npm run build:win    # Windows x64 NSIS 安装包
+```
+
+## 目录
+
+```text
+src/
+├─ main/       Electron 主进程：窗口、IPC 处理、后续的 SQLite 服务
+├─ preload/    contextBridge 白名单 API（window.ajuan.*）
+├─ shared/     主进程与 renderer 共用的 IPC 契约与类型
+└─ renderer/   React 页面：概览 / 商品 / 库存 / 单据 / 汇总 / 设置
+tests/         Vitest 单元测试
+docs/          产品与技术计划
+```
+
+## 安全边界
+
+- `contextIsolation: true`、`nodeIntegration: false`、`sandbox: true`
+- renderer 不能访问 Node、文件系统或 SQLite，只能调用 preload 暴露的按业务命名的方法
+- 主进程校验每个 IPC 请求的来源帧；拒绝所有权限请求；`window.open` 与跨页导航被拦截
+- 严格 CSP，不允许外部脚本与 CDN
+
+## 里程碑
+
+M0 桌面安全外壳 ✅ → M1 SQLite/商品/期初 → M2 入库出库作废 → M3 流水搜索汇总 → M4 CSV → M5 附件备份 → M6 UI 精修与双平台验收
 
 ## 许可证
 

@@ -1,0 +1,69 @@
+{
+  "name": "ajuan-inventory",
+  "version": "0.1.0",
+  "description": "阿卷库存 —— 本地单用户成品库存管理桌面应用",
+  "author": "Clukay",
+  "private": true,
+  "type": "module",
+  "main": "./out/main/index.js",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "test": "vitest run",
+    "build:mac": "npm run build && electron-builder --mac --arm64 --publish=never",
+    "build:win": "npm run build && electron-builder --win nsis --x64 --publish=never"
+  },
+  "build": {
+    "appId": "com.clukay.ajuan-inventory",
+    "productName": "阿卷库存",
+    "asar": true,
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "ajuan-inventory-v${version}-windows-x64-setup.${ext}"
+    },
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["arm64"] }
+      ],
+      "category": "public.app-category.business",
+      "artifactName": "ajuan-inventory-v${version}-mac-arm64.${ext}"
+    }
+  },
+  "dependencies": {
+    "lucide-react": "^0.560.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "electron": "43.2.0",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.3.6",
+    "vitest": "^3.2.0"
+  }
+}

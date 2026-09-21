@@ -12,6 +12,12 @@
 
 ### Added
 
+- M0 桌面安全外壳：Electron + electron-vite + React 19 + TypeScript 项目骨架。
+- 主进程 / preload / renderer 三层边界，`window.ajuan` 白名单 API 与 IPC 来源校验。
+- 应用外壳：侧栏导航（概览 / 商品 / 库存 / 单据 / 汇总 / 设置）与各页空状态。
+- 基础设计 Token（CSS Variables）与 CSS Modules 样式体系。
+- Vitest 测试与 electron-builder 打包配置（Windows x64 NSIS、macOS arm64 DMG）。
+
 ### Changed
 
 ### Fixed
