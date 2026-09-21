@@ -52,6 +52,13 @@ docs/          产品与技术计划
 - 业务时间（`doc_date` / `occurred_at`）用本地时间、无时区后缀；审计时间戳（`created_at` / `confirmed_at` / `voided_at`）用 ISO UTC。
 - 概览与汇总只统计 `status = 'confirmed'` 的入库 / 出库单，按 `doc_date` 归属；作废单与草稿不计。流水页则展示全部记录含作废冲回。
 
+## 附件与备份
+
+- 附件文件在 `<userData>/attachments/YYYY/MM/<uuid>.<ext>`，数据库只存相对路径；renderer 通过 `ajuan-file://attachments/<relPath>` 读取，主进程解析路径后拒绝任何越出附件目录的请求。
+- 备份是 zip：`manifest.json`（app / formatVersion / schemaVersion / counts / 每个文件的 size + sha256）+ `ajuan.db` + `attachments/**`。
+- 恢复前校验 manifest 与哈希并试开数据库；现有数据整体移到 `<userData>/restore-trash/<时间戳>/`，需要时可手动找回；恢复后按需执行 migration 并重载窗口。
+- 数据库连接由 `src/main/appState.ts` 持有，恢复时关闭并替换。
+
 ## CSV 导入约定
 
 - 一行 = 一张已生效单据的一行明细；列：`类型,日期,数量,单价,渠道,外部订单号,备注`，表头必须与模板一致（应用内可下载模板）。
@@ -62,7 +69,7 @@ docs/          产品与技术计划
 
 ## 里程碑
 
-M0 桌面安全外壳 ✅ → M1 SQLite/商品/期初 ✅ → M2 入库出库作废 ✅ → M3 流水搜索汇总 ✅ → M4 CSV ✅ → M5 附件备份 → M6 UI 精修与双平台验收
+M0 桌面安全外壳 ✅ → M1 SQLite/商品/期初 ✅ → M2 入库出库作废 ✅ → M3 流水搜索汇总 ✅ → M4 CSV ✅ → M5 附件备份 ✅ → M6 UI 精修与双平台验收
 
 ## 许可证
 

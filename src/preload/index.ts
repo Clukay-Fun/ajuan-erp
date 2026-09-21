@@ -45,6 +45,17 @@ const api: AjuanApi = {
     list: () => ipcRenderer.invoke(IPC.channelsList),
     create: (input) => ipcRenderer.invoke(IPC.channelsCreate, input),
     update: (id, input) => ipcRenderer.invoke(IPC.channelsUpdate, id, input)
+  },
+  attachments: {
+    list: (documentId) => ipcRenderer.invoke(IPC.attachmentsList, documentId),
+    add: (documentId, upload) => ipcRenderer.invoke(IPC.attachmentsAdd, documentId, upload),
+    remove: (id) => ipcRenderer.invoke(IPC.attachmentsRemove, id)
+  },
+  backup: {
+    create: () => ipcRenderer.invoke(IPC.backupCreate),
+    pick: () => ipcRenderer.invoke(IPC.backupPick),
+    inspect: (path) => ipcRenderer.invoke(IPC.backupInspect, path),
+    restore: (path) => ipcRenderer.invoke(IPC.backupRestore, path)
   }
 }
 

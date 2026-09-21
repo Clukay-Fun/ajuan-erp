@@ -12,6 +12,7 @@ import { formatCents, formatQty } from '@/lib/format'
 import { useNav } from '@/app/navigation'
 import table from '@/components/Table.module.css'
 import styles from './DocumentDetailView.module.css'
+import { AttachmentPanel } from '@/features/attachments/AttachmentPanel'
 
 export function DocumentDetailView({ id }: { id: number }): ReactElement {
   const { navigate } = useNav()
@@ -120,6 +121,11 @@ export function DocumentDetailView({ id }: { id: number }): ReactElement {
           <span>金额：<strong>¥{formatCents(doc.totalAmountCents)}</strong></span>
         </div>
       </div>
+
+      <section className={styles.card} style={{ marginTop: 'var(--space-4)' }}>
+        <div className={styles.sectionTitle}>附件与备注图片</div>
+        <AttachmentPanel documentId={doc.id} readOnly={doc.status === 'voided'} />
+      </section>
 
       <ConfirmDialog
         open={dialog === 'delete'} danger title="删除这张草稿？" confirmText="删除" busy={busy}

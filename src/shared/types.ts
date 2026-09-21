@@ -201,3 +201,41 @@ export interface CsvImportResult {
   docNos: string[]
   stockAfter: number
 }
+
+// ---- 附件 ----
+
+export interface Attachment {
+  id: number
+  documentId: number
+  fileName: string
+  /** 相对附件目录的路径，renderer 通过 ajuan-file://attachments/<relPath> 访问 */
+  relPath: string
+  mime: string
+  size: number
+  createdAt: string
+}
+
+export interface AttachmentUpload {
+  fileName: string
+  mime: string
+  data: ArrayBuffer
+}
+
+// ---- 备份 ----
+
+export interface BackupManifest {
+  app: string
+  formatVersion: number
+  appVersion: string
+  schemaVersion: number
+  createdAt: string
+  counts: { documents: number; movements: number; attachments: number }
+  files: { path: string; size: number; sha256: string }[]
+}
+
+export interface BackupInspection {
+  path: string
+  manifest: BackupManifest
+  /** 为空表示可以恢复 */
+  problems: string[]
+}

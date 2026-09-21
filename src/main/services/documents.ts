@@ -6,6 +6,8 @@ import type { DocumentDetail, DocumentItem, DocumentListFilter, DocumentSummary 
 import { ServiceError } from './errors'
 import { nextDocNo } from './docNo'
 import { applyMovement } from './inventory'
+import { removeAttachmentsOfDocument } from './attachments'
+import { existsSync, unlinkSync } from 'node:fs'
 
 interface DocRow {
   id: number
@@ -202,12 +204,16 @@ export function updateDraft(db: Db, id: number, raw: DocumentDraftInput): Docume
   })
 }
 
-export function deleteDraft(db: Db, id: number): void {
-  transaction(db, () => {
+/** 删除草稿；attachmentsDir 提供时一并清理附件文件（事务提交后再删文件）。 */
+export function deleteDraft(db: Db, id: number, attachmentsDir?: string): void {
+  const files = transaction(db, () => {
     getDraftOrThrow(db, id)
+    const paths = attachmentsDir ? removeAttachmentsOfDocument(db, attachmentsDir, id) : []
     db.prepare(`DELETE FROM document_items WHERE document_id = ?`).run(id)
     db.prepare(`DELETE FROM documents WHERE id = ?`).run(id)
+    return paths
   })
+  for (const f of files) if (existsSync(f)) unlinkSync(f)
 }
 
 /** 草稿 → 已生效：逐行写流水并更新库存。库存不足时整单回滚。 */

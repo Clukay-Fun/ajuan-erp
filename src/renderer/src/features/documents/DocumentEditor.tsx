@@ -13,6 +13,7 @@ import { formatCents, formatQty, parseCents, todayString } from '@/lib/format'
 import { useNav } from '@/app/navigation'
 import table from '@/components/Table.module.css'
 import styles from './DocumentEditor.module.css'
+import { AttachmentPanel } from '@/features/attachments/AttachmentPanel'
 
 interface Props {
   mode: { view: 'new'; type: DocumentType } | { view: 'edit'; id: number }
@@ -278,6 +279,13 @@ export function DocumentEditor({ mode }: Props): ReactElement {
           </div>
         </div>
         {formError && <p className={styles.formError}>{formError}</p>}
+      </section>
+
+      <section className={styles.section}>
+        <div className={styles.sectionTitle}>附件与备注图片</div>
+        <div className={styles.card}>
+          {existing ? <AttachmentPanel documentId={existing.id} /> : <span className={styles.muted}>保存草稿后可以添加图片。</span>}
+        </div>
       </section>
     </>
   )

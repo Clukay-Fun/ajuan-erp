@@ -1,8 +1,9 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, net, protocol, shell } from 'electron'
 import { join } from 'node:path'
-import { openDatabase, type Db } from './db/connection'
-import { runMigrations } from './db/migrations'
+import { pathToFileURL } from 'node:url'
+import { state } from './appState'
 import { registerIpc } from './ipc'
+import { resolveAttachmentPath } from './services/attachments'
 
 const isMac = process.platform === 'darwin'
 const isDev = !app.isPackaged
@@ -47,22 +48,31 @@ function createWindow(): BrowserWindow {
   return win
 }
 
-let db: Db | null = null
+// 附件图片通过自定义协议提供：ajuan-file://attachments/<relPath>，只允许读附件目录内的文件。
+if (!app.isReady()) {
+  protocol.registerSchemesAsPrivileged([{ scheme: 'ajuan-file', privileges: { standard: true, secure: true, supportFetchAPI: false } }])
+}
 
-function openAppDatabase(): { db: Db; path: string } {
-  const path = join(app.getPath('userData'), 'ajuan.db')
-  const database = openDatabase(path)
-  const ran = runMigrations(database)
-  if (ran.length) console.log(`[db] applied migrations: ${ran.join(', ')}`)
-  return { db: database, path }
+function registerAttachmentProtocol(): void {
+  protocol.handle('ajuan-file', (request) => {
+    const url = new URL(request.url)
+    if (url.host !== 'attachments') return new Response('Not found', { status: 404 })
+    try {
+      const rel = decodeURIComponent(url.pathname.replace(/^\/+/, ''))
+      const full = resolveAttachmentPath(state.attachmentsDir, rel)
+      return net.fetch(pathToFileURL(full).toString())
+    } catch {
+      return new Response('Forbidden', { status: 403 })
+    }
+  })
 }
 
 app.setName('阿卷库存')
 
 app.whenReady().then(() => {
-  const opened = openAppDatabase()
-  db = opened.db
-  registerIpc(db, opened.path)
+  state.open()
+  registerAttachmentProtocol()
+  registerIpc()
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -74,8 +84,7 @@ app.on('window-all-closed', () => {
 })
 
 app.on('will-quit', () => {
-  db?.close()
-  db = null
+  state.close()
 })
 
 // 统一拒绝所有权限请求（摄像头、通知等），首版不需要。

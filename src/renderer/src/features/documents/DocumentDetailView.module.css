@@ -12,3 +12,4 @@
 .total strong { color: var(--color-text); font-size: 15px; }
 .error { color: var(--color-danger); }
 .muted { color: var(--color-text-muted); }
+.sectionTitle { font-size: 14px; font-weight: 600; margin-bottom: var(--space-3); }

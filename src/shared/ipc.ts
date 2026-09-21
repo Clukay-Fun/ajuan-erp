@@ -6,6 +6,9 @@ import type {
   ChannelUpdateInput
 } from './schemas'
 import type {
+  Attachment,
+  AttachmentUpload,
+  BackupInspection,
   CsvImportPreview,
   CsvImportResult,
   DocumentDetail,
@@ -52,7 +55,14 @@ export const IPC = {
   csvCommit: 'csv:commit',
   csvSaveTemplate: 'csv:saveTemplate',
   csvExportMovements: 'csv:exportMovements',
-  csvExportSummary: 'csv:exportSummary'
+  csvExportSummary: 'csv:exportSummary',
+  attachmentsList: 'attachments:list',
+  attachmentsAdd: 'attachments:add',
+  attachmentsRemove: 'attachments:remove',
+  backupCreate: 'backup:create',
+  backupPick: 'backup:pick',
+  backupInspect: 'backup:inspect',
+  backupRestore: 'backup:restore'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]
@@ -115,5 +125,18 @@ export interface AjuanApi {
     list(): Promise<IpcResult<SalesChannel[]>>
     create(input: ChannelCreateInput): Promise<IpcResult<SalesChannel>>
     update(id: number, input: ChannelUpdateInput): Promise<IpcResult<SalesChannel>>
+  }
+  attachments: {
+    list(documentId: number): Promise<IpcResult<Attachment[]>>
+    add(documentId: number, upload: AttachmentUpload): Promise<IpcResult<Attachment>>
+    remove(id: number): Promise<IpcResult<void>>
+  }
+  backup: {
+    /** 保存对话框 → 生成备份，取消返回 null */
+    create(): Promise<IpcResult<string | null>>
+    pick(): Promise<IpcResult<string | null>>
+    inspect(path: string): Promise<IpcResult<BackupInspection>>
+    /** 恢复成功后主进程会重新加载窗口 */
+    restore(path: string): Promise<IpcResult<void>>
   }
 }
