@@ -12,6 +12,7 @@ import {
 import { listChannels, createChannel, updateChannel } from './services/channels'
 import { listMovements } from './services/movements'
 import { getOverview, getSummary } from './services/reports'
+import { pickImportFile, previewImportFile, commitImportFile, saveTemplate, exportMovements, exportSummary } from './csvIo'
 
 const isDev = !app.isPackaged
 
@@ -24,11 +25,11 @@ function assertTrustedSender(event: IpcMainInvokeEvent): void {
 }
 
 /** 注册一个通道：校验来源、执行、把异常转成 IpcResult 而不是让 Electron 吞掉错误信息。 */
-function handle<T>(channel: string, fn: (...args: any[]) => T): void {
-  ipcMain.handle(channel, (event, ...args): IpcResult<T> => {
+function handle<T>(channel: string, fn: (...args: any[]) => T | Promise<T>): void {
+  ipcMain.handle(channel, async (event, ...args): Promise<IpcResult<T>> => {
     try {
       assertTrustedSender(event)
-      return { ok: true, data: fn(...args) }
+      return { ok: true, data: await fn(...args) }
     } catch (err) {
       if (isDev) console.error(`[ipc] ${channel} failed:`, err)
       return { ok: false, error: toAppError(err) }
@@ -65,4 +66,10 @@ export function registerIpc(db: Db, dbPath: string): void {
   handle(IPC.inventoryListMovements, (filter) => listMovements(db, filter ?? {}))
   handle(IPC.overviewGet, () => getOverview(db))
   handle(IPC.summaryGet, (range) => getSummary(db, range))
+  handle(IPC.csvPickImportFile, () => pickImportFile())
+  handle(IPC.csvPreview, (path: string) => previewImportFile(db, path))
+  handle(IPC.csvCommit, (path: string, ack: boolean) => commitImportFile(db, path, ack))
+  handle(IPC.csvSaveTemplate, () => saveTemplate())
+  handle(IPC.csvExportMovements, (filter) => exportMovements(db, filter ?? {}))
+  handle(IPC.csvExportSummary, (range) => exportSummary(db, range))
 }

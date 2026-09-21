@@ -1,11 +1,13 @@
 import type { ReactElement } from 'react'
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeftRight, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeftRight, ChevronLeft, ChevronRight, Download, Upload } from 'lucide-react'
 import type { MovementKind, MovementRow, Page, SalesChannel } from '@shared/types'
 import { PageHeader } from '@/components/PageHeader'
 import { EmptyState } from '@/components/EmptyState'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
+import { useToast } from '@/components/Toast'
+import { ImportDialog } from '@/features/csv/ImportDialog'
 import { unwrap, errorMessage } from '@/lib/api'
 import { formatCents, formatOccurred, formatQty, shiftDate, signedQty, todayString } from '@/lib/format'
 import { useNav } from '@/app/navigation'
@@ -18,6 +20,9 @@ const PAGE_SIZE = 50
 
 export function InventoryPage(): ReactElement {
   const { navigate } = useNav()
+  const toast = useToast()
+  const [importOpen, setImportOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [kind, setKind] = useState<'' | MovementKind>('')
   const [channelId, setChannelId] = useState<number | ''>('')
   const [from, setFrom] = useState(() => shiftDate(todayString(), -30))
@@ -59,11 +64,32 @@ export function InventoryPage(): ReactElement {
   }, [load, docNo])
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1
+
+  async function exportCsv(): Promise<void> {
+    setExporting(true)
+    try {
+      const p = await unwrap(window.ajuan.csv.exportMovements({ kind: kind || undefined, channelId: channelId || undefined, from: from || undefined, to: to || undefined, docNo: docNo || undefined }))
+      if (p) toast(`已导出到 ${p}`, 'success')
+    } catch (err) {
+      toast(errorMessage(err), 'error')
+    } finally {
+      setExporting(false)
+    }
+  }
   const resetPage = <T,>(setter: (v: T) => void) => (v: T) => { setter(v); setPage(1) }
 
   return (
     <>
-      <PageHeader title="库存流水" subtitle="每一次库存增减的不可变记录" />
+      <PageHeader
+        title="库存流水"
+        subtitle="每一次库存增减的不可变记录"
+        actions={
+          <>
+            <Button onClick={() => setImportOpen(true)}><Upload size={16} /> 导入 CSV</Button>
+            <Button onClick={exportCsv} disabled={exporting || !data || data.total === 0}><Download size={16} /> {exporting ? '导出中…' : '导出'}</Button>
+          </>
+        }
+      />
       <div className={f.bar}>
         <select className={f.select} value={kind} onChange={(e) => resetPage(setKind)(e.target.value as '' | MovementKind)}>
           <option value="">全部类型</option>
@@ -125,6 +151,7 @@ export function InventoryPage(): ReactElement {
           </div>
         </>
       )}
+      <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} onImported={() => void load()} />
     </>
   )
 }

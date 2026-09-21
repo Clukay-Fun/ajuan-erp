@@ -19,6 +19,14 @@ const api: AjuanApi = {
   summary: {
     get: (range) => ipcRenderer.invoke(IPC.summaryGet, range)
   },
+  csv: {
+    pickImportFile: () => ipcRenderer.invoke(IPC.csvPickImportFile),
+    preview: (path) => ipcRenderer.invoke(IPC.csvPreview, path),
+    commit: (path, ack) => ipcRenderer.invoke(IPC.csvCommit, path, ack),
+    saveTemplate: () => ipcRenderer.invoke(IPC.csvSaveTemplate),
+    exportMovements: (filter) => ipcRenderer.invoke(IPC.csvExportMovements, filter),
+    exportSummary: (range) => ipcRenderer.invoke(IPC.csvExportSummary, range)
+  },
   opening: {
     get: (skuId) => ipcRenderer.invoke(IPC.openingGet, skuId),
     create: (input) => ipcRenderer.invoke(IPC.openingCreate, input)

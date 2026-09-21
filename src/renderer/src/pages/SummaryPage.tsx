@@ -1,9 +1,11 @@
 import type { ReactElement } from 'react'
 import { useCallback, useEffect, useState } from 'react'
-import { BarChart3 } from 'lucide-react'
+import { BarChart3, Download } from 'lucide-react'
 import type { Summary } from '@shared/types'
 import { PageHeader } from '@/components/PageHeader'
 import { EmptyState } from '@/components/EmptyState'
+import { Button } from '@/components/Button'
+import { useToast } from '@/components/Toast'
 import { unwrap, errorMessage } from '@/lib/api'
 import { formatCents, formatQty, shiftDate, todayString } from '@/lib/format'
 import table from '@/components/Table.module.css'
@@ -23,6 +25,8 @@ function presetRange(p: Exclude<Preset, null>): { from: string; to: string } {
 }
 
 export function SummaryPage(): ReactElement {
+  const toast = useToast()
+  const [exporting, setExporting] = useState(false)
   const [preset, setPreset] = useState<Preset>('30d')
   const [range, setRange] = useState(() => presetRange('30d'))
   const [data, setData] = useState<Summary | null>(null)
@@ -45,9 +49,25 @@ export function SummaryPage(): ReactElement {
   const custom = (patch: Partial<typeof range>): void => { setPreset(null); setRange((r) => ({ ...r, ...patch })) }
   const gross = data ? data.outAmountCents - data.outCostCents : 0
 
+  async function exportCsv(): Promise<void> {
+    setExporting(true)
+    try {
+      const p = await unwrap(window.ajuan.csv.exportSummary(range))
+      if (p) toast(`已导出到 ${p}`, 'success')
+    } catch (err) {
+      toast(errorMessage(err), 'error')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <>
-      <PageHeader title="汇总" subtitle="按日期范围统计已生效的出入库数量与金额" />
+      <PageHeader
+        title="汇总"
+        subtitle="按日期范围统计已生效的出入库数量与金额"
+        actions={<Button onClick={exportCsv} disabled={exporting || !data || data.daily.length === 0}><Download size={16} /> {exporting ? '导出中…' : '导出 CSV'}</Button>}
+      />
       <div className={styles.range}>
         <input className={`${f.input} ${f.date}`} type="date" value={range.from} onChange={(e) => custom({ from: e.target.value })} />
         <span className={f.sep}>—</span>

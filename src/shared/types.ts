@@ -158,3 +158,46 @@ export interface Summary {
   outDocCount: number
   daily: DailyFlow[]
 }
+
+// ---- CSV 导入 / 导出 ----
+
+export type CsvRowStatus = 'ok' | 'warning' | 'error'
+
+export interface CsvImportRow {
+  /** 文件中的行号（含表头，从 1 起） */
+  line: number
+  type: 'inbound' | 'outbound' | null
+  typeText: string
+  docDate: string
+  quantity: string
+  unitPrice: string
+  channel: string
+  externalOrderNo: string
+  note: string
+  status: CsvRowStatus
+  messages: string[]
+}
+
+export interface CsvImportPreview {
+  fileName: string
+  encoding: 'utf-8' | 'gbk'
+  rows: CsvImportRow[]
+  total: number
+  okCount: number
+  warningCount: number
+  errorCount: number
+  inQty: number
+  inAmountCents: number
+  outQty: number
+  outAmountCents: number
+  stockBefore: number
+  /** 全部写入后的预计库存；有错误行时为 null */
+  stockAfter: number | null
+  canCommit: boolean
+}
+
+export interface CsvImportResult {
+  documentCount: number
+  docNos: string[]
+  stockAfter: number
+}

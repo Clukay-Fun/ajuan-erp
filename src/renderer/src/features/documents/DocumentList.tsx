@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 import { useCallback, useEffect, useState } from 'react'
-import { FileText, PackagePlus, PackageMinus } from 'lucide-react'
+import { FileText, PackagePlus, PackageMinus, Upload } from 'lucide-react'
 import type { DocumentStatus, DocumentSummary, DocumentType } from '@shared/types'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
@@ -11,6 +11,7 @@ import { formatCents, formatQty } from '@/lib/format'
 import { useNav } from '@/app/navigation'
 import table from '@/components/Table.module.css'
 import styles from './DocumentList.module.css'
+import { ImportDialog } from '@/features/csv/ImportDialog'
 
 type TypeFilter = 'all' | DocumentType
 type StatusFilter = 'all' | DocumentStatus
@@ -34,6 +35,7 @@ export function DocumentList(): ReactElement {
   const [status, setStatus] = useState<StatusFilter>('all')
   const [docs, setDocs] = useState<DocumentSummary[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -62,6 +64,9 @@ export function DocumentList(): ReactElement {
         subtitle="入库单、出库单与期初库存"
         actions={
           <>
+            <Button onClick={() => setImportOpen(true)}>
+              <Upload size={16} /> 导入 CSV
+            </Button>
             <Button variant="primary" onClick={() => navigate('documents', { documents: { view: 'new', type: 'inbound' } })}>
               <PackagePlus size={16} /> 入库
             </Button>
@@ -127,6 +132,7 @@ export function DocumentList(): ReactElement {
           </table>
         </div>
       )}
+      <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} onImported={() => void load()} />
     </>
   )
 }

@@ -6,6 +6,8 @@ import type {
   ChannelUpdateInput
 } from './schemas'
 import type {
+  CsvImportPreview,
+  CsvImportResult,
   DocumentDetail,
   DocumentListFilter,
   DocumentSummary,
@@ -44,7 +46,13 @@ export const IPC = {
   channelsUpdate: 'channels:update',
   inventoryListMovements: 'inventory:listMovements',
   overviewGet: 'overview:get',
-  summaryGet: 'summary:get'
+  summaryGet: 'summary:get',
+  csvPickImportFile: 'csv:pickImportFile',
+  csvPreview: 'csv:preview',
+  csvCommit: 'csv:commit',
+  csvSaveTemplate: 'csv:saveTemplate',
+  csvExportMovements: 'csv:exportMovements',
+  csvExportSummary: 'csv:exportSummary'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]
@@ -76,6 +84,16 @@ export interface AjuanApi {
   }
   summary: {
     get(range: SummaryRange): Promise<IpcResult<Summary>>
+  }
+  csv: {
+    /** 打开文件选择框，取消返回 null */
+    pickImportFile(): Promise<IpcResult<string | null>>
+    preview(path: string): Promise<IpcResult<CsvImportPreview>>
+    /** 重新解析校验后在单个事务内写入；acknowledgeWarnings 为 false 且存在警告时拒绝 */
+    commit(path: string, acknowledgeWarnings: boolean): Promise<IpcResult<CsvImportResult>>
+    saveTemplate(): Promise<IpcResult<string | null>>
+    exportMovements(filter: MovementFilter): Promise<IpcResult<string | null>>
+    exportSummary(range: SummaryRange): Promise<IpcResult<string | null>>
   }
   opening: {
     /** 该 SKU 已确认的期初单，没有则为 null */
