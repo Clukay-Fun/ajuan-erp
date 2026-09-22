@@ -7,7 +7,6 @@ import { Button } from '@/components/Button'
 import { StatusBadge, TypeBadge } from '@/components/Badge'
 import { unwrap, errorMessage } from '@/lib/api'
 import { formatCents, formatQty } from '@/lib/format'
-import { useNav } from '@/app/navigation'
 import table from '@/components/Table.module.css'
 import styles from './DocumentList.module.css'
 import seg from '@/components/Segmented.module.css'
@@ -15,6 +14,7 @@ import { TableEmpty } from '@/components/TableEmpty'
 import { ImportDialog } from '@/features/csv/ImportDialog'
 import { AdjustmentDrawer } from '@/features/adjustments/AdjustmentDrawer'
 import { DocumentDetailView } from '@/features/documents/DocumentDetailView'
+import { DocumentEditor } from '@/features/documents/DocumentEditor'
 import { Drawer } from '@/components/Drawer'
 import { SkeletonTable } from '@/components/Skeleton'
 
@@ -35,14 +35,22 @@ const STATUS_TABS: { key: StatusFilter; label: string }[] = [
   { key: 'voided', label: '已作废' }
 ]
 
-export function DocumentList({ initialSelectedId = null }: { initialSelectedId?: number | null }): ReactElement {
-  const { navigate } = useNav()
+type EditorMode = { view: 'new'; type: DocumentType } | { view: 'edit'; id: number }
+
+export function DocumentList({
+  initialSelectedId = null,
+  initialEditor = null
+}: {
+  initialSelectedId?: number | null
+  initialEditor?: EditorMode | null
+}): ReactElement {
   const [type, setType] = useState<TypeFilter>('all')
   const [status, setStatus] = useState<StatusFilter>('all')
   const [docs, setDocs] = useState<DocumentSummary[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [importOpen, setImportOpen] = useState(false)
   const [selectedId, setSelectedId] = useState<number | null>(initialSelectedId)
+  const [editor, setEditor] = useState<EditorMode | null>(initialEditor)
   const [adjustOpen, setAdjustOpen] = useState(false)
 
   const load = useCallback(async () => {
@@ -78,16 +86,10 @@ export function DocumentList({ initialSelectedId = null }: { initialSelectedId?:
               <Scale size={16} /> 库存调整
             </Button>
             <span style={{ width: 8 }} aria-hidden />
-            <Button
-              variant="primary"
-              onClick={() => navigate('documents', { documents: { view: 'new', type: 'inbound' } })}
-            >
+            <Button variant="primary" onClick={() => setEditor({ view: 'new', type: 'inbound' })}>
               <PackagePlus size={16} /> 入库
             </Button>
-            <Button
-              variant="primary"
-              onClick={() => navigate('documents', { documents: { view: 'new', type: 'outbound' } })}
-            >
+            <Button variant="primary" onClick={() => setEditor({ view: 'new', type: 'outbound' })}>
               <PackageMinus size={16} /> 出库
             </Button>
           </>
@@ -186,7 +188,12 @@ export function DocumentList({ initialSelectedId = null }: { initialSelectedId?:
               </tbody>
             </table>
           </div>
-          <Drawer open={selectedId !== null} wide title="单据详情" onClose={() => setSelectedId(null)}>
+          <Drawer
+            open={selectedId !== null && editor === null}
+            wide
+            title="单据详情"
+            onClose={() => setSelectedId(null)}
+          >
             {selectedId !== null && (
               <DocumentDetailView
                 key={selectedId}
@@ -195,10 +202,23 @@ export function DocumentList({ initialSelectedId = null }: { initialSelectedId?:
                   if (id === null) setSelectedId(null)
                   void load()
                 }}
+                onEdit={(id) => setEditor({ view: 'edit', id })}
               />
             )}
           </Drawer>
         </>
+      )}
+      {editor && (
+        <DocumentEditor
+          key={editor.view === 'edit' ? `edit-${editor.id}` : `new-${editor.type}`}
+          mode={editor}
+          onClose={() => setEditor(null)}
+          onSaved={(d) => {
+            setEditor(null)
+            setSelectedId(d.id)
+            void load()
+          }}
+        />
       )}
       <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} onImported={() => void load()} />
       <AdjustmentDrawer

@@ -9,7 +9,6 @@ import { StatusBadge, TypeBadge, TYPE_LABEL } from '@/components/Badge'
 import { useToast } from '@/components/Toast'
 import { unwrap, errorMessage } from '@/lib/api'
 import { formatCents, formatQty } from '@/lib/format'
-import { useNav } from '@/app/navigation'
 import table from '@/components/Table.module.css'
 import styles from './DocumentDetailView.module.css'
 import { AttachmentPanel } from '@/features/attachments/AttachmentPanel'
@@ -22,10 +21,10 @@ interface Props {
   id: number
   /** 单据状态变化 / 删除后通知父级刷新列表；删除时传 null */
   onChanged?: (id: number | null) => void
+  onEdit?: (id: number) => void
 }
 
-export function DocumentDetailView({ id, onChanged }: Props): ReactElement {
-  const { navigate } = useNav()
+export function DocumentDetailView({ id, onChanged, onEdit }: Props): ReactElement {
   const toast = useToast()
   const [doc, setDoc] = useState<DocumentDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -98,7 +97,7 @@ export function DocumentDetailView({ id, onChanged }: Props): ReactElement {
               <Button onClick={() => setDialog('delete')}>
                 <Trash2 size={16} /> 删除草稿
               </Button>
-              <Button onClick={() => navigate('documents', { documents: { view: 'edit', id: doc.id } })}>
+              <Button onClick={() => onEdit?.(doc.id)}>
                 <Pencil size={16} /> 编辑
               </Button>
               <Button variant="primary" onClick={() => setDialog('confirm')}>

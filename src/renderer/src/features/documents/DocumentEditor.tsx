@@ -1,9 +1,11 @@
 import type { ReactElement } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import type { DocumentDetail, DocumentSummary, DocumentType, Product, SalesChannel, StockLevel } from '@shared/types'
 import type { DocumentDraftInput } from '@shared/schemas'
 import { Button } from '@/components/Button'
+import { Drawer } from '@/components/Drawer'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { Field } from '@/components/Field'
 import { Select } from '@/components/Select'
 import { Dropdown } from '@/components/Dropdown'
@@ -11,7 +13,7 @@ import { useToast } from '@/components/Toast'
 import { TYPE_LABEL } from '@/components/Badge'
 import { unwrap, errorMessage } from '@/lib/api'
 import { formatCents, formatQty, parseCents, todayString } from '@/lib/format'
-import { useNav, useNavGuard } from '@/app/navigation'
+import { useNavGuard } from '@/app/navigation'
 import table from '@/components/Table.module.css'
 import styles from './DocumentEditor.module.css'
 import { AttachmentPanel } from '@/features/attachments/AttachmentPanel'
@@ -19,6 +21,10 @@ import { SkeletonCard } from '@/components/Skeleton'
 
 interface Props {
   mode: { view: 'new'; type: DocumentType } | { view: 'edit'; id: number }
+  /** 关闭弹窗（有未保存改动时会先确认） */
+  onClose: () => void
+  /** 保存草稿或确认成功 */
+  onSaved: (doc: DocumentDetail) => void
 }
 
 interface Line {
@@ -36,8 +42,7 @@ const newLine = (skuId: number, price: number): Line => ({
   unitPrice: (price / 100).toFixed(2)
 })
 
-export function DocumentEditor({ mode }: Props): ReactElement {
-  const { navigate } = useNav()
+export function DocumentEditor({ mode, onClose, onSaved }: Props): ReactElement {
   const toast = useToast()
   const [products, setProducts] = useState<Product[] | null>(null)
   const [stocks, setStocks] = useState<Map<number, StockLevel>>(new Map())
@@ -56,6 +61,12 @@ export function DocumentEditor({ mode }: Props): ReactElement {
   const [loadError, setLoadError] = useState<string | null>(null)
   const dirtyRef = useRef(false)
   useNavGuard(() => dirtyRef.current)
+  const [confirmClose, setConfirmClose] = useState(false)
+  const requestClose = (): void => {
+    if (busy !== null) return
+    if (dirtyRef.current) setConfirmClose(true)
+    else onClose()
+  }
 
   useEffect(() => {
     ;(async () => {
@@ -178,7 +189,7 @@ export function DocumentEditor({ mode }: Props): ReactElement {
       if (!d) return
       toast(`草稿已保存：${d.docNo}`, 'success')
       dirtyRef.current = false
-      navigate('documents', { documents: { view: 'detail', id: d.id } })
+      onSaved(d)
     } catch (err) {
       toast(errorMessage(err), 'error')
     } finally {
@@ -199,7 +210,7 @@ export function DocumentEditor({ mode }: Props): ReactElement {
       const c = await unwrap(window.ajuan.documents.confirm(d.id))
       toast(`${TYPE_LABEL[c.type]}已确认：${c.docNo}`, 'success')
       dirtyRef.current = false
-      navigate('documents', { documents: { view: 'detail', id: c.id } })
+      onSaved(c)
     } catch (err) {
       toast(errorMessage(err), 'error')
     } finally {
@@ -207,44 +218,19 @@ export function DocumentEditor({ mode }: Props): ReactElement {
     }
   }
 
-  const back = (): void =>
-    navigate(
-      'documents',
-      existing ? { documents: { view: 'detail', id: existing.id } } : { documents: { view: 'list' } }
-    )
-
-  if (loadError) return <p className={styles.formError}>读取失败：{loadError}</p>
-  if (!products)
-    return (
-      <>
-        <SkeletonCard lines={3} style={{ marginBottom: 16 }} />
-        <SkeletonCard lines={2} />
-      </>
-    )
-
   const label = TYPE_LABEL[type]
   const updateLine = (key: number, patch: Partial<Line>): void =>
     setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)))
 
-  return (
+  const body = loadError ? (
+    <p className={styles.formError}>读取失败：{loadError}</p>
+  ) : !products ? (
     <>
-      <div className={styles.top}>
-        <div>
-          <button type="button" className={styles.back} onClick={back}>
-            <ArrowLeft size={16} /> 返回
-          </button>
-          <div className={styles.title}>{existing ? `编辑${label}单 ${existing.docNo}` : `新建${label}单`}</div>
-        </div>
-        <div className={styles.actions}>
-          <Button onClick={handleSave} disabled={busy !== null}>
-            {busy === 'save' ? '保存中…' : '保存草稿'}
-          </Button>
-          <Button variant="primary" onClick={handleConfirm} disabled={busy !== null || insufficient}>
-            {busy === 'confirm' ? '确认中…' : `确认${label}`}
-          </Button>
-        </div>
-      </div>
-
+      <SkeletonCard lines={3} style={{ marginBottom: 16 }} />
+      <SkeletonCard lines={2} />
+    </>
+  ) : (
+    <>
       <section className={styles.section}>
         <div className={styles.sectionTitle}>基本信息</div>
         <div className={`${styles.card} ${styles.grid}`}>
@@ -272,13 +258,7 @@ export function DocumentEditor({ mode }: Props): ReactElement {
               />
               {duplicate && (
                 <div className={styles.dup}>
-                  该渠道下已有相同订单号的单据{' '}
-                  <button
-                    type="button"
-                    onClick={() => navigate('documents', { documents: { view: 'detail', id: duplicate.id } })}
-                  >
-                    {duplicate.docNo}
-                  </button>
+                  该渠道下已有相同订单号的单据 <strong>{duplicate.docNo}</strong>
                   ，请确认不是重复录入。
                 </div>
               )}
@@ -402,5 +382,42 @@ export function DocumentEditor({ mode }: Props): ReactElement {
         </div>
       </section>
     </>
+  )
+
+  return (
+    <Drawer
+      open
+      wide
+      title={existing ? `编辑${label}单 ${existing.docNo}` : `新建${label}单`}
+      onClose={requestClose}
+      footer={
+        <>
+          <Button onClick={requestClose} disabled={busy !== null}>
+            取消
+          </Button>
+          <Button onClick={handleSave} disabled={busy !== null || !products}>
+            {busy === 'save' ? '保存中…' : '保存草稿'}
+          </Button>
+          <Button variant="primary" onClick={handleConfirm} disabled={busy !== null || insufficient || !products}>
+            {busy === 'confirm' ? '确认中…' : `确认${label}`}
+          </Button>
+        </>
+      }
+    >
+      {body}
+      <ConfirmDialog
+        open={confirmClose}
+        danger
+        title="放弃未保存的修改？"
+        confirmText="放弃并关闭"
+        description="当前单据还没有保存，关闭后修改会丢失。"
+        onCancel={() => setConfirmClose(false)}
+        onConfirm={() => {
+          setConfirmClose(false)
+          dirtyRef.current = false
+          onClose()
+        }}
+      />
+    </Drawer>
   )
 }
