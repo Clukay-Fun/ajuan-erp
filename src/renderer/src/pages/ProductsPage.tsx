@@ -57,7 +57,7 @@ export function ProductsPage(): ReactElement {
   if (!product || !stock) {
     return (
       <>
-        <PageHeader title="商品资料" subtitle="商品编码、价格与库存预警" />
+        <PageHeader title="商品资料" />
         <SkeletonCard lines={4} style={{ marginBottom: 16 }} />
         <SkeletonCard lines={2} />
       </>
@@ -70,7 +70,6 @@ export function ProductsPage(): ReactElement {
     <>
       <PageHeader
         title="商品资料"
-        subtitle="商品编码、价格与库存预警"
         actions={
           <>
             {opening && (

@@ -66,7 +66,6 @@ export function DocumentList(): ReactElement {
     <>
       <PageHeader
         title="单据"
-        subtitle="入库单、出库单与期初库存"
         actions={
           <>
             <Button onClick={() => setImportOpen(true)}>

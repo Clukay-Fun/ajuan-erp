@@ -111,7 +111,6 @@ export function InventoryPage(): ReactElement {
     <>
       <PageHeader
         title="库存流水"
-        subtitle="每一次库存增减的不可变记录"
         actions={
           <>
             <Button onClick={() => setImportOpen(true)}>

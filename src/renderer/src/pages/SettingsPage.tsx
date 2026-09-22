@@ -4,6 +4,7 @@ import { PageHeader } from '@/components/PageHeader'
 import { ChannelSettings } from '@/features/settings/ChannelSettings'
 import { BackupSettings } from '@/features/settings/BackupSettings'
 import { AppearanceSettings } from '@/features/settings/AppearanceSettings'
+import { DemoDataSettings } from '@/features/settings/DemoDataSettings'
 import { unwrap, errorMessage } from '@/lib/api'
 import styles from './SettingsPage.module.css'
 
@@ -19,10 +20,11 @@ export function SettingsPage(): ReactElement {
 
   return (
     <>
-      <PageHeader title="设置" subtitle="外观、销售渠道、数据备份与应用信息" />
+      <PageHeader title="设置" />
       <AppearanceSettings />
       <ChannelSettings />
       <BackupSettings />
+      <DemoDataSettings />
       <section className={styles.card}>
         <h2 className={styles.cardTitle}>应用信息</h2>
         {error && <p className={styles.error}>读取失败：{error}</p>}

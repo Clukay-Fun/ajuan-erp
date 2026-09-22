@@ -204,3 +204,7 @@
   color: var(--color-primary);
   font-weight: 500;
 }
+.setupActions {
+  display: inline-flex;
+  gap: 4px;
+}

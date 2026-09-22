@@ -3,6 +3,7 @@
   align-items: flex-end;
   justify-content: space-between;
   margin-bottom: var(--space-5);
+  min-height: 40px;
 }
 
 .title {

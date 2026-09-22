@@ -70,7 +70,10 @@ export const IPC = {
   productsClearImage: 'products:clearImage',
   csvExportDocument: 'csv:exportDocument',
   backupListTrash: 'backup:listTrash',
-  backupClearTrash: 'backup:clearTrash'
+  backupClearTrash: 'backup:clearTrash',
+  demoSeed: 'demo:seed',
+  demoReset: 'demo:reset',
+  demoHasData: 'demo:hasData'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]
@@ -159,5 +162,12 @@ export interface AjuanApi {
   adjustments: {
     /** 直接生成已确认的库存调整单 */
     create(input: AdjustmentInput): Promise<IpcResult<DocumentDetail>>
+  }
+  demo: {
+    hasData(): Promise<IpcResult<boolean>>
+    /** 空库上载入示例数据 */
+    seed(): Promise<IpcResult<{ documents: number }>>
+    /** 清空全部业务数据，保留商品与渠道 */
+    reset(): Promise<IpcResult<void>>
   }
 }

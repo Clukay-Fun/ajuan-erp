@@ -91,7 +91,6 @@ export function SummaryPage(): ReactElement {
     <>
       <PageHeader
         title="汇总"
-        subtitle="按日期范围统计已生效的出入库数量与金额"
         actions={
           <Button onClick={exportCsv} disabled={exporting || !data || data.daily.length === 0}>
             <Download size={16} /> {exporting ? '导出中…' : '导出 CSV'}

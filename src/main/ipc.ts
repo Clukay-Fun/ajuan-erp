@@ -36,6 +36,7 @@ import {
   clearProductImage
 } from './services/attachments'
 import { createAdjustment } from './services/adjustments'
+import { hasBusinessData, resetBusinessData, seedDemo } from './services/demo'
 import {
   createBackupInteractive,
   pickBackupFile,
@@ -124,4 +125,7 @@ export function registerIpc(): void {
   handle(IPC.csvExportDocument, (id: number) => exportDocument(state.db, id))
   handle(IPC.backupListTrash, () => listTrash())
   handle(IPC.backupClearTrash, () => clearTrash())
+  handle(IPC.demoHasData, () => hasBusinessData(state.db))
+  handle(IPC.demoSeed, () => seedDemo(state.db))
+  handle(IPC.demoReset, () => resetBusinessData(state.db, state.attachmentsDir))
 }

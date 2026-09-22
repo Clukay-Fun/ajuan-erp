@@ -37,3 +37,32 @@ describe('migrations', () => {
     expect(() => db.exec('SELECT * FROM t')).toThrow()
   })
 })
+
+describe('transaction 嵌套', () => {
+  it('内层失败只回滚自己，外层继续；外层失败全部回滚', async () => {
+    const { transaction } = await import('../src/main/db/connection')
+    const db = openDatabase(':memory:')
+    db.exec('CREATE TABLE t (v INTEGER)')
+    transaction(db, () => {
+      db.exec('INSERT INTO t VALUES (1)')
+      try {
+        transaction(db, () => {
+          db.exec('INSERT INTO t VALUES (2)')
+          throw new Error('inner')
+        })
+      } catch {
+        /* 内层已回滚 */
+      }
+      db.exec('INSERT INTO t VALUES (3)')
+    })
+    expect(db.prepare('SELECT v FROM t ORDER BY v').all()).toEqual([{ v: 1 }, { v: 3 }])
+    expect(() =>
+      transaction(db, () => {
+        db.exec('INSERT INTO t VALUES (4)')
+        transaction(db, () => db.exec('INSERT INTO t VALUES (5)'))
+        throw new Error('outer')
+      })
+    ).toThrow('outer')
+    expect(db.prepare('SELECT COUNT(*) AS c FROM t').get()).toEqual({ c: 2 })
+  })
+})

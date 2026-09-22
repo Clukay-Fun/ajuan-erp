@@ -116,3 +116,21 @@ describe('migration 002', () => {
     ).toThrow()
   })
 })
+
+describe('示例数据', () => {
+  it('空库可载入，二次拒绝；清空后可再载入且库存归零', async () => {
+    const { seedDemo, resetBusinessData, hasBusinessData } = await import('../src/main/services/demo')
+    const db = testDb()
+    expect(hasBusinessData(db)).toBe(false)
+    const r = seedDemo(db)
+    expect(r.documents).toBeGreaterThan(10)
+    expect(getStock(db, 1).quantity).toBe(300 + 200 + 150 + 80 - 40 - 12 - 25 - 60 - 8 - 18 - 3 - 33)
+    expect(() => seedDemo(db)).toThrow(/已有业务数据/)
+    expect(listDocuments(db, { status: 'draft' })).toHaveLength(1)
+    expect(listDocuments(db, { status: 'voided' })).toHaveLength(1)
+    resetBusinessData(db, '/tmp/none')
+    expect(hasBusinessData(db)).toBe(false)
+    expect(getStock(db, 1)).toMatchObject({ quantity: 0, costValueCents: 0 })
+    expect(seedDemo(db).documents).toBe(r.documents)
+  })
+})

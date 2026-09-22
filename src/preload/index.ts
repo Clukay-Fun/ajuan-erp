@@ -65,6 +65,11 @@ const api: AjuanApi = {
   },
   adjustments: {
     create: (input) => ipcRenderer.invoke(IPC.adjustmentsCreate, input)
+  },
+  demo: {
+    hasData: () => ipcRenderer.invoke(IPC.demoHasData),
+    seed: () => ipcRenderer.invoke(IPC.demoSeed),
+    reset: () => ipcRenderer.invoke(IPC.demoReset)
   }
 }
 

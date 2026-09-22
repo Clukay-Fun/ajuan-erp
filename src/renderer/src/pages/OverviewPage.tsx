@@ -77,9 +77,14 @@ export function OverviewPage(): ReactElement {
       {!hasOpening && (
         <div className={styles.setup}>
           <span>尚未录入期初库存，库存账还没有起点。</span>
-          <button type="button" className={styles.setupLink} onClick={() => navigate('products')}>
-            去录入期初库存 <ArrowRight size={14} />
-          </button>
+          <span className={styles.setupActions}>
+            <button type="button" className={styles.setupLink} onClick={() => navigate('settings')}>
+              载入示例数据
+            </button>
+            <button type="button" className={styles.setupLink} onClick={() => navigate('products')}>
+              去录入期初库存 <ArrowRight size={14} />
+            </button>
+          </span>
         </div>
       )}
 

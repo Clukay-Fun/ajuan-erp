@@ -16,16 +16,29 @@ export function openDatabase(path: string): Db {
   return db
 }
 
-/** 在一个事务内执行 fn；抛错则回滚。node:sqlite 没有内置 transaction 包装，这里手写。 */
+const depth = new WeakMap<DatabaseSync, number>()
+
+/**
+ * 在一个事务内执行 fn；抛错则回滚。node:sqlite 没有内置 transaction 包装，这里手写。
+ * 支持嵌套：最外层用 BEGIN / COMMIT，内层用 SAVEPOINT，内层失败只回滚到自己的保存点。
+ */
 export function transaction<T>(db: Db, fn: () => T): T {
-  db.exec('BEGIN IMMEDIATE')
+  const level = depth.get(db) ?? 0
+  const sp = `sp_${level}`
+  if (level === 0) db.exec('BEGIN IMMEDIATE')
+  else db.exec(`SAVEPOINT ${sp}`)
+  depth.set(db, level + 1)
   try {
     const result = fn()
-    db.exec('COMMIT')
+    if (level === 0) db.exec('COMMIT')
+    else db.exec(`RELEASE ${sp}`)
     return result
   } catch (err) {
-    db.exec('ROLLBACK')
+    if (level === 0) db.exec('ROLLBACK')
+    else db.exec(`ROLLBACK TO ${sp}; RELEASE ${sp}`)
     throw err
+  } finally {
+    depth.set(db, level)
   }
 }
 

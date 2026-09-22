@@ -1,18 +1,8 @@
 .shell {
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
+  grid-template-rows: var(--titlebar-height) 1fr;
   height: 100%;
-}
-
-.sidebar {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  background: var(--color-sidebar);
-  border-right: 1px solid var(--color-border);
-  padding: 0 var(--space-3) var(--space-3);
-  min-width: 0;
-  overflow: hidden;
 }
 
 .dragging {
@@ -23,56 +13,43 @@
   pointer-events: none;
 }
 
-/* 右缘拖拽把手：hover 时显示一条品牌色细线 */
-.handle {
-  position: absolute;
-  top: 0;
-  right: -3px;
-  width: 7px;
+/* ---- 顶部标题栏：贯通两栏，细线分隔 ---- */
+.titlebar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-3) 0 var(--space-4);
+  background: var(--color-sidebar);
+  border-bottom: 1px solid var(--color-border);
+  -webkit-app-region: drag;
+}
+/* macOS：给交通灯留位置 */
+.titlebarMac {
+  padding-left: 84px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   height: 100%;
-  cursor: col-resize;
-  z-index: 5;
-  pointer-events: auto !important;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.01em;
+  color: var(--color-text);
+  cursor: default;
 }
-.handle::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 3px;
-  width: 1px;
-  background: var(--color-primary);
-  opacity: 0;
-  transition: opacity var(--dur-fast) ease;
+.brandText {
+  white-space: nowrap;
 }
-.handle:hover::after,
-.dragging .handle::after {
-  opacity: 1;
+.brand em {
+  font-style: normal;
+  color: var(--color-primary);
+  margin-left: 5px;
 }
-
-.collapsed {
-  padding-left: var(--space-2);
-  padding-right: var(--space-2);
-}
-.collapsed .brand {
-  justify-content: center;
-  padding: 0;
-}
-.collapsed .navItem {
-  justify-content: center;
-  padding: 0;
-  position: relative;
-}
-.collapsed .dot {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  margin: 0;
-}
-
 .logo {
-  width: 28px;
-  height: 28px;
+  width: 18px;
+  height: 18px;
   display: block;
   -webkit-user-drag: none;
 }
@@ -82,43 +59,58 @@
 .logoDark {
   display: var(--logo-dark-display);
 }
-.navLabel {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* macOS：顶部留给交通灯的可拖拽区；Windows 有系统标题栏，不需要 */
-.titlebarSpace {
-  height: var(--titlebar-height);
-  flex: 0 0 auto;
-  -webkit-app-region: drag;
-}
-
-.sidebarWin .titlebarSpace {
-  height: 12px;
-}
-
-.brand {
-  height: 56px;
+.titlebarActions {
   display: flex;
   align-items: center;
-  padding: 0 var(--space-3);
-  font-weight: 700;
-  font-size: 16px;
-  letter-spacing: 0.01em;
+  gap: 4px;
+  -webkit-app-region: no-drag;
+}
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) ease,
+    color var(--dur-fast) ease,
+    transform var(--dur-fast) var(--ease-out);
+}
+.iconButton:hover {
+  background: var(--color-nav-hover);
   color: var(--color-text);
-  -webkit-app-region: drag;
+}
+.iconButton:active {
+  transform: scale(0.94);
 }
 
-.brandText {
-  white-space: nowrap;
+/* ---- 侧栏：只放导航 ---- */
+.sidebar {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-sidebar);
+  border-right: 1px solid var(--color-border);
+  padding: var(--space-3);
+  min-width: 0;
+  overflow: hidden;
 }
-.brand em {
-  font-style: normal;
-  color: var(--color-primary);
-  margin-left: 6px;
-  font-weight: 700;
+
+/* 右缘拖拽区：只改光标，不画线 */
+.handle {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 7px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 5;
+  pointer-events: auto !important;
 }
 
 .nav {
@@ -145,22 +137,23 @@
     color var(--dur-fast) ease,
     transform var(--dur-fast) var(--ease-out);
 }
-
 .navItem:hover {
   background: var(--color-nav-hover);
   color: var(--color-text);
 }
-
 .navItem:active {
   transform: scale(0.98);
 }
-
 .navItem[aria-current='page'] {
   background: var(--color-nav-active);
   color: var(--color-primary);
   font-weight: 600;
 }
-
+.navLabel {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .dot {
   margin-left: auto;
   width: 7px;
@@ -169,37 +162,32 @@
   background: var(--color-danger);
 }
 
+.collapsed {
+  padding-left: var(--space-2);
+  padding-right: var(--space-2);
+}
+.collapsed .navItem {
+  justify-content: center;
+  padding: 0;
+  position: relative;
+}
+.collapsed .dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  margin: 0;
+}
+
 .spacer {
   flex: 1;
 }
 
-.main {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.titlebar {
-  height: var(--titlebar-height);
-  flex: 0 0 auto;
-  -webkit-app-region: drag;
-}
-
-.mainWin .titlebar {
-  height: 0;
-}
-
+/* ---- 内容区 ---- */
 .content {
-  flex: 1;
+  min-width: 0;
   overflow: auto;
-  padding: 0 var(--page-pad-x) var(--space-8);
+  padding: var(--page-pad-top) var(--page-pad-x) var(--space-8);
 }
-
-.mainWin .content {
-  padding-top: var(--page-pad-top);
-}
-
 .contentInner {
   max-width: var(--content-max);
   margin: 0 auto;
@@ -207,6 +195,6 @@
 
 @media (max-width: 1100px) {
   .content {
-    padding: 0 var(--space-5) var(--space-6);
+    padding: var(--space-5) var(--space-5) var(--space-6);
   }
 }
