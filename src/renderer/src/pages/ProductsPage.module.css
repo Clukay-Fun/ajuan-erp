@@ -179,3 +179,6 @@
   padding: 0;
   margin-bottom: 0;
 }
+.movements {
+  margin-top: var(--space-4);
+}

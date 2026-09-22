@@ -33,6 +33,12 @@
   gap: var(--space-4);
   margin-bottom: var(--space-6);
 }
+.kpis3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
 .kpi {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -167,6 +173,9 @@
   font-weight: 600;
   margin-bottom: var(--space-3);
 }
+.sectionTitle + :global(.bar) {
+  margin-top: 0;
+}
 .thumb {
   width: 28px;
   height: 28px;
@@ -195,6 +204,9 @@
 @media (max-width: 1180px) {
   .kpis {
     grid-template-columns: repeat(2, 1fr);
+  }
+  .kpis3 {
+    grid-template-columns: 1fr;
   }
   .row {
     grid-template-columns: 1fr;

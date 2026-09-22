@@ -31,7 +31,7 @@ src/
 │  └─ services/ 商品 / 库存流水 / 期初等业务服务（纯函数，可直接单测）
 ├─ preload/    contextBridge 白名单 API（window.ajuan.*）
 ├─ shared/     主进程与 renderer 共用的 IPC 契约与类型
-└─ renderer/   React 页面：概览 / 商品 / 库存 / 单据 / 汇总 / 设置
+└─ renderer/   React 页面：概览（含汇总）/ 商品（含库存流水）/ 单据 / 设置
    ├─ app/       页面路由与导航上下文（无 router 依赖，state 驱动）
    ├─ components/ Button / Field / Select / Drawer / ConfirmDialog / Toast / Badge 等通用组件
    └─ features/  按业务拆分的页面块（products / documents / settings）

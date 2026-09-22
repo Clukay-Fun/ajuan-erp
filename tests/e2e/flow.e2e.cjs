@@ -5,7 +5,7 @@ const { launch, assert, eq } = require('./harness.cjs')
 module.exports = async () => {
   const t = await launch()
   await t.ui(`
-    await click('商品'); await click('录入期初库存', 150)
+    await click('商品'); $$('tbody tr')[0].click(); await sleep(400); await click('录入期初库存', 150)
     setVal(inputOf('期初数量'), '100'); setVal(inputOf('单位成本'), '10')
     await click('确认期初', 400)
   `)
@@ -69,7 +69,7 @@ module.exports = async () => {
 
   // 库存调整（盘亏 5）
   await t.ui(`
-    await click('商品'); await click('库存调整', 400)
+    await click('商品'); $$('tbody tr')[0].click(); await sleep(400); await click('库存调整', 400)
     setVal(inputOf('减少数量'), '5'); setVal(inputOf('调整原因'), '月末盘点少 5 件')
     await click('确认调整', 500)
   `)

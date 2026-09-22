@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 import { useCallback, useEffect, useState } from 'react'
-import { PackagePlus, Plus, Scale, ImageIcon, Pencil } from 'lucide-react'
+import { PackagePlus, Plus, Scale, ImageIcon, Pencil, Upload, Download } from 'lucide-react'
 import type { DocumentSummary, Product, StockRow } from '@shared/types'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
@@ -15,6 +15,8 @@ import { ProductEditDrawer } from '@/features/products/ProductEditDrawer'
 import { OpeningStockDrawer } from '@/features/products/OpeningStockDrawer'
 import { ProductImage, productImageUrl } from '@/features/products/ProductImage'
 import { AdjustmentDrawer } from '@/features/adjustments/AdjustmentDrawer'
+import { ProductMovements } from '@/features/products/ProductMovements'
+import { ImportDialog } from '@/features/csv/ImportDialog'
 import { useNav } from '@/app/navigation'
 import table from '@/components/Table.module.css'
 import styles from './ProductsPage.module.css'
@@ -29,14 +31,14 @@ export function ProductsPage(): ReactElement {
   const [editing, setEditing] = useState<'create' | 'edit' | null>(null)
   const [openingOpen, setOpeningOpen] = useState(false)
   const [adjustOpen, setAdjustOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   const load = useCallback(async () => {
     try {
       const list = await unwrap(window.ajuan.inventory.listStock())
       setRows(list)
-      setSelectedId((cur) =>
-        cur !== null && list.some((r) => r.product.id === cur) ? cur : (list[0]?.product.id ?? null)
-      )
+      setSelectedId((cur) => (cur !== null && list.some((r) => r.product.id === cur) ? cur : null))
       setError(null)
     } catch (err) {
       setError(errorMessage(err))
@@ -72,7 +74,7 @@ export function ProductsPage(): ReactElement {
 
   const master = (
     <div className={table.wrap}>
-      <table className={`${table.table} ${table.clickable} ${table.fixed}`}>
+      <table className={`${table.table} ${table.clickable} ${table.fixed} ${table.tall}`}>
         <colgroup>
           <col />
           <col style={{ width: 160 }} />
@@ -243,6 +245,11 @@ export function ProductsPage(): ReactElement {
           </div>
         )}
       </section>
+
+      <section className={styles.movements}>
+        <h2 className={styles.sectionTitle}>库存流水</h2>
+        <ProductMovements product={selected.product} />
+      </section>
     </>
   ) : null
 
@@ -251,9 +258,30 @@ export function ProductsPage(): ReactElement {
       <PageHeader
         title="商品"
         actions={
-          <Button variant="primary" onClick={() => setEditing('create')}>
-            <Plus size={16} /> 新建商品
-          </Button>
+          <>
+            <Button onClick={() => setImportOpen(true)}>
+              <Upload size={16} /> 导入 CSV
+            </Button>
+            <Button
+              onClick={async () => {
+                setExporting(true)
+                try {
+                  const p = await unwrap(window.ajuan.csv.exportMovements({}))
+                  if (p) toast(`已导出到 ${p}`, 'success')
+                } catch (err) {
+                  toast(errorMessage(err), 'error')
+                } finally {
+                  setExporting(false)
+                }
+              }}
+              disabled={exporting}
+            >
+              <Download size={16} /> {exporting ? '导出中…' : '导出全部流水'}
+            </Button>
+            <Button variant="primary" onClick={() => setEditing('create')}>
+              <Plus size={16} /> 新建商品
+            </Button>
+          </>
         }
       />
       {!rows ? <SkeletonTable cols={6} /> : master}
@@ -261,6 +289,7 @@ export function ProductsPage(): ReactElement {
         {detail}
       </Drawer>
 
+      <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} onImported={() => void load()} />
       <ProductEditDrawer
         open={editing !== null}
         product={editing === 'edit' ? (selected?.product ?? null) : null}

@@ -89,3 +89,8 @@
 .clickable tbody tr.selected td {
   background: var(--table-selected);
 }
+
+/* 带缩略图的两行单元格 */
+.tall td {
+  height: 56px;
+}
