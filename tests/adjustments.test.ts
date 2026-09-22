@@ -96,7 +96,7 @@ describe('migration 002', () => {
     ).run(now)
     db.prepare(`UPDATE sku_stock SET quantity = 3, cost_value_e4 = 3000000 WHERE sku_id = 1`).run()
 
-    expect(runMigrations(db)).toEqual([2])
+    expect(runMigrations(db)).toEqual([2, 3])
     expect(db.prepare('PRAGMA foreign_key_check').all()).toEqual([])
     expect(db.prepare('PRAGMA foreign_keys').get()).toEqual({ foreign_keys: 1 })
     expect(listDocuments(db)).toHaveLength(1)
@@ -125,6 +125,7 @@ describe('示例数据', () => {
     const r = seedDemo(db)
     expect(r.documents).toBeGreaterThan(10)
     expect(getStock(db, 1).quantity).toBe(300 + 200 + 150 + 80 - 40 - 12 - 25 - 60 - 8 - 18 - 3 - 33)
+    expect(getStock(db, 2).quantity).toBe(60 - 6 - 9 + 40 - 4)
     expect(() => seedDemo(db)).toThrow(/已有业务数据/)
     expect(listDocuments(db, { status: 'draft' })).toHaveLength(1)
     expect(listDocuments(db, { status: 'voided' })).toHaveLength(1)

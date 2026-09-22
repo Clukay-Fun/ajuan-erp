@@ -4,6 +4,9 @@ import type { MovementFilter, MovementRow, Page } from '@shared/types'
 
 interface Row {
   id: number
+  sku_id: number
+  product_name: string
+  product_code: string
   occurred_at: string
   kind: MovementRow['kind']
   document_id: number
@@ -25,6 +28,10 @@ export function listMovements(db: Db, filter: MovementFilter = {}): Page<Movemen
   if (filter.kind) {
     where.push('m.kind = ?')
     params.push(filter.kind)
+  }
+  if (filter.skuId) {
+    where.push('m.sku_id = ?')
+    params.push(filter.skuId)
   }
   if (filter.channelId) {
     where.push('d.channel_id = ?')
@@ -48,6 +55,8 @@ export function listMovements(db: Db, filter: MovementFilter = {}): Page<Movemen
     JOIN documents d ON d.id = m.document_id
     LEFT JOIN sales_channels c ON c.id = d.channel_id
     LEFT JOIN document_items i ON i.id = m.document_item_id
+    JOIN skus s ON s.id = m.sku_id
+    JOIN products p ON p.id = s.product_id
     ${whereSql}`
 
   const { total } = db.prepare(`SELECT COUNT(*) AS total ${base}`).get(...params) as { total: number }
@@ -55,7 +64,7 @@ export function listMovements(db: Db, filter: MovementFilter = {}): Page<Movemen
   const page = Math.max(filter.page ?? 1, 1)
   const rows = db
     .prepare(
-      `SELECT m.id, m.occurred_at, m.kind, m.document_id, d.doc_no, d.type AS doc_type, c.name AS channel_name,
+      `SELECT m.id, m.sku_id, p.name AS product_name, p.code AS product_code, m.occurred_at, m.kind, m.document_id, d.doc_no, d.type AS doc_type, c.name AS channel_name,
               d.external_order_no, m.quantity_delta, m.quantity_after, i.unit_price_cents, m.unit_cost_e4
        ${base} ORDER BY m.occurred_at DESC, m.id DESC LIMIT ? OFFSET ?`
     )
@@ -67,6 +76,9 @@ export function listMovements(db: Db, filter: MovementFilter = {}): Page<Movemen
     pageSize,
     rows: rows.map((r) => ({
       id: r.id,
+      skuId: r.sku_id,
+      productName: r.product_name,
+      productCode: r.product_code,
       occurredAt: r.occurred_at,
       kind: r.kind,
       documentId: r.document_id,

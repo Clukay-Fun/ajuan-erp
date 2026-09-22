@@ -2,6 +2,7 @@ import type { Db } from './connection'
 import { transaction, nowIso } from './connection'
 import { m001Init } from './migrations/001_init'
 import { m002Adjustment } from './migrations/002_adjustment'
+import { m003ProductsActive } from './migrations/003_products_active'
 
 export interface Migration {
   version: number
@@ -9,7 +10,7 @@ export interface Migration {
   up(db: Db): void
 }
 
-export const MIGRATIONS: Migration[] = [m001Init, m002Adjustment]
+export const MIGRATIONS: Migration[] = [m001Init, m002Adjustment, m003ProductsActive]
 
 /** 应用所有未执行的 migration。每个版本在独立事务内执行；重复调用无副作用。 */
 export function runMigrations(db: Db, migrations: Migration[] = MIGRATIONS): number[] {

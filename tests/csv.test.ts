@@ -3,11 +3,18 @@ import { testDb } from './helpers'
 import { createOpening } from '../src/main/services/opening'
 import { createDraft, confirmDocument, listDocuments } from '../src/main/services/documents'
 import { getStock } from '../src/main/services/inventory'
-import { buildTemplateCsv, commitImport, decodeCsv, previewImport, CSV_COLUMNS } from '../src/main/services/csvImport'
+import {
+  buildTemplateCsv,
+  commitImport,
+  decodeCsv,
+  previewImport,
+  CSV_COLUMNS,
+  LEGACY_COLUMNS
+} from '../src/main/services/csvImport'
 import { buildMovementsCsv, buildSummaryCsv } from '../src/main/services/csvExport'
 
 const ctx = { fileName: 'test.csv', encoding: 'utf-8' as const }
-const H = CSV_COLUMNS.join(',')
+const H = LEGACY_COLUMNS.join(',')
 const csv = (...rows: string[]) => [H, ...rows].join('\n')
 
 function withOpening(qty = 100) {
@@ -22,6 +29,7 @@ describe('CSV 解码与模板', () => {
     const p = previewImport(db, buildTemplateCsv(), ctx)
     expect(p.total).toBe(4)
     expect(p.errorCount).toBe(1)
+    expect(p.rows[0].productCode).toBe('FG001')
     expect(p.rows[0].messages[0]).toMatch(/已有库存流水/)
   })
   it('UTF-8 BOM 与 GBK 都能解码', () => {
@@ -173,9 +181,9 @@ describe('CSV 导出', () => {
     const db = withOpening()
     commitImport(db, csv('出库,2026-09-02,2,29.90,抖音小店,DY1,'), ctx, false)
     const mv = buildMovementsCsv(db, {})
-    expect(mv.startsWith('﻿时间,类型,单号')).toBe(true)
+    expect(mv.startsWith('﻿时间,商品编码,商品,类型,单号')).toBe(true)
     expect(mv.split('\n').filter(Boolean)).toHaveLength(3)
-    expect(mv).toContain('出库,CK20260902-001,抖音小店,DY1,-2,29.90,10.00,98')
+    expect(mv).toContain('FG001,电动车发光小饰品,出库,CK20260902-001,抖音小店,DY1,-2,29.90,10.00,98')
     const sm = buildSummaryCsv(db, { from: '2026-09-01', to: '2026-09-30' })
     expect(sm).toContain('2026-09-02,0,0.00,2,59.80')
     expect(sm).toContain('合计 2026-09-01 ~ 2026-09-30,0,0.00,2,59.80')
@@ -183,7 +191,7 @@ describe('CSV 导出', () => {
 })
 
 describe('CSV 期初行', () => {
-  const H2 = CSV_COLUMNS.join(',')
+  const H2 = LEGACY_COLUMNS.join(',')
   const csv2 = (...rows: string[]) => [H2, ...rows].join('\n')
   it('全新库可导入一行期初，日期须最早，之后不能再导', () => {
     const db = testDb()
@@ -211,5 +219,50 @@ describe('CSV 期初行', () => {
   })
   it('模板自带期初行，在空库上整体合法', () => {
     expect(previewImport(testDb(), buildTemplateCsv(), ctx).errorCount).toBe(0)
+  })
+})
+
+describe('CSV 多商品', () => {
+  it('新模板按商品编码分别模拟库存；未知 / 停用编码报错；旧模板归到第一个商品', async () => {
+    const { createProduct, updateProduct } = await import('../src/main/services/products')
+    const db = testDb()
+    const p2 = createProduct(db, {
+      code: 'FG002',
+      name: '车轮贴',
+      unit: '套',
+      isActive: true,
+      defaultCostCents: 1800,
+      defaultPriceCents: 4990,
+      lowStockThreshold: 0
+    })
+    const H8 = CSV_COLUMNS.join(',')
+    const text = [
+      H8,
+      'FG001,期初,2026-09-01,10,10,,,',
+      'FG002,期初,2026-09-01,5,18,,,',
+      'FG002,出库,2026-09-02,6,49.9,淘宝,T1,'
+    ].join('\n')
+    const p = previewImport(db, text, ctx)
+    expect(p.rows.map((r) => r.status)).toEqual(['ok', 'ok', 'error'])
+    expect(p.rows[2].messages[0]).toMatch(/该商品库存为 5，需要 6/)
+    expect(previewImport(db, [H8, 'FG003,入库,2026-09-02,1,1,,,'].join('\n'), ctx).rows[0].messages[0]).toMatch(
+      /商品编码不存在/
+    )
+    const good = [
+      H8,
+      'FG001,期初,2026-09-01,10,10,,,',
+      'FG002,期初,2026-09-01,5,18,,,',
+      'FG002,出库,2026-09-02,2,49.9,淘宝,T1,'
+    ].join('\n')
+    const r = commitImport(db, good, ctx, false)
+    expect(r.stockAfter).toBe(13)
+    expect(getStock(db, p2.defaultSku.id).quantity).toBe(3)
+    updateProduct(db, p2.id, { ...p2, isActive: false })
+    expect(previewImport(db, [H8, 'FG002,入库,2026-09-03,1,1,,,'].join('\n'), ctx).rows[0].messages[0]).toMatch(
+      /已停用/
+    )
+    // 旧模板归到 FG001
+    const legacy = previewImport(db, [LEGACY_COLUMNS.join(','), '入库,2026-09-03,1,1,,,'].join('\n'), ctx)
+    expect(legacy.rows[0]).toMatchObject({ status: 'ok', productCode: 'FG001' })
   })
 })

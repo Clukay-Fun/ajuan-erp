@@ -16,9 +16,12 @@ export const productUpdateSchema = z.object({
   unit: z.string().trim().min(1, '单位不能为空').max(8, '单位过长'),
   defaultCostCents: centsInt,
   defaultPriceCents: centsInt,
-  lowStockThreshold: z.number().int().min(0, '预警值不能为负')
+  lowStockThreshold: z.number().int().min(0, '预警值不能为负'),
+  isActive: z.boolean().default(true)
 })
 export type ProductUpdateInput = z.infer<typeof productUpdateSchema>
+export const productCreateSchema = productUpdateSchema
+export type ProductCreateInput = z.infer<typeof productCreateSchema>
 
 export const openingStockSchema = z.object({
   skuId: z.number().int().positive(),

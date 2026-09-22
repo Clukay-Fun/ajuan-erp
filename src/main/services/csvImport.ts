@@ -5,19 +5,21 @@ import { nowIso, transaction } from '../db/connection'
 import { parseCents, centsToE4 } from '@shared/money'
 import type { CsvImportPreview, CsvImportResult, CsvImportRow } from '@shared/types'
 import { ServiceError } from './errors'
-import { getProduct } from './products'
+import { listProducts } from './products'
 import { getStock, applyMovement } from './inventory'
 import { listChannels } from './channels'
 import { nextDocNo } from './docNo'
 
 /** 标准模板列（顺序固定，表头必须完全一致）。一行 = 一张单据的一行明细。 */
-export const CSV_COLUMNS = ['类型', '日期', '数量', '单价', '渠道', '外部订单号', '备注'] as const
+export const CSV_COLUMNS = ['商品编码', '类型', '日期', '数量', '单价', '渠道', '外部订单号', '备注'] as const
+/** 旧模板（单商品，无商品编码列）仍然接受，所有行归到第一个启用商品 */
+export const LEGACY_COLUMNS = ['类型', '日期', '数量', '单价', '渠道', '外部订单号', '备注'] as const
 
 export const CSV_TEMPLATE_ROWS: string[][] = [
-  ['期初', '2026-08-31', '300', '10.00', '', '', '导入前实际库存（只能有一行，且需尚未录入期初）'],
-  ['入库', '2026-09-01', '100', '10.50', '', '', '首批到货'],
-  ['出库', '2026-09-02', '2', '29.90', '抖音小店', 'DY20260902001', ''],
-  ['出库', '2026-09-02', '1', '29.90', '微信', '', '朋友代购']
+  ['FG001', '期初', '2026-08-31', '300', '10.00', '', '', '导入前实际库存（每个商品最多一行，且需尚未录入期初）'],
+  ['FG001', '入库', '2026-09-01', '100', '10.50', '', '', '首批到货'],
+  ['FG001', '出库', '2026-09-02', '2', '29.90', '抖音小店', 'DY20260902001', ''],
+  ['FG001', '出库', '2026-09-02', '1', '29.90', '微信', '', '朋友代购']
 ]
 
 export function buildTemplateCsv(): string {
@@ -51,6 +53,7 @@ interface ParsedRow {
   quantity: number | null
   unitPriceCents: number | null
   channelId: number | null
+  skuId: number | null
 }
 
 export interface PreviewContext {
@@ -58,7 +61,7 @@ export interface PreviewContext {
   encoding: 'utf-8' | 'gbk'
 }
 
-function parseRecords(text: string): string[][] {
+function parseRecords(text: string): { records: string[][]; legacy: boolean } {
   let records: string[][]
   try {
     records = parse(text, { skip_empty_lines: true, trim: true, relax_column_count: true, bom: true }) as string[][]
@@ -68,11 +71,13 @@ function parseRecords(text: string): string[][] {
   if (records.length === 0) throw new ServiceError('CSV_EMPTY', '文件为空')
   const [header, ...rest] = records
   const expected = CSV_COLUMNS.join(',')
-  if (header.join(',') !== expected)
+  const legacy = header.join(',') === LEGACY_COLUMNS.join(',')
+  if (!legacy && header.join(',') !== expected)
     throw new ServiceError('CSV_HEADER', `表头不符合标准模板。应为：${expected}；实际：${header.join(',')}`)
   if (rest.length === 0) throw new ServiceError('CSV_EMPTY', '文件只有表头，没有数据行')
   if (rest.length > 5000) throw new ServiceError('CSV_TOO_LARGE', '单次最多导入 5000 行')
-  return rest
+  // 旧模板：补上空的商品编码列，后面统一处理
+  return { records: legacy ? rest.map((r) => ['', ...r]) : rest, legacy }
 }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -93,11 +98,15 @@ function executionOrder(parsed: ParsedRow[]): number[] {
 
 /** 解析并逐行校验，模拟库存变化。不写库。 */
 export function previewImport(db: Db, text: string, ctx: PreviewContext): CsvImportPreview & { parsed: ParsedRow[] } {
-  const records = parseRecords(text)
-  const product = getProduct(db)
-  const stockBefore = getStock(db, product.defaultSku.id).quantity
-  const hasMovements = !!db.prepare(`SELECT 1 FROM stock_movements WHERE sku_id = ? LIMIT 1`).get(product.defaultSku.id)
-  let openingLine: number | null = null
+  const { records } = parseRecords(text)
+  const products = listProducts(db)
+  const defaultProduct = products.find((p) => p.isActive) ?? products[0]
+  if (!defaultProduct) throw new ServiceError('NOT_FOUND', '没有商品')
+  const byCode = new Map(products.map((p) => [p.code, p]))
+  const stockOf = new Map(products.map((p) => [p.defaultSku.id, getStock(db, p.defaultSku.id).quantity]))
+  const stockBefore = [...stockOf.values()].reduce((a, b) => a + b, 0)
+  const hasMovementsStmt = db.prepare(`SELECT 1 FROM stock_movements WHERE sku_id = ? LIMIT 1`)
+  const openingLineBySku = new Map<number, number>()
   const channelByName = new Map(listChannels(db).map((c) => [c.name, c]))
   const seenOrders = new Map<string, number>()
   const existingDup = db.prepare(
@@ -105,8 +114,17 @@ export function previewImport(db: Db, text: string, ctx: PreviewContext): CsvImp
   )
 
   const parsed: ParsedRow[] = records.map((cells, i) => {
-    const [typeText = '', docDate = '', quantity = '', unitPrice = '', channel = '', externalOrderNo = '', note = ''] =
-      cells
+    const [
+      productCodeRaw = '',
+      typeText = '',
+      docDate = '',
+      quantity = '',
+      unitPrice = '',
+      channel = '',
+      externalOrderNo = '',
+      note = ''
+    ] = cells
+    const productCode = productCodeRaw.trim()
     const messages: string[] = []
     let status: CsvImportRow['status'] = 'ok'
     const fail = (m: string): void => {
@@ -119,12 +137,17 @@ export function previewImport(db: Db, text: string, ctx: PreviewContext): CsvImp
     }
 
     if (cells.length > CSV_COLUMNS.length) fail(`列数过多（${cells.length} 列）`)
+    const product = productCode ? byCode.get(productCode) : defaultProduct
+    if (!product) fail(`商品编码不存在：「${productCode}」`)
+    else if (!product.isActive) fail(`商品「${product.code}」已停用`)
+    const skuId = product?.defaultSku.id ?? null
     const type = TYPE_MAP[typeText.trim().toLowerCase()] ?? null
     if (!type) fail(`类型无法识别：「${typeText}」，应为 期初 / 入库 / 出库`)
-    if (type === 'opening') {
-      if (hasMovements) fail('已有库存流水，不能再导入期初；请改用库存调整')
-      if (openingLine !== null) fail(`文件里已有期初行（第 ${openingLine} 行），期初只能有一行`)
-      else openingLine = i + 2
+    if (type === 'opening' && skuId !== null) {
+      if (hasMovementsStmt.get(skuId)) fail('该商品已有库存流水，不能再导入期初；请改用库存调整')
+      const prevLine = openingLineBySku.get(skuId)
+      if (prevLine !== undefined) fail(`该商品在第 ${prevLine} 行已有期初，每个商品只能有一行`)
+      else openingLineBySku.set(skuId, i + 2)
     }
     if (!DATE_RE.test(docDate) || Number.isNaN(Date.parse(docDate)))
       fail(`日期格式错误：「${docDate}」，应为 YYYY-MM-DD`)
@@ -154,6 +177,7 @@ export function previewImport(db: Db, text: string, ctx: PreviewContext): CsvImp
     return {
       row: {
         line: i + 2,
+        productCode: product?.code ?? productCode,
         type,
         typeText,
         docDate,
@@ -167,7 +191,8 @@ export function previewImport(db: Db, text: string, ctx: PreviewContext): CsvImp
       },
       quantity: qty,
       unitPriceCents: price,
-      channelId
+      channelId,
+      skuId
     }
   })
 
@@ -184,27 +209,28 @@ export function previewImport(db: Db, text: string, ctx: PreviewContext): CsvImp
     }
   }
   const hasFieldErrors = parsed.some((p) => p.row.status === 'error')
-  let stock = stockBefore
+  const sim = new Map(stockOf)
   let inQty = 0
   let inAmount = 0
   let outQty = 0
   let outAmount = 0
   for (const i of executionOrder(parsed)) {
     const p = parsed[i]
-    if (p.row.status === 'error' || p.quantity === null || p.unitPriceCents === null) continue
+    if (p.row.status === 'error' || p.quantity === null || p.unitPriceCents === null || p.skuId === null) continue
+    const stock = sim.get(p.skuId) ?? 0
     if (p.row.type === 'opening') {
-      stock += p.quantity
+      sim.set(p.skuId, stock + p.quantity)
     } else if (p.row.type === 'inbound') {
-      stock += p.quantity
+      sim.set(p.skuId, stock + p.quantity)
       inQty += p.quantity
       inAmount += p.quantity * p.unitPriceCents
     } else {
       if (!hasFieldErrors && stock < p.quantity) {
-        p.row.messages.push(`库存不足：按日期顺序执行到此行时库存为 ${stock}，需要 ${p.quantity}`)
+        p.row.messages.push(`库存不足：按日期顺序执行到此行时该商品库存为 ${stock}，需要 ${p.quantity}`)
         p.row.status = 'error'
         continue
       }
-      stock -= p.quantity
+      sim.set(p.skuId, stock - p.quantity)
       outQty += p.quantity
       outAmount += p.quantity * p.unitPriceCents
     }
@@ -225,7 +251,7 @@ export function previewImport(db: Db, text: string, ctx: PreviewContext): CsvImp
     outQty,
     outAmountCents: outAmount,
     stockBefore,
-    stockAfter: errorCount ? null : stock,
+    stockAfter: errorCount ? null : [...sim.values()].reduce((a, b) => a + b, 0),
     canCommit: errorCount === 0,
     parsed
   }
@@ -238,8 +264,6 @@ export function commitImport(db: Db, text: string, ctx: PreviewContext, acknowle
     throw new ServiceError('CSV_HAS_ERRORS', `存在 ${preview.errorCount} 行错误，未写入任何数据`)
   if (preview.warningCount > 0 && !acknowledgeWarnings)
     throw new ServiceError('CSV_HAS_WARNINGS', `存在 ${preview.warningCount} 行重复订单号警告，请确认后再导入`)
-  const skuId = getProduct(db).defaultSku.id
-
   return transaction(db, () => {
     const docNos: string[] = []
     const now = nowIso()
@@ -258,6 +282,7 @@ export function commitImport(db: Db, text: string, ctx: PreviewContext, acknowle
     for (const i of executionOrder(preview.parsed)) {
       const p = preview.parsed[i]
       const type = p.row.type!
+      const skuId = p.skuId!
       const quantity = p.quantity!
       const unitPriceCents = p.unitPriceCents!
       const docNo = nextDocNo(db, type, p.row.docDate)
@@ -311,6 +336,7 @@ export function commitImport(db: Db, text: string, ctx: PreviewContext, acknowle
       }
       docNos.push(docNo)
     }
-    return { documentCount: docNos.length, docNos, stockAfter: getStock(db, skuId).quantity }
+    const stockAfter = listProducts(db).reduce((a, p) => a + getStock(db, p.defaultSku.id).quantity, 0)
+    return { documentCount: docNos.length, docNos, stockAfter }
   })
 }

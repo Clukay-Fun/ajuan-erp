@@ -9,6 +9,7 @@ export interface Product {
   code: string
   name: string
   unit: string
+  isActive: boolean
   imagePath: string | null
   defaultCostCents: number
   defaultPriceCents: number
@@ -92,6 +93,9 @@ export type MovementKind = 'opening' | 'inbound' | 'outbound' | 'adjustment' | '
 
 export interface MovementRow {
   id: number
+  skuId: number
+  productName: string
+  productCode: string
   occurredAt: string
   kind: MovementKind
   documentId: number
@@ -109,6 +113,7 @@ export interface MovementRow {
 
 export interface MovementFilter {
   kind?: MovementKind
+  skuId?: number
   channelId?: number
   from?: string
   to?: string
@@ -135,7 +140,20 @@ export interface DailyFlow {
   outCostCents: number
 }
 
+export interface StockRow {
+  product: Product
+  stock: StockLevel
+  hasOpening: boolean
+  lowStock: boolean
+}
+
 export interface Overview {
+  /** 全部启用商品的库存行 */
+  rows: StockRow[]
+  totalQuantity: number
+  totalCostValueCents: number
+  lowStockCount: number
+  /** 兼容：第一个商品（单商品场景） */
   product: Product
   stock: StockLevel
   lowStock: boolean
@@ -148,6 +166,8 @@ export interface Overview {
 export interface SummaryRange {
   from: string
   to: string
+  /** 不传为全部商品 */
+  skuId?: number
 }
 
 export interface Summary {
@@ -170,6 +190,7 @@ export type CsvRowStatus = 'ok' | 'warning' | 'error'
 export interface CsvImportRow {
   /** 文件中的行号（含表头，从 1 起） */
   line: number
+  productCode: string
   type: 'inbound' | 'outbound' | 'opening' | null
   typeText: string
   docDate: string

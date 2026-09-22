@@ -7,12 +7,16 @@ const api: AjuanApi = {
   },
   products: {
     get: () => ipcRenderer.invoke(IPC.productsGet),
-    update: (input) => ipcRenderer.invoke(IPC.productsUpdate, input),
-    setImage: (upload) => ipcRenderer.invoke(IPC.productsSetImage, upload),
-    clearImage: () => ipcRenderer.invoke(IPC.productsClearImage)
+    list: () => ipcRenderer.invoke(IPC.productsList),
+    getById: (id) => ipcRenderer.invoke(IPC.productsGetById, id),
+    create: (input) => ipcRenderer.invoke(IPC.productsCreate, input),
+    update: (id, input) => ipcRenderer.invoke(IPC.productsUpdate, id, input),
+    setImage: (id, upload) => ipcRenderer.invoke(IPC.productsSetImage, id, upload),
+    clearImage: (id) => ipcRenderer.invoke(IPC.productsClearImage, id)
   },
   inventory: {
     getStock: (skuId) => ipcRenderer.invoke(IPC.inventoryGetStock, skuId),
+    listStock: () => ipcRenderer.invoke(IPC.inventoryListStock),
     listMovements: (filter) => ipcRenderer.invoke(IPC.inventoryListMovements, filter)
   },
   overview: {

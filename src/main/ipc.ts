@@ -3,8 +3,8 @@ import { IPC, type AppInfo } from '@shared/ipc'
 import type { IpcResult } from '@shared/types'
 import { state } from './appState'
 import { toAppError } from './services/errors'
-import { getProduct, updateProduct } from './services/products'
-import { getStock } from './services/inventory'
+import { getProduct, getProductById, listProducts, createProduct, updateProduct } from './services/products'
+import { getStock, listStock } from './services/inventory'
 import { createOpening, getOpening } from './services/opening'
 import {
   listDocuments,
@@ -78,7 +78,11 @@ export function registerIpc(): void {
     dbPath: state.dbPath
   }))
   handle(IPC.productsGet, () => getProduct(state.db))
-  handle(IPC.productsUpdate, (input) => updateProduct(state.db, input))
+  handle(IPC.productsUpdate, (id: number, input) => updateProduct(state.db, id, input))
+  handle(IPC.productsList, () => listProducts(state.db))
+  handle(IPC.productsGetById, (id: number) => getProductById(state.db, id))
+  handle(IPC.productsCreate, (input) => createProduct(state.db, input))
+  handle(IPC.inventoryListStock, () => listStock(state.db))
   handle(IPC.inventoryGetStock, (skuId: number) => getStock(state.db, skuId))
   handle(IPC.openingGet, (skuId: number) => getOpening(state.db, skuId))
   handle(IPC.openingCreate, (input) => createOpening(state.db, input))
@@ -114,13 +118,13 @@ export function registerIpc(): void {
   handle(IPC.backupInspect, (path: string) => inspectBackupFile(path))
   handle(IPC.backupRestore, (path: string) => restoreBackupFile(path))
   handle(IPC.adjustmentsCreate, (input) => createAdjustment(state.db, input))
-  handle(IPC.productsSetImage, (upload) => {
-    setProductImage(state.db, state.attachmentsDir, 1, upload)
-    return getProduct(state.db)
+  handle(IPC.productsSetImage, (id: number, upload) => {
+    setProductImage(state.db, state.attachmentsDir, id, upload)
+    return getProductById(state.db, id)
   })
-  handle(IPC.productsClearImage, () => {
-    clearProductImage(state.db, state.attachmentsDir, 1)
-    return getProduct(state.db)
+  handle(IPC.productsClearImage, (id: number) => {
+    clearProductImage(state.db, state.attachmentsDir, id)
+    return getProductById(state.db, id)
   })
   handle(IPC.csvExportDocument, (id: number) => exportDocument(state.db, id))
   handle(IPC.backupListTrash, () => listTrash())

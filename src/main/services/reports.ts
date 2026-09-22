@@ -2,10 +2,8 @@ import type { Db } from '../db/connection'
 import { e4ToCents } from '@shared/money'
 import type { DailyFlow, Overview, Summary, SummaryRange } from '@shared/types'
 import { ServiceError } from './errors'
-import { getProduct } from './products'
-import { getStock } from './inventory'
+import { listStock } from './inventory'
 import { listDocuments } from './documents'
-import { getOpening } from './opening'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -28,17 +26,18 @@ interface DailyRow {
   cost_e4: number | bigint | null
 }
 
-/** 按已生效单据的单据日期汇总（作废单不计）。 */
-function dailyFlows(db: Db, from: string, to: string): Map<string, DailyFlow> {
+/** 按已生效单据的单据日期汇总（作废单不计）；skuId 可限定商品。 */
+function dailyFlows(db: Db, from: string, to: string, skuId?: number): Map<string, DailyFlow> {
   const rows = db
     .prepare(
       `SELECT d.doc_date AS date, d.type, SUM(i.quantity) AS qty, SUM(i.quantity * i.unit_price_cents) AS amount,
               SUM(i.quantity * COALESCE(i.cost_snapshot_e4, 0)) AS cost_e4
        FROM documents d JOIN document_items i ON i.document_id = d.id
        WHERE d.status = 'confirmed' AND d.type IN ('inbound', 'outbound') AND d.doc_date BETWEEN ? AND ?
+         AND (? IS NULL OR i.sku_id = ?)
        GROUP BY d.doc_date, d.type`
     )
-    .all(from, to) as unknown as DailyRow[]
+    .all(from, to, skuId ?? null, skuId ?? null) as unknown as DailyRow[]
   const map = new Map<string, DailyFlow>()
   for (const r of rows) {
     const day = map.get(r.date) ?? {
@@ -63,8 +62,8 @@ function dailyFlows(db: Db, from: string, to: string): Map<string, DailyFlow> {
 }
 
 export function getOverview(db: Db, today = localToday()): Overview {
-  const product = getProduct(db)
-  const stock = getStock(db, product.defaultSku.id)
+  const rows = listStock(db).filter((r) => r.product.isActive)
+  if (rows.length === 0) throw new ServiceError('NOT_FOUND', '没有启用的商品')
   const from = shiftDate(today, -13)
   const flows = dailyFlows(db, from, today)
   const trend: DailyFlow[] = []
@@ -73,12 +72,16 @@ export function getOverview(db: Db, today = localToday()): Overview {
     trend.push(flows.get(date) ?? { date, inQty: 0, inAmountCents: 0, outQty: 0, outAmountCents: 0, outCostCents: 0 })
   }
   const t = flows.get(today)
-  const hasOpening = getOpening(db, product.defaultSku.id) !== null
+  const first = rows[0]
   return {
-    product,
-    stock,
-    hasOpening,
-    lowStock: hasOpening && stock.quantity <= product.lowStockThreshold,
+    rows,
+    totalQuantity: rows.reduce((a, r) => a + r.stock.quantity, 0),
+    totalCostValueCents: rows.reduce((a, r) => a + r.stock.costValueCents, 0),
+    lowStockCount: rows.filter((r) => r.lowStock).length,
+    product: first.product,
+    stock: first.stock,
+    hasOpening: rows.some((r) => r.hasOpening),
+    lowStock: rows.some((r) => r.lowStock),
     today: {
       inQty: t?.inQty ?? 0,
       inAmountCents: t?.inAmountCents ?? 0,
@@ -94,20 +97,22 @@ export function getSummary(db: Db, range: SummaryRange): Summary {
   if (!DATE_RE.test(range.from) || !DATE_RE.test(range.to))
     throw new ServiceError('VALIDATION', '日期格式应为 YYYY-MM-DD')
   if (range.from > range.to) throw new ServiceError('VALIDATION', '开始日期不能晚于结束日期')
-  const flows = dailyFlows(db, range.from, range.to)
+  const flows = dailyFlows(db, range.from, range.to, range.skuId)
   const daily = [...flows.values()].sort((a, b) => (a.date < b.date ? 1 : -1))
+  const sku = range.skuId ?? null
   const counts = db
     .prepare(
-      `SELECT type, COUNT(*) AS c FROM documents
-       WHERE status = 'confirmed' AND type IN ('inbound', 'outbound') AND doc_date BETWEEN ? AND ? GROUP BY type`
+      `SELECT d.type, COUNT(DISTINCT d.id) AS c FROM documents d JOIN document_items i ON i.document_id = d.id
+       WHERE d.status = 'confirmed' AND d.type IN ('inbound', 'outbound') AND d.doc_date BETWEEN ? AND ?
+         AND (? IS NULL OR i.sku_id = ?) GROUP BY d.type`
     )
-    .all(range.from, range.to) as unknown as { type: 'inbound' | 'outbound'; c: number }[]
+    .all(range.from, range.to, sku, sku) as unknown as { type: 'inbound' | 'outbound'; c: number }[]
   const cost = db
     .prepare(
       `SELECT COALESCE(SUM(i.quantity * i.cost_snapshot_e4), 0) AS v FROM documents d JOIN document_items i ON i.document_id = d.id
-       WHERE d.status = 'confirmed' AND d.type = 'outbound' AND d.doc_date BETWEEN ? AND ?`
+       WHERE d.status = 'confirmed' AND d.type = 'outbound' AND d.doc_date BETWEEN ? AND ? AND (? IS NULL OR i.sku_id = ?)`
     )
-    .get(range.from, range.to) as { v: number | bigint }
+    .get(range.from, range.to, sku, sku) as { v: number | bigint }
   return {
     range,
     inQty: daily.reduce((a, d) => a + d.inQty, 0),

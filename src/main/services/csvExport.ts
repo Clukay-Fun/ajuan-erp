@@ -22,9 +22,23 @@ export function buildMovementsCsv(db: Db, filter: MovementFilter): string {
     if (next.length === 0) break
     all.push(...next)
   }
-  const header = ['时间', '类型', '单号', '渠道', '外部订单号', '数量变动', '单价', '结转成本', '结存']
+  const header = [
+    '时间',
+    '商品编码',
+    '商品',
+    '类型',
+    '单号',
+    '渠道',
+    '外部订单号',
+    '数量变动',
+    '单价',
+    '结转成本',
+    '结存'
+  ]
   const lines = all.map((m) => [
     m.occurredAt.replace('T', ' '),
+    m.productCode,
+    m.productName,
     KIND_LABEL[m.kind],
     m.docNo,
     m.channelName ?? '',

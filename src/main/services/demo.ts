@@ -1,7 +1,7 @@
 import type { Db } from '../db/connection'
 import { transaction } from '../db/connection'
 import { ServiceError } from './errors'
-import { updateProduct, getProduct } from './products'
+import { updateProduct, getProduct, createProduct, listProducts } from './products'
 import { createOpening } from './opening'
 import { createDraft, confirmDocument, voidDocument } from './documents'
 import { createAdjustment } from './adjustments'
@@ -26,7 +26,8 @@ export function seedDemo(db: Db): { documents: number } {
   const today = localToday()
   return transaction(db, () => {
     const p = getProduct(db)
-    updateProduct(db, {
+    updateProduct(db, p.id, {
+      isActive: true,
       code: p.code,
       name: p.name,
       unit: p.unit,
@@ -90,6 +91,50 @@ export function seedDemo(db: Db): { documents: number } {
       note: '示例：待发货草稿',
       items: [{ skuId, quantity: 4, unitPriceCents: 2990 }]
     })
+    // 第二个商品，演示多商品
+    const existing2 = listProducts(db).find((x) => x.code === 'FG002')
+    const p2 =
+      existing2 ??
+      createProduct(db, {
+        code: 'FG002',
+        name: '发光车轮贴',
+        unit: '套',
+        isActive: true,
+        defaultCostCents: 1800,
+        defaultPriceCents: 4990,
+        lowStockThreshold: 30
+      })
+    const sku2 = p2.defaultSku.id
+    createOpening(db, {
+      skuId: sku2,
+      quantity: 60,
+      unitCostCents: 1800,
+      docDate: shift(today, -10),
+      note: '示例：期初'
+    })
+    const mk2 = (
+      type: 'inbound' | 'outbound',
+      day: number,
+      qty: number,
+      price: number,
+      channelId: number | null = null,
+      no = ''
+    ) =>
+      confirmDocument(
+        db,
+        createDraft(db, {
+          type,
+          docDate: shift(today, day),
+          channelId,
+          externalOrderNo: no,
+          note: '',
+          items: [{ skuId: sku2, quantity: qty, unitPriceCents: price }]
+        }).id
+      )
+    mk2('outbound', -7, 6, 4990, 1, 'DY20001')
+    mk2('outbound', -3, 9, 4990, 2, 'TB20002')
+    mk2('inbound', -2, 40, 1900)
+    mk2('outbound', 0, 4, 4990, 4, 'WX20003')
     const { c } = db.prepare('SELECT COUNT(*) AS c FROM documents').get() as { c: number }
     return { documents: c }
   })

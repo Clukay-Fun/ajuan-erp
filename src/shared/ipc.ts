@@ -1,6 +1,7 @@
 import type {
   AdjustmentInput,
   ProductUpdateInput,
+  ProductCreateInput,
   OpeningStockInput,
   DocumentDraftInput,
   ChannelCreateInput,
@@ -22,6 +23,7 @@ import type {
   Overview,
   Page,
   Product,
+  StockRow,
   Summary,
   SummaryRange,
   SalesChannel,
@@ -35,6 +37,10 @@ export const IPC = {
   appGetInfo: 'app:getInfo',
   productsGet: 'products:get',
   productsUpdate: 'products:update',
+  productsList: 'products:list',
+  productsGetById: 'products:getById',
+  productsCreate: 'products:create',
+  inventoryListStock: 'inventory:listStock',
   inventoryGetStock: 'inventory:getStock',
   openingGet: 'opening:get',
   openingCreate: 'opening:create',
@@ -92,14 +98,18 @@ export interface AjuanApi {
     getInfo(): Promise<IpcResult<AppInfo>>
   }
   products: {
-    /** 首版只有一个商品 */
+    /** 第一个商品（兼容） */
     get(): Promise<IpcResult<Product>>
-    update(input: ProductUpdateInput): Promise<IpcResult<Product>>
-    setImage(upload: AttachmentUpload): Promise<IpcResult<Product>>
-    clearImage(): Promise<IpcResult<Product>>
+    list(): Promise<IpcResult<Product[]>>
+    getById(id: number): Promise<IpcResult<Product>>
+    create(input: ProductCreateInput): Promise<IpcResult<Product>>
+    update(id: number, input: ProductUpdateInput): Promise<IpcResult<Product>>
+    setImage(id: number, upload: AttachmentUpload): Promise<IpcResult<Product>>
+    clearImage(id: number): Promise<IpcResult<Product>>
   }
   inventory: {
     getStock(skuId: number): Promise<IpcResult<StockLevel>>
+    listStock(): Promise<IpcResult<StockRow[]>>
     listMovements(filter: MovementFilter): Promise<IpcResult<Page<MovementRow>>>
   }
   overview: {

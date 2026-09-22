@@ -1,10 +1,11 @@
 import type { Db } from '../db/connection'
 import { nowIso } from '../db/connection'
 import { e4ToCents } from '@shared/money'
-import type { StockLevel } from '@shared/types'
+import type { StockLevel, StockRow } from '@shared/types'
+import { listProducts } from './products'
 import { ServiceError } from './errors'
 
-interface StockRow {
+interface StockDbRow {
   sku_id: number
   quantity: number
   cost_value_e4: number | bigint
@@ -12,7 +13,7 @@ interface StockRow {
 
 export function getStock(db: Db, skuId: number): StockLevel {
   const row = db.prepare(`SELECT sku_id, quantity, cost_value_e4 FROM sku_stock WHERE sku_id = ?`).get(skuId) as
-    StockRow | undefined
+    StockDbRow | undefined
   if (!row) throw new ServiceError('NOT_FOUND', 'SKU 不存在')
   const costValue = BigInt(row.cost_value_e4)
   return {
@@ -84,4 +85,17 @@ export function applyMovement(db: Db, input: ApplyMovementInput): void {
     now,
     input.skuId
   )
+}
+
+/** 全部商品的库存行（含停用），启用在前。 */
+export function listStock(db: Db): StockRow[] {
+  const hasOpening = db.prepare(
+    `SELECT 1 FROM documents d JOIN document_items i ON i.document_id = d.id
+     WHERE d.type = 'opening' AND d.status = 'confirmed' AND i.sku_id = ? LIMIT 1`
+  )
+  return listProducts(db).map((product) => {
+    const stock = getStock(db, product.defaultSku.id)
+    const opened = !!hasOpening.get(product.defaultSku.id)
+    return { product, stock, hasOpening: opened, lowStock: opened && stock.quantity <= product.lowStockThreshold }
+  })
 }
