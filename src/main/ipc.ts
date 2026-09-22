@@ -2,6 +2,8 @@ import { app, ipcMain, type IpcMainInvokeEvent } from 'electron'
 import { IPC, type AppInfo } from '@shared/ipc'
 import type { IpcResult } from '@shared/types'
 import { state } from './appState'
+import { updateApi } from './updater'
+import { getApplicationVersion } from './appVersion'
 import { toAppError } from './services/errors'
 import { getProduct, getProductById, listProducts, createProduct, updateProduct } from './services/products'
 import { getStock, listStock } from './services/inventory'
@@ -72,11 +74,17 @@ function handle<T>(channel: string, fn: (...args: any[]) => T | Promise<T>): voi
 export function registerIpc(): void {
   handle<AppInfo>(IPC.appGetInfo, () => ({
     name: app.getName(),
-    version: app.getVersion(),
+    version: getApplicationVersion(),
     platform: process.platform,
     userDataPath: app.getPath('userData'),
     dbPath: state.dbPath
   }))
+  handle(IPC.updateGetState, () => updateApi.getState())
+  handle(IPC.updateSetAutoCheck, (enabled: boolean) => updateApi.setAutoCheck(enabled))
+  handle(IPC.updateCheck, () => updateApi.check())
+  handle(IPC.updateDownload, () => updateApi.download())
+  handle(IPC.updateInstall, () => updateApi.install())
+  handle(IPC.updateOpenReleases, () => updateApi.openReleases())
   handle(IPC.productsGet, () => getProduct(state.db))
   handle(IPC.productsUpdate, (id: number, input) => updateProduct(state.db, id, input))
   handle(IPC.productsList, () => listProducts(state.db))

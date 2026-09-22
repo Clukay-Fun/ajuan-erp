@@ -6,6 +6,7 @@ import { state } from './appState'
 import { registerIpc } from './ipc'
 import { resolveAttachmentPath } from './services/attachments'
 import { loadWindowState, trackWindowState } from './windowState'
+import { initUpdater } from './updater'
 
 const isMac = process.platform === 'darwin'
 const isDev = !app.isPackaged
@@ -102,7 +103,8 @@ app.whenReady().then(() => {
   state.open()
   registerAttachmentProtocol()
   registerIpc()
-  createWindow()
+  const mainWindow = createWindow()
+  initUpdater(mainWindow)
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })

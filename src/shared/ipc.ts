@@ -18,6 +18,7 @@ import type {
   DocumentListFilter,
   DocumentSummary,
   IpcResult,
+  UpdateState,
   MovementFilter,
   MovementRow,
   Overview,
@@ -35,6 +36,13 @@ import type {
 
 export const IPC = {
   appGetInfo: 'app:getInfo',
+  updateGetState: 'update:getState',
+  updateSetAutoCheck: 'update:setAutoCheck',
+  updateCheck: 'update:check',
+  updateDownload: 'update:download',
+  updateInstall: 'update:install',
+  updateOpenReleases: 'update:openReleases',
+  updateState: 'update:state',
   productsGet: 'products:get',
   productsUpdate: 'products:update',
   productsList: 'products:list',
@@ -96,6 +104,15 @@ export interface AppInfo {
 export interface AjuanApi {
   app: {
     getInfo(): Promise<IpcResult<AppInfo>>
+  }
+  update: {
+    getState(): Promise<IpcResult<UpdateState>>
+    setAutoCheck(enabled: boolean): Promise<IpcResult<UpdateState>>
+    check(): Promise<IpcResult<void>>
+    download(): Promise<IpcResult<void>>
+    install(): Promise<IpcResult<void>>
+    openReleases(): Promise<IpcResult<void>>
+    onState(handler: (state: UpdateState) => void): () => void
   }
   products: {
     /** 第一个商品（兼容） */

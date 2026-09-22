@@ -1,6 +1,6 @@
 {
   "name": "ajuan-inventory",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "阿卷 ERP —— 本地单用户成品库存管理桌面应用",
   "author": "Clukay",
   "private": true,
@@ -50,6 +50,14 @@
       "createStartMenuShortcut": true,
       "artifactName": "ajuan-inventory-v${version}-windows-x64-setup.${ext}"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Clukay-Fun",
+        "repo": "ajuan-erp",
+        "releaseType": "release"
+      }
+    ],
     "mac": {
       "target": [
         {
@@ -67,6 +75,7 @@
     "adm-zip": "^0.6.1",
     "csv-parse": "^7.0.2",
     "csv-stringify": "^6.8.3",
+    "electron-updater": "^6.8.9",
     "lucide-react": "^0.560.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

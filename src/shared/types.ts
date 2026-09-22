@@ -54,6 +54,21 @@ export interface AppError {
 
 export type IpcResult<T> = { ok: true; data: T } | { ok: false; error: AppError }
 
+export type UpdateStatus =
+  'idle' | 'unsupported' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'up-to-date' | 'error'
+
+export interface UpdateState {
+  status: UpdateStatus
+  currentVersion: string
+  availableVersion: string | null
+  releaseNotes: string | null
+  progress: number | null
+  lastCheckedAt: number | null
+  autoCheck: boolean
+  portable: boolean
+  message: string | null
+}
+
 export interface SalesChannel {
   id: number
   name: string

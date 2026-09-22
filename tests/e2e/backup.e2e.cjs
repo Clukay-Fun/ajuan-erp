@@ -99,7 +99,7 @@ module.exports = async () => {
       JSON.stringify({
         app: 'ajuan-inventory',
         formatVersion: 1,
-        appVersion: '0.2.0',
+        appVersion: require('../../package.json').version,
         schemaVersion: 2,
         createdAt: new Date().toISOString(),
         counts: { documents: 2, movements: 1, attachments: 1 },

@@ -86,10 +86,21 @@ module.exports = async () => {
     await click('设置')
     setVal($('input[placeholder=新渠道名称]'), '小红书'); await click('添加', 300)
     $$('[role=radio]').find(b => b.textContent.startsWith('深色')).click(); await sleep(100)
-    return { channel: text().includes('小红书'), theme: document.documentElement.getAttribute('data-theme') }
+    return {
+      channel: text().includes('小红书'),
+      theme: document.documentElement.getAttribute('data-theme'),
+      updateSettings: text().includes('启动时自动检查')
+    }
   `)
-  eq(settings, { channel: true, theme: 'dark' }, '渠道添加与主题切换')
+  eq(settings, { channel: true, theme: 'dark', updateSettings: true }, '渠道、外观与更新设置显示')
+  const updateState = await t.api('update.getState()')
+  eq(updateState.currentVersion, require('../../package.json').version, '更新面板显示项目版本')
+  eq(updateState.status, 'unsupported', '开发版应说明仅 Windows 安装版支持自动更新')
   await t.shot('flow-settings-dark.png')
+  await t.ui(
+    `$$('h2').find(h => h.textContent.trim() === '更新').scrollIntoView({ block: 'center' }); await sleep(500)`
+  )
+  await t.shot('flow-settings-update.png')
   await t.ui(`$$('[role=radio]').find(b => b.textContent.startsWith('跟随系统')).click(); await sleep(100)`)
 
   // 快捷键：⌘/Ctrl+N 新建入库

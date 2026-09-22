@@ -5,6 +5,19 @@ const api: AjuanApi = {
   app: {
     getInfo: () => ipcRenderer.invoke(IPC.appGetInfo)
   },
+  update: {
+    getState: () => ipcRenderer.invoke(IPC.updateGetState),
+    setAutoCheck: (enabled) => ipcRenderer.invoke(IPC.updateSetAutoCheck, enabled),
+    check: () => ipcRenderer.invoke(IPC.updateCheck),
+    download: () => ipcRenderer.invoke(IPC.updateDownload),
+    install: () => ipcRenderer.invoke(IPC.updateInstall),
+    openReleases: () => ipcRenderer.invoke(IPC.updateOpenReleases),
+    onState: (handler) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof handler>[0]) => handler(payload)
+      ipcRenderer.on(IPC.updateState, listener)
+      return () => ipcRenderer.removeListener(IPC.updateState, listener)
+    }
+  },
   products: {
     get: () => ipcRenderer.invoke(IPC.productsGet),
     list: () => ipcRenderer.invoke(IPC.productsList),
