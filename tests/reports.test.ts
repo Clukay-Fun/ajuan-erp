@@ -3,7 +3,7 @@ import { testDb } from './helpers'
 import { createOpening } from '../src/main/services/opening'
 import { createDraft, confirmDocument, voidDocument } from '../src/main/services/documents'
 import { listMovements } from '../src/main/services/movements'
-import { getOverview, getSummary } from '../src/main/services/reports'
+import { getOverview, getSummary, localToday } from '../src/main/services/reports'
 
 function seed() {
   const db = testDb()
@@ -27,7 +27,10 @@ describe('库存流水查询', () => {
     expect(all.rows[0].kind).toBe('void')
     expect(listMovements(db, { kind: 'outbound' }).total).toBe(3)
     expect(listMovements(db, { channelId: 1 }).total).toBe(3) // 出库 DY1 + DY2 + DY2 的 void
-    expect(listMovements(db, { from: '2026-09-21', to: '2026-09-21' }).total).toBe(3)
+    // 作废冲回的业务时间是执行当天，不落在单据日期上
+    const sameDay = listMovements(db, { from: '2026-09-21', to: '2026-09-21' })
+    expect(sameDay.rows.map((r) => r.kind)).toEqual(['outbound', 'outbound'])
+    expect(listMovements(db, { kind: 'void' }).rows[0].occurredAt.slice(0, 10)).toBe(localToday())
     expect(listMovements(db, { docNo: 'TB1' }).rows[0]).toMatchObject({ channelName: '淘宝', quantityDelta: -5, unitPriceCents: 2990, unitCostCents: 1100 })
     expect(listMovements(db, { docNo: 'QC' }).rows[0]).toMatchObject({ kind: 'opening', quantityAfter: 100, unitCostCents: 1000 })
     const p = listMovements(db, { pageSize: 2, page: 2 })
