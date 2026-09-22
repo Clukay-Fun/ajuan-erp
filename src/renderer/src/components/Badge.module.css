@@ -8,8 +8,8 @@
   font-weight: 500;
   white-space: nowrap;
 }
-.neutral { background: var(--color-bg); color: var(--color-text-secondary); }
-.info { background: var(--color-primary-soft); color: var(--color-primary); }
-.success { background: #e5f6ec; color: var(--color-success); }
-.warning { background: #fff4e0; color: var(--color-warning); }
-.danger { background: #fdeaea; color: var(--color-danger); }
+.neutral { background: var(--color-inset); color: var(--color-text-secondary); }
+.info { background: var(--color-info-soft); color: var(--color-info-soft-text); }
+.success { background: var(--color-success-soft); color: var(--color-success-soft-text); }
+.warning { background: var(--color-warning-soft); color: var(--color-warning-soft-text); }
+.danger { background: var(--color-danger-soft); color: var(--color-danger-soft-text); }

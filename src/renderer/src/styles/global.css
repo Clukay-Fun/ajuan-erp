@@ -22,6 +22,8 @@ body {
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
   user-select: none;
+  caret-color: var(--color-primary);
+  accent-color: var(--color-primary);
 }
 
 button {
@@ -39,4 +41,55 @@ p {
 /* 只有单据号、数字等数据区域允许选中复制 */
 .selectable {
   user-select: text;
+}
+
+::selection {
+  background: var(--color-selection);
+}
+
+/* 键盘焦点环：只在键盘导航时出现，鼠标点击不出现 */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+/* 表单控件自带 box-shadow 焦点环，不再叠加 outline */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+}
+
+/* 滚动条：随纸面着色，细而低调 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+  background-clip: padding-box;
+  border: 3px solid transparent;
+}
+
+/* 数字统一等宽字形，表格与 KPI 对齐 */
+.num,
+table {
+  font-variant-numeric: tabular-nums;
+}
+
+input[type='date']::-webkit-calendar-picker-indicator {
+  opacity: 0.55;
+  cursor: pointer;
 }

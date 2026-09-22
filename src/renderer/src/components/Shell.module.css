@@ -17,10 +17,21 @@
   height: var(--titlebar-height);
   display: flex;
   align-items: center;
+  gap: 8px;
   padding: 0 var(--space-2);
   font-weight: 600;
   font-size: 15px;
+  letter-spacing: 0.02em;
   -webkit-app-region: drag;
+}
+
+/* 品牌标记：一个墨绿方块，留给正式 Logo 的位置 */
+.brandMark {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: var(--color-primary);
+  box-shadow: inset 0 0 0 2px var(--color-sidebar), inset 0 0 0 3px var(--color-primary);
 }
 
 .brandMac {
@@ -46,18 +57,23 @@
   cursor: pointer;
   text-align: left;
   width: 100%;
+  transition: background var(--dur-fast) ease, color var(--dur-fast) ease, transform var(--dur-fast) var(--ease-out);
 }
 
 .navItem:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--color-inset);
   color: var(--color-text);
+}
+
+.navItem:active {
+  transform: scale(0.98);
 }
 
 .navItem[aria-current='page'] {
   background: var(--color-surface);
   color: var(--color-primary);
   box-shadow: var(--shadow-sm);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .spacer {
@@ -81,4 +97,15 @@
   flex: 1;
   overflow: auto;
   padding: 0 var(--space-8) var(--space-8);
+}
+
+.contentInner {
+  max-width: var(--content-max);
+  margin: 0 auto;
+}
+
+@media (max-width: 1100px) {
+  .content {
+    padding: 0 var(--space-5) var(--space-6);
+  }
 }

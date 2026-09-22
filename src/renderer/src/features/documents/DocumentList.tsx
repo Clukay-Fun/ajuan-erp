@@ -12,6 +12,7 @@ import { useNav } from '@/app/navigation'
 import table from '@/components/Table.module.css'
 import styles from './DocumentList.module.css'
 import { ImportDialog } from '@/features/csv/ImportDialog'
+import { SkeletonTable } from '@/components/Skeleton'
 
 type TypeFilter = 'all' | DocumentType
 type StatusFilter = 'all' | DocumentStatus
@@ -94,6 +95,7 @@ export function DocumentList(): ReactElement {
       </div>
 
       {error && <p className={styles.error}>读取失败：{error}</p>}
+      {!docs && !error && <SkeletonTable cols={8} />}
       {docs && docs.length === 0 && (
         <EmptyState icon={FileText} title="没有符合条件的单据" description="点击右上角「入库」或「出库」新建一张单据。" />
       )}

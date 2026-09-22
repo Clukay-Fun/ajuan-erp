@@ -1,21 +1,64 @@
-/* 基础设计 Token。首版视觉方向未定，这里只建立可替换的变量层。 */
+/*
+ * 阿卷库存视觉系统 —— 暖纸账本
+ * 浅色：米白纸面 + 墨色文字 + 深松绿主色；出库/作废用赭红，预警用琥珀。
+ * 深色：同一套温度（暖黑而非蓝黑），主色提亮保证对比度。
+ * 组件只用语义 token，不写裸色值。
+ */
 :root {
+  color-scheme: light;
+
   --font-sans: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', system-ui, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
-  --color-bg: #f6f7f9;
+  /* 表面 */
+  --color-bg: #f7f4ee;
   --color-surface: #ffffff;
-  --color-sidebar: #eef0f3;
-  --color-border: #e2e5ea;
-  --color-text: #1c2026;
-  --color-text-secondary: #5c6470;
-  --color-text-muted: #8b929c;
-  --color-primary: #2f6fed;
-  --color-primary-hover: #2559c7;
-  --color-primary-soft: #e6eefc;
-  --color-success: #1f9d61;
-  --color-warning: #d98b0c;
-  --color-danger: #d93a3a;
+  --color-surface-hover: #fbf9f5;
+  --color-sidebar: #f0ece4;
+  --color-inset: #f3efe8;
+  --color-border: #e6e0d4;
+  --color-border-strong: #d3cbbb;
+
+  /* 文字 */
+  --color-text: #1f1d1a;
+  --color-text-secondary: #6b655b;
+  --color-text-muted: #948d81;
+  --color-text-on-primary: #ffffff;
+
+  /* 主色：深松绿 —— 主按钮、当前项、入库 */
+  --color-primary: #2f6b4f;
+  --color-primary-hover: #26593f;
+  --color-primary-active: #1f4a34;
+  --color-primary-soft: #e4efe8;
+  --color-primary-soft-text: #235340;
+
+  /* 出库 / 危险：赭红 */
+  --color-danger: #b5462f;
+  --color-danger-hover: #983a27;
+  --color-danger-soft: #f8e7e2;
+  --color-danger-soft-text: #8f3623;
+
+  /* 预警 / 草稿：琥珀 */
+  --color-warning: #b7791f;
+  --color-warning-soft: #f9efdc;
+  --color-warning-soft-text: #7d5211;
+
+  /* 成功 = 主色系 */
+  --color-success: #2f6b4f;
+  --color-success-soft: #e4efe8;
+  --color-success-soft-text: #235340;
+
+  /* 信息（入库徽标） */
+  --color-info-soft: #e4efe8;
+  --color-info-soft-text: #235340;
+
+  /* 图表 */
+  --chart-in: #2f6b4f;
+  --chart-out: #c8663f;
+
+  /* 焦点与选区 */
+  --color-ring: rgba(47, 107, 79, 0.28);
+  --color-selection: rgba(47, 107, 79, 0.2);
 
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -29,9 +72,124 @@
   --space-6: 24px;
   --space-8: 32px;
 
-  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
-  --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.08);
+  --shadow-sm: 0 1px 2px rgba(41, 33, 20, 0.06);
+  --shadow-md: 0 8px 24px -8px rgba(41, 33, 20, 0.18), 0 2px 6px rgba(41, 33, 20, 0.06);
+  --shadow-lg: 0 24px 48px -16px rgba(41, 33, 20, 0.28), 0 4px 12px rgba(41, 33, 20, 0.08);
 
-  --sidebar-width: 200px;
+  /* 动效：进出场用强 ease-out；抽屉用 iOS 曲线 */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 260ms;
+
+  --sidebar-width: 208px;
   --titlebar-height: 52px;
+  --content-max: 1360px;
+}
+
+/* 深色：暖黑纸面。跟随系统，或由 data-theme 强制。 */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --color-bg: #1b1916;
+    --color-surface: #242119;
+    --color-surface-hover: #2a2720;
+    --color-sidebar: #1f1c18;
+    --color-inset: #1f1c18;
+    --color-border: #37332b;
+    --color-border-strong: #4a4539;
+
+    --color-text: #ece7dd;
+    --color-text-secondary: #aaa396;
+    --color-text-muted: #7f786c;
+    --color-text-on-primary: #0f1a14;
+
+    --color-primary: #7cb995;
+    --color-primary-hover: #8fc7a6;
+    --color-primary-active: #6aa884;
+    --color-primary-soft: rgba(124, 185, 149, 0.16);
+    --color-primary-soft-text: #a3d4b8;
+
+    --color-danger: #e0866c;
+    --color-danger-hover: #e99a83;
+    --color-danger-soft: rgba(224, 134, 108, 0.16);
+    --color-danger-soft-text: #f0aa95;
+
+    --color-warning: #d9a54e;
+    --color-warning-soft: rgba(217, 165, 78, 0.16);
+    --color-warning-soft-text: #e8bf78;
+
+    --color-success: #7cb995;
+    --color-success-soft: rgba(124, 185, 149, 0.16);
+    --color-success-soft-text: #a3d4b8;
+    --color-info-soft: rgba(124, 185, 149, 0.16);
+    --color-info-soft-text: #a3d4b8;
+
+    --chart-in: #7cb995;
+    --chart-out: #e08a5c;
+
+    --color-ring: rgba(124, 185, 149, 0.35);
+    --color-selection: rgba(124, 185, 149, 0.28);
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 8px 24px -8px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 24px 48px -16px rgba(0, 0, 0, 0.7), 0 4px 12px rgba(0, 0, 0, 0.35);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-bg: #1b1916;
+  --color-surface: #242119;
+  --color-surface-hover: #2a2720;
+  --color-sidebar: #1f1c18;
+  --color-inset: #1f1c18;
+  --color-border: #37332b;
+  --color-border-strong: #4a4539;
+
+  --color-text: #ece7dd;
+  --color-text-secondary: #aaa396;
+  --color-text-muted: #7f786c;
+  --color-text-on-primary: #0f1a14;
+
+  --color-primary: #7cb995;
+  --color-primary-hover: #8fc7a6;
+  --color-primary-active: #6aa884;
+  --color-primary-soft: rgba(124, 185, 149, 0.16);
+  --color-primary-soft-text: #a3d4b8;
+
+  --color-danger: #e0866c;
+  --color-danger-hover: #e99a83;
+  --color-danger-soft: rgba(224, 134, 108, 0.16);
+  --color-danger-soft-text: #f0aa95;
+
+  --color-warning: #d9a54e;
+  --color-warning-soft: rgba(217, 165, 78, 0.16);
+  --color-warning-soft-text: #e8bf78;
+
+  --color-success: #7cb995;
+  --color-success-soft: rgba(124, 185, 149, 0.16);
+  --color-success-soft-text: #a3d4b8;
+  --color-info-soft: rgba(124, 185, 149, 0.16);
+  --color-info-soft-text: #a3d4b8;
+
+  --chart-in: #7cb995;
+  --chart-out: #e08a5c;
+
+  --color-ring: rgba(124, 185, 149, 0.35);
+  --color-selection: rgba(124, 185, 149, 0.28);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 24px -8px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 24px 48px -16px rgba(0, 0, 0, 0.7), 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+  }
 }

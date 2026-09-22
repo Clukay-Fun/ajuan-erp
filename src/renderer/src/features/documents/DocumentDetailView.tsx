@@ -13,6 +13,7 @@ import { useNav } from '@/app/navigation'
 import table from '@/components/Table.module.css'
 import styles from './DocumentDetailView.module.css'
 import { AttachmentPanel } from '@/features/attachments/AttachmentPanel'
+import { SkeletonCard } from '@/components/Skeleton'
 
 export function DocumentDetailView({ id }: { id: number }): ReactElement {
   const { navigate } = useNav()
@@ -49,7 +50,7 @@ export function DocumentDetailView({ id }: { id: number }): ReactElement {
   }
 
   if (error) return <p className={styles.error}>读取失败：{error}</p>
-  if (!doc) return <p className={styles.muted}>加载中…</p>
+  if (!doc) return <><SkeletonCard lines={2} style={{ marginBottom: 16 }} /><SkeletonCard lines={3} /></>
 
   const label = TYPE_LABEL[doc.type]
   const showCost = doc.type === 'outbound' && doc.status !== 'draft'

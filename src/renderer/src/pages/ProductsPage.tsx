@@ -10,6 +10,7 @@ import { unwrap, errorMessage } from '@/lib/api'
 import { formatCents, formatQty } from '@/lib/format'
 import { ProductEditDrawer } from '@/features/products/ProductEditDrawer'
 import { OpeningStockDrawer } from '@/features/products/OpeningStockDrawer'
+import { SkeletonCard } from '@/components/Skeleton'
 import styles from './ProductsPage.module.css'
 
 export function ProductsPage(): ReactElement {
@@ -52,8 +53,9 @@ export function ProductsPage(): ReactElement {
   if (!product || !stock) {
     return (
       <>
-        <PageHeader title="商品资料" />
-        <p className={styles.muted}>加载中…</p>
+        <PageHeader title="商品资料" subtitle="商品编码、价格与库存预警" />
+        <SkeletonCard lines={4} style={{ marginBottom: 16 }} />
+        <SkeletonCard lines={2} />
       </>
     )
   }

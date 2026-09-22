@@ -14,7 +14,7 @@
   width: 160px;
   height: 160px;
   border-radius: var(--radius-md);
-  background: var(--color-bg);
+  background: var(--color-inset);
   border: 1px dashed var(--color-border);
   display: flex;
   align-items: center;
@@ -45,7 +45,7 @@
 .stat {
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
-  background: var(--color-bg);
+  background: var(--color-inset);
 }
 .statLabel {
   font-size: 12px;
@@ -74,4 +74,8 @@
 }
 .error {
   color: var(--color-danger);
+}
+
+@media (max-width: 1000px) {
+  .openingRow { grid-template-columns: repeat(2, 1fr); }
 }

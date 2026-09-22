@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useFocusTrap } from '@/lib/useFocusTrap'
 import { X, FileUp, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react'
 import type { CsvImportPreview, CsvImportResult } from '@shared/types'
 import { Button } from '@/components/Button'
@@ -28,6 +29,8 @@ export function ImportDialog({ open, onClose, onImported }: Props): ReactElement
   const [phase, setPhase] = useState<Phase>({ step: 'pick' })
   const [ack, setAck] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const ref = useRef<HTMLDivElement>(null)
+  useFocusTrap(ref, open)
 
   useEffect(() => {
     if (open) {
@@ -102,7 +105,7 @@ export function ImportDialog({ open, onClose, onImported }: Props): ReactElement
 
   return (
     <div className={styles.backdrop} onClick={close}>
-      <div className={styles.dialog} role="dialog" aria-modal="true" aria-label="导入 CSV" onClick={(e) => e.stopPropagation()}>
+      <div ref={ref} className={styles.dialog} role="dialog" aria-modal="true" aria-label="导入 CSV" onClick={(e) => e.stopPropagation()}>
         <header className={styles.header}>
           <div className={styles.title}>导入 CSV</div>
           <button type="button" className={styles.close} onClick={close} aria-label="关闭" disabled={busy}><X size={18} /></button>

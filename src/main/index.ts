@@ -1,4 +1,4 @@
-import { app, BrowserWindow, net, protocol, shell } from 'electron'
+import { app, BrowserWindow, nativeTheme, net, protocol, shell } from 'electron'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { state } from './appState'
@@ -18,7 +18,8 @@ function createWindow(): BrowserWindow {
     title: '阿卷库存',
     // macOS 保留交通灯并内嵌到内容区；Windows 使用系统原生标题栏按钮。
     ...(isMac ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 16, y: 18 } } : {}),
-    backgroundColor: '#f6f7f9',
+    // 与 tokens.css 的 --color-bg 一致，避免启动白闪 / 黑闪
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#1b1916' : '#f7f4ee',
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,

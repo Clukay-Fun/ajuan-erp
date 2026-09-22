@@ -3,6 +3,7 @@ import type { AppInfo } from '@shared/ipc'
 import { PageHeader } from '@/components/PageHeader'
 import { ChannelSettings } from '@/features/settings/ChannelSettings'
 import { BackupSettings } from '@/features/settings/BackupSettings'
+import { AppearanceSettings } from '@/features/settings/AppearanceSettings'
 import { unwrap, errorMessage } from '@/lib/api'
 import styles from './SettingsPage.module.css'
 
@@ -18,7 +19,8 @@ export function SettingsPage(): ReactElement {
 
   return (
     <>
-      <PageHeader title="设置" subtitle="销售渠道、数据备份与应用信息" />
+      <PageHeader title="设置" subtitle="外观、销售渠道、数据备份与应用信息" />
+      <AppearanceSettings />
       <ChannelSettings />
       <BackupSettings />
       <section className={styles.card}>

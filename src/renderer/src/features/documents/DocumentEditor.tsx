@@ -14,6 +14,7 @@ import { useNav } from '@/app/navigation'
 import table from '@/components/Table.module.css'
 import styles from './DocumentEditor.module.css'
 import { AttachmentPanel } from '@/features/attachments/AttachmentPanel'
+import { SkeletonCard } from '@/components/Skeleton'
 
 interface Props {
   mode: { view: 'new'; type: DocumentType } | { view: 'edit'; id: number }
@@ -169,7 +170,7 @@ export function DocumentEditor({ mode }: Props): ReactElement {
     navigate('documents', existing ? { documents: { view: 'detail', id: existing.id } } : { documents: { view: 'list' } })
 
   if (loadError) return <p className={styles.formError}>读取失败：{loadError}</p>
-  if (!product || !stock) return <p className={styles.muted}>加载中…</p>
+  if (!product || !stock) return <><SkeletonCard lines={3} style={{ marginBottom: 16 }} /><SkeletonCard lines={2} /></>
 
   const label = TYPE_LABEL[type]
   const updateLine = (key: number, patch: Partial<Line>): void =>

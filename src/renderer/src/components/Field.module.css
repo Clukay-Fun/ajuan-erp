@@ -16,9 +16,15 @@
   background: var(--color-surface);
   overflow: hidden;
 }
+.control {
+  transition: border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
+}
 .control:focus-within {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-soft);
+  box-shadow: 0 0 0 3px var(--color-ring);
+}
+.control:has(.input:read-only) {
+  background: var(--color-inset);
 }
 .invalid {
   border-color: var(--color-danger);
@@ -39,7 +45,7 @@
 .suffix {
   padding: 0 10px;
   color: var(--color-text-muted);
-  background: var(--color-bg);
+  background: var(--color-inset);
   height: 100%;
   display: flex;
   align-items: center;

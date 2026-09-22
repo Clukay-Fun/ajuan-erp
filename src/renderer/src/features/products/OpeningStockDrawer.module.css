@@ -1,8 +1,8 @@
 .notice {
   padding: 10px 12px;
   border-radius: var(--radius-sm);
-  background: #fff7e6;
-  color: #8a5a00;
+  background: var(--color-warning-soft);
+  color: var(--color-warning-soft-text);
   font-size: 13px;
   line-height: 1.5;
 }

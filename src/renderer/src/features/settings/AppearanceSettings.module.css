@@ -1,0 +1,8 @@
+.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-5) var(--space-6); margin-bottom: var(--space-4); }
+.title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+.hint { color: var(--color-text-muted); font-size: 13px; margin-bottom: var(--space-4); }
+.group { display: inline-flex; padding: 3px; gap: 2px; background: var(--color-sidebar); border-radius: var(--radius-md); }
+.option { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; padding: 6px 14px; border-radius: 7px; cursor: pointer; color: var(--color-text-secondary); font-size: 13px; transition: background var(--dur-fast) ease, color var(--dur-fast) ease, transform var(--dur-fast) var(--ease-out); }
+.option:hover { color: var(--color-text); }
+.option:active { transform: scale(0.97); }
+.option[aria-checked='true'] { background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-sm); font-weight: 500; }

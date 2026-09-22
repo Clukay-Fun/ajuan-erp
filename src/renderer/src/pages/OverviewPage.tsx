@@ -9,6 +9,7 @@ import { unwrap, errorMessage } from '@/lib/api'
 import { formatCents, formatQty } from '@/lib/format'
 import { useNav } from '@/app/navigation'
 import { TrendChart } from '@/features/overview/TrendChart'
+import { SkeletonCard } from '@/components/Skeleton'
 import styles from './OverviewPage.module.css'
 
 export function OverviewPage(): ReactElement {
@@ -37,7 +38,14 @@ export function OverviewPage(): ReactElement {
   )
 
   if (error) return <><PageHeader title="概览" subtitle={today} /><p className={styles.error}>读取失败：{error}</p></>
-  if (!data) return <><PageHeader title="概览" subtitle={today} /><p className={styles.muted}>加载中…</p></>
+  if (!data)
+    return (
+      <>
+        <PageHeader title="概览" subtitle={today} actions={actions} />
+        <div className={styles.kpis}>{[0, 1, 2, 3].map((i) => <SkeletonCard key={i} lines={1} />)}</div>
+        <div className={styles.row}><SkeletonCard lines={5} /><SkeletonCard lines={5} /></div>
+      </>
+    )
 
   const { product, stock, today: t, lowStock, hasOpening } = data
   const unit = product.unit

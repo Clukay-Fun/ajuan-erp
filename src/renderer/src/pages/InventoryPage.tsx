@@ -8,6 +8,7 @@ import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
 import { useToast } from '@/components/Toast'
 import { ImportDialog } from '@/features/csv/ImportDialog'
+import { SkeletonTable } from '@/components/Skeleton'
 import { unwrap, errorMessage } from '@/lib/api'
 import { formatCents, formatOccurred, formatQty, shiftDate, signedQty, todayString } from '@/lib/format'
 import { useNav } from '@/app/navigation'
@@ -108,6 +109,7 @@ export function InventoryPage(): ReactElement {
       </div>
 
       {error && <p style={{ color: 'var(--color-danger)' }}>读取失败：{error}</p>}
+      {!data && !error && <SkeletonTable cols={8} />}
       {data && data.total === 0 && <EmptyState icon={ArrowLeftRight} title="没有符合条件的流水" description="调整筛选条件，或先确认一张入库 / 出库单。" />}
       {data && data.total > 0 && (
         <>

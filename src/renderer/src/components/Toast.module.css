@@ -13,13 +13,24 @@
   padding: 10px 16px;
   border-radius: var(--radius-md);
   background: var(--color-text);
-  color: #fff;
+  color: var(--color-bg);
   box-shadow: var(--shadow-md);
   font-size: 13px;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity var(--dur-slow) var(--ease-out), transform var(--dur-slow) var(--ease-out);
+}
+@starting-style {
+  .toast {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
 }
 .error {
   background: var(--color-danger);
+  color: #fff;
 }
 .success {
-  background: var(--color-success);
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
 }

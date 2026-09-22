@@ -1,8 +1,15 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(16, 24, 40, 0.35);
+  background: rgba(20, 16, 10, 0.4);
   z-index: 40;
+  opacity: 1;
+  transition: opacity var(--dur-slow) ease;
+}
+@starting-style {
+  .backdrop {
+    opacity: 0;
+  }
 }
 .panel {
   position: fixed;
@@ -12,10 +19,17 @@
   width: 440px;
   max-width: 100vw;
   background: var(--color-surface);
-  box-shadow: -8px 0 32px rgba(16, 24, 40, 0.15);
+  box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
   z-index: 41;
+  transform: translateX(0);
+  transition: transform var(--dur-slow) var(--ease-drawer);
+}
+@starting-style {
+  .panel {
+    transform: translateX(24px);
+  }
 }
 .header {
   display: flex;
@@ -37,8 +51,11 @@
   border-radius: var(--radius-sm);
   display: flex;
 }
+.close {
+  transition: background var(--dur-fast) ease, color var(--dur-fast) ease;
+}
 .close:hover {
-  background: var(--color-bg);
+  background: var(--color-inset);
   color: var(--color-text);
 }
 .body {

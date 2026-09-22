@@ -1,5 +1,6 @@
 import type { ReactElement, ReactNode } from 'react'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
+import { useFocusTrap } from '@/lib/useFocusTrap'
 import { Button } from './Button'
 import styles from './ConfirmDialog.module.css'
 
@@ -17,6 +18,8 @@ interface Props {
 }
 
 export function ConfirmDialog({ open, title, description, confirmText = '确认', danger, busy, disabled, onConfirm, onCancel, children }: Props): ReactElement | null {
+  const ref = useRef<HTMLDivElement>(null)
+  useFocusTrap(ref, open)
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent): void => {
@@ -28,7 +31,7 @@ export function ConfirmDialog({ open, title, description, confirmText = '确认'
   if (!open) return null
   return (
     <div className={styles.backdrop} onClick={onCancel}>
-      <div className={styles.dialog} role="alertdialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
+      <div ref={ref} className={styles.dialog} role="alertdialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <div className={styles.title}>{title}</div>
         {description && <div className={styles.desc}>{description}</div>}
         {children}

@@ -24,7 +24,10 @@ export function Shell({ route, onNavigate, children }: ShellProps): ReactElement
   return (
     <div className={styles.shell}>
       <aside className={styles.sidebar}>
-        <div className={`${styles.brand} ${isMac ? styles.brandMac : ''}`}>阿卷库存</div>
+        <div className={`${styles.brand} ${isMac ? styles.brandMac : ''}`}>
+          <span className={styles.brandMark} aria-hidden />
+          阿卷库存
+        </div>
         <nav className={styles.nav} aria-label="主导航">
           {PRIMARY_ROUTES.map((def) => (
             <NavItem key={def.key} def={def} active={route === def.key} onClick={() => onNavigate(def.key)} />
@@ -35,7 +38,9 @@ export function Shell({ route, onNavigate, children }: ShellProps): ReactElement
       </aside>
       <div className={styles.main}>
         <div className={styles.titlebar} />
-        <main className={styles.content}>{children}</main>
+        <main className={styles.content}>
+          <div className={styles.contentInner}>{children}</div>
+        </main>
       </div>
     </div>
   )

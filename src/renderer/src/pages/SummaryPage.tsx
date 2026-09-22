@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/PageHeader'
 import { EmptyState } from '@/components/EmptyState'
 import { Button } from '@/components/Button'
 import { useToast } from '@/components/Toast'
+import { SkeletonCard } from '@/components/Skeleton'
 import { unwrap, errorMessage } from '@/lib/api'
 import { formatCents, formatQty, shiftDate, todayString } from '@/lib/format'
 import table from '@/components/Table.module.css'
@@ -80,6 +81,7 @@ export function SummaryPage(): ReactElement {
       </div>
 
       {error && <p className={styles.error}>{error}</p>}
+      {!data && !error && <div className={styles.cards}>{[0, 1, 2].map((i) => <SkeletonCard key={i} lines={1} />)}</div>}
       {data && (
         <>
           <div className={styles.cards}>
