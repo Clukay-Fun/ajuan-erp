@@ -1,36 +1,18 @@
 .filters {
   display: flex;
-  gap: var(--space-4);
+  gap: var(--space-5);
   margin-bottom: var(--space-4);
   flex-wrap: wrap;
+  align-items: center;
 }
-.tabs {
-  display: inline-flex;
-  padding: 3px;
-  gap: 2px;
-  background: var(--color-sidebar);
-  border-radius: var(--radius-md);
+.filterGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
-.tab {
-  border: 0;
-  background: transparent;
-  padding: 5px 12px;
-  border-radius: 7px;
-  cursor: pointer;
-  color: var(--color-text-secondary);
+.filterLabel {
   font-size: 13px;
-  transition:
-    background var(--dur-fast) ease,
-    color var(--dur-fast) ease;
-}
-.tab:hover {
-  color: var(--color-text);
-}
-.tab[aria-selected='true'] {
-  background: var(--color-surface);
-  color: var(--color-text);
-  box-shadow: var(--shadow-sm);
-  font-weight: 500;
+  color: var(--color-text-secondary);
 }
 .error {
   color: var(--color-danger);

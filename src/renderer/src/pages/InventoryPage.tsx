@@ -1,9 +1,9 @@
 import type { ReactElement } from 'react'
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeftRight, ChevronLeft, ChevronRight, Download, Upload } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Download, Upload } from 'lucide-react'
 import type { MovementKind, MovementRow, Page, SalesChannel } from '@shared/types'
 import { PageHeader } from '@/components/PageHeader'
-import { EmptyState } from '@/components/EmptyState'
+import { TableEmpty } from '@/components/TableEmpty'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
 import { useToast } from '@/components/Toast'
@@ -172,14 +172,7 @@ export function InventoryPage(): ReactElement {
 
       {error && <p style={{ color: 'var(--color-danger)' }}>读取失败：{error}</p>}
       {!data && !error && <SkeletonTable cols={8} />}
-      {data && data.total === 0 && (
-        <EmptyState
-          icon={ArrowLeftRight}
-          title="没有符合条件的流水"
-          description="调整筛选条件，或先确认一张入库 / 出库单。"
-        />
-      )}
-      {data && data.total > 0 && (
+      {data && (
         <>
           <div className={table.wrap}>
             <table className={`${table.table} ${table.clickable}`}>
@@ -196,6 +189,13 @@ export function InventoryPage(): ReactElement {
                 </tr>
               </thead>
               <tbody>
+                {data.total === 0 && (
+                  <TableEmpty
+                    cols={8}
+                    title="没有符合条件的流水"
+                    description="调整筛选条件，或先确认一张入库 / 出库单"
+                  />
+                )}
                 {data.rows.map((m) => (
                   <tr
                     key={m.id}
@@ -226,22 +226,24 @@ export function InventoryPage(): ReactElement {
               </tbody>
             </table>
           </div>
-          <div className={f.pager}>
-            <Button variant="ghost" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} aria-label="上一页">
-              <ChevronLeft size={16} />
-            </Button>
-            <span>
-              {page} / {totalPages}
-            </span>
-            <Button
-              variant="ghost"
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => p + 1)}
-              aria-label="下一页"
-            >
-              <ChevronRight size={16} />
-            </Button>
-          </div>
+          {totalPages > 1 && (
+            <div className={f.pager}>
+              <Button variant="ghost" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} aria-label="上一页">
+                <ChevronLeft size={16} />
+              </Button>
+              <span>
+                {page} / {totalPages}
+              </span>
+              <Button
+                variant="ghost"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+                aria-label="下一页"
+              >
+                <ChevronRight size={16} />
+              </Button>
+            </div>
+          )}
         </>
       )}
       <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} onImported={() => void load()} />

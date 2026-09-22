@@ -1,9 +1,22 @@
 .wrap {
+  display: flex;
+  flex-direction: column;
+}
+.fill {
+  flex: 1;
+  min-height: 180px;
+}
+/* 绘图区：svg 绝对定位，不参与布局，高度只由容器决定，避免测量反馈 */
+.plot {
   position: relative;
+  flex: 1;
+  min-height: 160px;
+}
+.plot .svg {
+  position: absolute;
+  inset: 0;
 }
 .svg {
-  width: 100%;
-  height: auto;
   display: block;
 }
 .grid {
@@ -23,7 +36,7 @@
 }
 .empty {
   position: absolute;
-  inset: 0 0 24px;
+  inset: 0 0 20px;
   display: flex;
   align-items: center;
   justify-content: center;

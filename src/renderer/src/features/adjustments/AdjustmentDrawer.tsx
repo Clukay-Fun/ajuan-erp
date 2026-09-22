@@ -8,6 +8,7 @@ import { useToast } from '@/components/Toast'
 import { unwrap, errorMessage } from '@/lib/api'
 import { formatCents, formatQty, parseCents, todayString } from '@/lib/format'
 import styles from './AdjustmentDrawer.module.css'
+import seg from '@/components/Segmented.module.css'
 
 interface Props {
   open: boolean
@@ -101,12 +102,12 @@ export function AdjustmentDrawer({ open, onClose, onCreated }: Props): ReactElem
     >
       <p className={styles.notice}>调整会直接生效并写入流水，用于盘点差异和期初纠错。错了可以作废冲回，不能修改。</p>
       <form id="adjust-form" onSubmit={handleSubmit} style={{ display: 'contents' }}>
-        <div className={styles.segment} role="radiogroup" aria-label="调整方向">
+        <div className={`${seg.group} ${seg.grow}`} role="radiogroup" aria-label="调整方向">
           <button
             type="button"
             role="radio"
             aria-checked={direction === 'decrease'}
-            className={styles.seg}
+            className={seg.item}
             onClick={() => setDirection('decrease')}
           >
             盘亏减少
@@ -115,7 +116,7 @@ export function AdjustmentDrawer({ open, onClose, onCreated }: Props): ReactElem
             type="button"
             role="radio"
             aria-checked={direction === 'increase'}
-            className={styles.seg}
+            className={seg.item}
             onClick={() => setDirection('increase')}
           >
             盘盈增加

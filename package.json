@@ -1,7 +1,7 @@
 {
   "name": "ajuan-inventory",
   "version": "0.2.0",
-  "description": "阿卷库存 —— 本地单用户成品库存管理桌面应用",
+  "description": "阿卷 ERP —— 本地单用户成品库存管理桌面应用",
   "author": "Clukay",
   "private": true,
   "type": "module",
@@ -24,7 +24,7 @@
   },
   "build": {
     "appId": "com.clukay.ajuan-inventory",
-    "productName": "阿卷库存",
+    "productName": "阿卷 ERP",
     "asar": true,
     "directories": {
       "output": "release",

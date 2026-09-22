@@ -1,22 +1,22 @@
+/* 大型空状态：只用于首次初始化等页面本身没有结构可展示的情况 */
 .empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2);
-  padding: 64px var(--space-6);
+  gap: 6px;
+  min-height: 220px;
+  padding: var(--space-6);
   border: 1px dashed var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   color: var(--color-text-secondary);
   text-align: center;
 }
-
 .icon {
   color: var(--color-text-muted);
-  margin-bottom: var(--space-2);
+  margin-bottom: 2px;
 }
-
 .title {
   font-size: 15px;
   font-weight: 500;

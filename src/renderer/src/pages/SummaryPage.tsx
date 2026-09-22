@@ -1,9 +1,11 @@
 import type { ReactElement } from 'react'
 import { useCallback, useEffect, useState } from 'react'
-import { BarChart3, Download } from 'lucide-react'
+import { Download } from 'lucide-react'
 import type { Summary } from '@shared/types'
 import { PageHeader } from '@/components/PageHeader'
-import { EmptyState } from '@/components/EmptyState'
+import { TableEmpty } from '@/components/TableEmpty'
+import { TrendChart } from '@/features/overview/TrendChart'
+import seg from '@/components/Segmented.module.css'
 import { Button } from '@/components/Button'
 import { useToast } from '@/components/Toast'
 import { SkeletonCard } from '@/components/Skeleton'
@@ -59,6 +61,19 @@ export function SummaryPage(): ReactElement {
     setRange((r) => ({ ...r, ...patch }))
   }
   const gross = data ? data.outAmountCents - data.outCostCents : 0
+  // 图表按区间逐日补齐；超过 62 天只画最后 62 天，避免柱子挤成线
+  const chartDays = (() => {
+    if (!data) return []
+    const byDate = new Map(data.daily.map((d) => [d.date, d]))
+    const days: typeof data.daily = []
+    let from = data.range.from
+    const span = Math.round((Date.parse(data.range.to) - Date.parse(from)) / 86400000)
+    if (span > 61) from = shiftDate(data.range.to, -61)
+    for (let d = from; d <= data.range.to; d = shiftDate(d, 1)) {
+      days.push(byDate.get(d) ?? { date: d, inQty: 0, inAmountCents: 0, outQty: 0, outAmountCents: 0, outCostCents: 0 })
+    }
+    return days
+  })()
 
   async function exportCsv(): Promise<void> {
     setExporting(true)
@@ -97,7 +112,7 @@ export function SummaryPage(): ReactElement {
           value={range.to}
           onChange={(e) => custom({ to: e.target.value })}
         />
-        <div className={styles.presets}>
+        <div className={seg.group} role="group" aria-label="快捷区间">
           {(
             [
               ['today', '今天'],
@@ -106,7 +121,7 @@ export function SummaryPage(): ReactElement {
               ['month', '本月']
             ] as const
           ).map(([k, label]) => (
-            <button key={k} type="button" className={styles.preset} aria-pressed={preset === k} onClick={() => pick(k)}>
+            <button key={k} type="button" className={seg.item} aria-pressed={preset === k} onClick={() => pick(k)}>
               {label}
             </button>
           ))}
@@ -148,42 +163,56 @@ export function SummaryPage(): ReactElement {
           </div>
 
           <div className={styles.sectionTitle}>逐日明细</div>
-          {data.daily.length === 0 ? (
-            <EmptyState icon={BarChart3} title="该区间没有已生效的出入库" />
-          ) : (
-            <div className={table.wrap}>
-              <table className={table.table}>
-                <thead>
-                  <tr>
-                    <th>日期</th>
-                    <th className={table.num}>入库数量</th>
-                    <th className={table.num}>入库金额</th>
-                    <th className={table.num}>出库数量</th>
-                    <th className={table.num}>出库金额</th>
+          <div className={styles.chart}>
+            <TrendChart data={chartDays} />
+          </div>
+          <div className={table.wrap}>
+            <table className={table.table}>
+              <thead>
+                <tr>
+                  <th>日期</th>
+                  <th className={table.num}>入库数量</th>
+                  <th className={table.num}>入库金额</th>
+                  <th className={table.num}>出库数量</th>
+                  <th className={table.num}>出库金额</th>
+                  <th className={table.num}>毛利</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.daily.length === 0 && (
+                  <TableEmpty
+                    cols={6}
+                    title="该区间没有已生效的出入库"
+                    description="确认入库 / 出库单后，这里按天汇总"
+                  />
+                )}
+                {data.daily.map((d) => (
+                  <tr key={d.date}>
+                    <td className={table.mono}>{d.date}</td>
+                    <td className={table.num}>
+                      {d.inQty ? formatQty(d.inQty) : <span className={table.muted}>—</span>}
+                    </td>
+                    <td className={table.num}>
+                      {d.inQty ? `¥${formatCents(d.inAmountCents)}` : <span className={table.muted}>—</span>}
+                    </td>
+                    <td className={table.num}>
+                      {d.outQty ? formatQty(d.outQty) : <span className={table.muted}>—</span>}
+                    </td>
+                    <td className={table.num}>
+                      {d.outQty ? `¥${formatCents(d.outAmountCents)}` : <span className={table.muted}>—</span>}
+                    </td>
+                    <td className={table.num}>
+                      {d.outQty ? (
+                        `¥${formatCents(d.outAmountCents - d.outCostCents)}`
+                      ) : (
+                        <span className={table.muted}>—</span>
+                      )}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {data.daily.map((d) => (
-                    <tr key={d.date}>
-                      <td className={table.mono}>{d.date}</td>
-                      <td className={table.num}>
-                        {d.inQty ? formatQty(d.inQty) : <span className={table.muted}>—</span>}
-                      </td>
-                      <td className={table.num}>
-                        {d.inQty ? `¥${formatCents(d.inAmountCents)}` : <span className={table.muted}>—</span>}
-                      </td>
-                      <td className={table.num}>
-                        {d.outQty ? formatQty(d.outQty) : <span className={table.muted}>—</span>}
-                      </td>
-                      <td className={table.num}>
-                        {d.outQty ? `¥${formatCents(d.outAmountCents)}` : <span className={table.muted}>—</span>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
     </>

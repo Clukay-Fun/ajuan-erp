@@ -1,16 +1,17 @@
 import type { ReactElement } from 'react'
 import { useCallback, useEffect, useState } from 'react'
-import { FileText, PackagePlus, PackageMinus, Upload, Scale } from 'lucide-react'
+import { PackagePlus, PackageMinus, Upload, Scale } from 'lucide-react'
 import type { DocumentStatus, DocumentSummary, DocumentType } from '@shared/types'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
-import { EmptyState } from '@/components/EmptyState'
 import { StatusBadge, TypeBadge } from '@/components/Badge'
 import { unwrap, errorMessage } from '@/lib/api'
 import { formatCents, formatQty } from '@/lib/format'
 import { useNav } from '@/app/navigation'
 import table from '@/components/Table.module.css'
 import styles from './DocumentList.module.css'
+import seg from '@/components/Segmented.module.css'
+import { TableEmpty } from '@/components/TableEmpty'
 import { ImportDialog } from '@/features/csv/ImportDialog'
 import { AdjustmentDrawer } from '@/features/adjustments/AdjustmentDrawer'
 import { SkeletonTable } from '@/components/Skeleton'
@@ -26,7 +27,7 @@ const TYPE_TABS: { key: TypeFilter; label: string }[] = [
   { key: 'opening', label: '期初' }
 ]
 const STATUS_TABS: { key: StatusFilter; label: string }[] = [
-  { key: 'all', label: '全部状态' },
+  { key: 'all', label: '全部' },
   { key: 'draft', label: '草稿' },
   { key: 'confirmed', label: '已生效' },
   { key: 'voided', label: '已作废' }
@@ -74,6 +75,7 @@ export function DocumentList(): ReactElement {
             <Button onClick={() => setAdjustOpen(true)}>
               <Scale size={16} /> 库存调整
             </Button>
+            <span style={{ width: 12 }} aria-hidden />
             <Button
               variant="primary"
               onClick={() => navigate('documents', { documents: { view: 'new', type: 'inbound' } })}
@@ -90,46 +92,45 @@ export function DocumentList(): ReactElement {
         }
       />
       <div className={styles.filters}>
-        <div className={styles.tabs} role="tablist">
-          {TYPE_TABS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              role="tab"
-              aria-selected={type === t.key}
-              className={styles.tab}
-              onClick={() => setType(t.key)}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div className={styles.filterGroup}>
+          <span className={styles.filterLabel}>类型</span>
+          <div className={seg.group} role="tablist">
+            {TYPE_TABS.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                role="tab"
+                aria-selected={type === t.key}
+                className={seg.item}
+                onClick={() => setType(t.key)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className={styles.tabs} role="tablist">
-          {STATUS_TABS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              role="tab"
-              aria-selected={status === t.key}
-              className={styles.tab}
-              onClick={() => setStatus(t.key)}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div className={styles.filterGroup}>
+          <span className={styles.filterLabel}>状态</span>
+          <div className={seg.group} role="tablist">
+            {STATUS_TABS.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                role="tab"
+                aria-selected={status === t.key}
+                className={seg.item}
+                onClick={() => setStatus(t.key)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       {error && <p className={styles.error}>读取失败：{error}</p>}
       {!docs && !error && <SkeletonTable cols={8} />}
-      {docs && docs.length === 0 && (
-        <EmptyState
-          icon={FileText}
-          title="没有符合条件的单据"
-          description="点击右上角「入库」或「出库」新建一张单据。"
-        />
-      )}
-      {docs && docs.length > 0 && (
+      {docs && (
         <div className={table.wrap}>
           <table className={`${table.table} ${table.clickable}`}>
             <thead>
@@ -145,6 +146,13 @@ export function DocumentList(): ReactElement {
               </tr>
             </thead>
             <tbody>
+              {docs.length === 0 && (
+                <TableEmpty
+                  cols={8}
+                  title="没有符合条件的单据"
+                  description="点击右上角「入库」或「出库」新建一张单据"
+                />
+              )}
               {docs.map((d) => (
                 <tr key={d.id} onClick={() => navigate('documents', { documents: { view: 'detail', id: d.id } })}>
                   <td>{d.docDate}</td>

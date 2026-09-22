@@ -4,7 +4,6 @@ import { PackagePlus, Scale } from 'lucide-react'
 import type { DocumentSummary, Product, StockLevel } from '@shared/types'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
-import { EmptyState } from '@/components/EmptyState'
 import { useToast } from '@/components/Toast'
 import { unwrap, errorMessage } from '@/lib/api'
 import { formatCents, formatQty } from '@/lib/format'
@@ -86,13 +85,12 @@ export function ProductsPage(): ReactElement {
 
       <section className={styles.card}>
         <div className={styles.profile}>
-          <ProductImage product={product} onChanged={setProduct} />
+          <ProductImage product={product} onChanged={setProduct} size={152} />
           <div>
             <div className={styles.name}>{product.name}</div>
+            <div className={`${styles.code} selectable`}>{product.code}</div>
             <dl className={`${styles.meta} selectable`}>
-              <dt>商品编码</dt>
-              <dd>{product.code}</dd>
-              <dt>SKU 编码</dt>
+              <dt>SKU</dt>
               <dd>{product.defaultSku.code}</dd>
               <dt>单位</dt>
               <dd>{product.unit}</dd>
@@ -155,11 +153,11 @@ export function ProductsPage(): ReactElement {
             </div>
           </div>
         ) : (
-          <EmptyState
-            icon={PackagePlus}
-            title="还没有期初库存"
-            description="首次使用请录入当前实际库存数量与单位成本，作为库存账的起点。"
-          />
+          <div className={styles.openingEmpty}>
+            <strong>还没有期初库存</strong>
+            <span>首次使用时，请录入当前实际库存数量和单位成本，作为库存账的起点。</span>
+            <span className={styles.openingState}>当前状态：未初始化</span>
+          </div>
         )}
       </section>
 

@@ -131,6 +131,8 @@ export interface DailyFlow {
   inAmountCents: number
   outQty: number
   outAmountCents: number
+  /** 出库成本（成本快照），分 */
+  outCostCents: number
 }
 
 export interface Overview {

@@ -25,13 +25,15 @@ interface DailyRow {
   type: 'inbound' | 'outbound'
   qty: number
   amount: number
+  cost_e4: number | bigint | null
 }
 
 /** 按已生效单据的单据日期汇总（作废单不计）。 */
 function dailyFlows(db: Db, from: string, to: string): Map<string, DailyFlow> {
   const rows = db
     .prepare(
-      `SELECT d.doc_date AS date, d.type, SUM(i.quantity) AS qty, SUM(i.quantity * i.unit_price_cents) AS amount
+      `SELECT d.doc_date AS date, d.type, SUM(i.quantity) AS qty, SUM(i.quantity * i.unit_price_cents) AS amount,
+              SUM(i.quantity * COALESCE(i.cost_snapshot_e4, 0)) AS cost_e4
        FROM documents d JOIN document_items i ON i.document_id = d.id
        WHERE d.status = 'confirmed' AND d.type IN ('inbound', 'outbound') AND d.doc_date BETWEEN ? AND ?
        GROUP BY d.doc_date, d.type`
@@ -39,13 +41,21 @@ function dailyFlows(db: Db, from: string, to: string): Map<string, DailyFlow> {
     .all(from, to) as unknown as DailyRow[]
   const map = new Map<string, DailyFlow>()
   for (const r of rows) {
-    const day = map.get(r.date) ?? { date: r.date, inQty: 0, inAmountCents: 0, outQty: 0, outAmountCents: 0 }
+    const day = map.get(r.date) ?? {
+      date: r.date,
+      inQty: 0,
+      inAmountCents: 0,
+      outQty: 0,
+      outAmountCents: 0,
+      outCostCents: 0
+    }
     if (r.type === 'inbound') {
       day.inQty += Number(r.qty)
       day.inAmountCents += Number(r.amount)
     } else {
       day.outQty += Number(r.qty)
       day.outAmountCents += Number(r.amount)
+      day.outCostCents += e4ToCents(BigInt(r.cost_e4 ?? 0))
     }
     map.set(r.date, day)
   }
@@ -60,7 +70,7 @@ export function getOverview(db: Db, today = localToday()): Overview {
   const trend: DailyFlow[] = []
   for (let i = 0; i < 14; i++) {
     const date = shiftDate(from, i)
-    trend.push(flows.get(date) ?? { date, inQty: 0, inAmountCents: 0, outQty: 0, outAmountCents: 0 })
+    trend.push(flows.get(date) ?? { date, inQty: 0, inAmountCents: 0, outQty: 0, outAmountCents: 0, outCostCents: 0 })
   }
   const t = flows.get(today)
   const hasOpening = getOpening(db, product.defaultSku.id) !== null

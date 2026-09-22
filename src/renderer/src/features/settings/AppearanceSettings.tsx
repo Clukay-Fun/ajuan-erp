@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Monitor, Sun, Moon } from 'lucide-react'
 import { applyTheme, readThemePreference, type ThemePreference } from '@/lib/theme'
 import styles from './AppearanceSettings.module.css'
+import seg from '@/components/Segmented.module.css'
 
 const OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
   { value: 'system', label: '跟随系统', icon: Monitor },
@@ -16,14 +17,14 @@ export function AppearanceSettings(): ReactElement {
     <section className={styles.card}>
       <h2 className={styles.title}>外观</h2>
       <p className={styles.hint}>默认跟随系统的浅色 / 深色设置。</p>
-      <div className={styles.group} role="radiogroup" aria-label="外观">
+      <div className={seg.group} role="radiogroup" aria-label="外观">
         {OPTIONS.map(({ value, label, icon: Icon }) => (
           <button
             key={value}
             type="button"
             role="radio"
             aria-checked={pref === value}
-            className={styles.option}
+            className={seg.item}
             onClick={() => {
               setPref(value)
               applyTheme(value)

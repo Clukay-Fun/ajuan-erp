@@ -1,5 +1,6 @@
 import { app, BrowserWindow, nativeTheme, net, protocol, shell } from 'electron'
 import { join } from 'node:path'
+import { existsSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { state } from './appState'
 import { registerIpc } from './ipc'
@@ -18,11 +19,11 @@ function createWindow(): BrowserWindow {
     minWidth: 960,
     minHeight: 640,
     show: false,
-    title: '阿卷库存',
+    title: '阿卷 ERP',
     // macOS 保留交通灯并内嵌到内容区；Windows 使用系统原生标题栏按钮。
     ...(isMac ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 16, y: 18 } } : {}),
     // 与 tokens.css 的 --color-bg 一致，避免启动白闪 / 黑闪
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#1b1916' : '#f7f4ee',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#1b1916' : '#f8f5ef',
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
@@ -77,7 +78,7 @@ function registerAttachmentProtocol(): void {
   })
 }
 
-app.setName('阿卷库存')
+app.setName('阿卷 ERP')
 
 // 单实例：两个进程同时写同一个 SQLite 没有意义，第二个实例把已有窗口带到前台后退出。
 if (!app.requestSingleInstanceLock()) {
@@ -94,7 +95,10 @@ if (!app.requestSingleInstanceLock()) {
 
 app.whenReady().then(() => {
   // 开发模式下没有打包图标，手动给 Dock 设一个；打包后由 electron-builder 的 icns / ico 负责
-  if (isDev && isMac) app.dock?.setIcon(join(app.getAppPath(), 'build/icon.png'))
+  if (isDev && isMac) {
+    const icon = join(app.getAppPath(), 'build/icon.png')
+    if (existsSync(icon)) app.dock?.setIcon(icon)
+  }
   state.open()
   registerAttachmentProtocol()
   registerIpc()

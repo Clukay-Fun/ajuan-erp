@@ -19,8 +19,8 @@ function stamp(): string {
 export async function createBackupInteractive(): Promise<string | null> {
   const r = await dialog.showSaveDialog(owner()!, {
     title: '保存备份',
-    defaultPath: join(app.getPath('documents'), `阿卷库存备份-${stamp()}.zip`),
-    filters: [{ name: '阿卷库存备份', extensions: ['zip'] }]
+    defaultPath: join(app.getPath('documents'), `阿卷 ERP备份-${stamp()}.zip`),
+    filters: [{ name: '阿卷 ERP备份', extensions: ['zip'] }]
   })
   if (r.canceled || !r.filePath) return null
   createBackup(state.db, { dbPath: state.dbPath, attachmentsDir: state.attachmentsDir }, app.getVersion(), r.filePath)
@@ -30,7 +30,7 @@ export async function createBackupInteractive(): Promise<string | null> {
 export async function pickBackupFile(): Promise<string | null> {
   const r = await dialog.showOpenDialog(owner()!, {
     title: '选择备份文件',
-    filters: [{ name: '阿卷库存备份', extensions: ['zip'] }],
+    filters: [{ name: '阿卷 ERP备份', extensions: ['zip'] }],
     properties: ['openFile']
   })
   return r.canceled || r.filePaths.length === 0 ? null : r.filePaths[0]

@@ -61,7 +61,7 @@ async function saveCsv(defaultName: string, content: string): Promise<string | n
 }
 
 export function saveTemplate(): Promise<string | null> {
-  return saveCsv('阿卷库存-导入模板.csv', CSV_BOM + buildTemplateCsv())
+  return saveCsv('阿卷 ERP-导入模板.csv', CSV_BOM + buildTemplateCsv())
 }
 
 export function exportMovements(db: Db, filter: MovementFilter): Promise<string | null> {

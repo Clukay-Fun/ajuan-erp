@@ -2,7 +2,6 @@ import type { ReactElement, ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import { unwrap } from '@/lib/api'
 import styles from './Shell.module.css'
-import logo from '@/assets/logo.png'
 import { PRIMARY_ROUTES, SETTINGS_ROUTE, type RouteDef, type RouteKey } from '@/app/routes'
 
 interface ShellProps {
@@ -45,10 +44,10 @@ export function Shell({ route, seq, onNavigate, children }: ShellProps): ReactEl
   }, [seq])
   return (
     <div className={styles.shell}>
-      <aside className={styles.sidebar}>
-        <div className={`${styles.brand} ${isMac ? styles.brandMac : ''}`}>
-          <img className={styles.brandMark} src={logo} alt="" draggable={false} />
-          阿卷库存
+      <aside className={`${styles.sidebar} ${isMac ? '' : styles.sidebarWin}`}>
+        <div className={styles.titlebarSpace} />
+        <div className={styles.brand}>
+          阿卷<em>ERP</em>
         </div>
         <nav className={styles.nav} aria-label="主导航">
           {PRIMARY_ROUTES.map((def) => (
@@ -64,7 +63,7 @@ export function Shell({ route, seq, onNavigate, children }: ShellProps): ReactEl
         <div className={styles.spacer} />
         <NavItem def={SETTINGS_ROUTE} active={route === 'settings'} onClick={() => onNavigate('settings')} />
       </aside>
-      <div className={styles.main}>
+      <div className={`${styles.main} ${isMac ? '' : styles.mainWin}`}>
         <div className={styles.titlebar} />
         <main className={styles.content}>
           <div className={styles.contentInner}>{children}</div>

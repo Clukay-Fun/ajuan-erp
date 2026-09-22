@@ -1,0 +1,47 @@
+/* 统一的分段控件：筛选 tab、外观切换、调整方向 */
+.group {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  background: var(--color-inset);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.grow {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+}
+.item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  white-space: nowrap;
+  transition:
+    background var(--dur-fast) ease,
+    color var(--dur-fast) ease,
+    transform var(--dur-fast) var(--ease-out);
+}
+.item:hover {
+  color: var(--color-text);
+}
+.item:active {
+  transform: scale(0.97);
+}
+.item[aria-selected='true'],
+.item[aria-checked='true'],
+.item[aria-pressed='true'] {
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(41, 33, 20, 0.08);
+}
