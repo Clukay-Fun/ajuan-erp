@@ -109,7 +109,19 @@ export function InventoryPage(): ReactElement {
 
   return (
     <>
-      <PageHeader title="库存流水" />
+      <PageHeader
+        title="库存流水"
+        actions={
+          <>
+            <Button onClick={() => setImportOpen(true)}>
+              <Upload size={16} /> 导入 CSV
+            </Button>
+            <Button onClick={exportCsv} disabled={exporting || !data || data.total === 0}>
+              <Download size={16} /> {exporting ? '导出中…' : '导出'}
+            </Button>
+          </>
+        }
+      />
       <div className={f.bar}>
         <Dropdown
           compact
@@ -147,15 +159,8 @@ export function InventoryPage(): ReactElement {
           value={docNo}
           onChange={(e) => resetPage(setDocNo)(e.target.value)}
         />
-        <div className={f.actions}>
-          {data && <span className={f.count}>共 {formatQty(data.total)} 条</span>}
-          <Button onClick={() => setImportOpen(true)}>
-            <Upload size={16} /> 导入 CSV
-          </Button>
-          <Button onClick={exportCsv} disabled={exporting || !data || data.total === 0}>
-            <Download size={16} /> {exporting ? '导出中…' : '导出'}
-          </Button>
-        </div>
+        <span className={f.spacer} />
+        {data && <span className={f.count}>共 {formatQty(data.total)} 条</span>}
       </div>
 
       {error && <p style={{ color: 'var(--color-danger)' }}>读取失败：{error}</p>}

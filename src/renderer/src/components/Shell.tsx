@@ -16,16 +16,16 @@ interface ShellProps {
 
 const isMac = navigator.platform.toUpperCase().includes('MAC')
 const WIDTH_KEY = 'ajuan.sidebarWidth'
-const MIN_EXPANDED = 176
+const MIN_EXPANDED = 150
 const MAX_WIDTH = 320
 const COLLAPSED = 64
-const DEFAULT_WIDTH = 224
+const DEFAULT_WIDTH = 168
 
 function readWidth(): number {
   try {
     const v = Number(localStorage.getItem(WIDTH_KEY))
     if (v === COLLAPSED) return v
-    if (v >= MIN_EXPANDED && v <= MAX_WIDTH) return v
+    if (v >= MIN_EXPANDED && v <= MAX_WIDTH && v !== 224) return v
   } catch {
     /* ignore */
   }

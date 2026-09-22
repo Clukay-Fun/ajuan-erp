@@ -89,7 +89,14 @@ export function SummaryPage(): ReactElement {
 
   return (
     <>
-      <PageHeader title="汇总" />
+      <PageHeader
+        title="汇总"
+        actions={
+          <Button onClick={exportCsv} disabled={exporting || !data || data.daily.length === 0}>
+            <Download size={16} /> {exporting ? '导出中…' : '导出 CSV'}
+          </Button>
+        }
+      />
       <div className={styles.range}>
         <input
           className={`${f.input} ${f.date}`}
@@ -117,11 +124,6 @@ export function SummaryPage(): ReactElement {
               {label}
             </button>
           ))}
-        </div>
-        <div className={styles.actions}>
-          <Button onClick={exportCsv} disabled={exporting || !data || data.daily.length === 0}>
-            <Download size={16} /> {exporting ? '导出中…' : '导出 CSV'}
-          </Button>
         </div>
       </div>
 

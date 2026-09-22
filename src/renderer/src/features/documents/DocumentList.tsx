@@ -64,7 +64,32 @@ export function DocumentList(): ReactElement {
 
   return (
     <>
-      <PageHeader title="单据" />
+      <PageHeader
+        title="单据"
+        actions={
+          <>
+            <Button onClick={() => setImportOpen(true)}>
+              <Upload size={16} /> 导入 CSV
+            </Button>
+            <Button onClick={() => setAdjustOpen(true)}>
+              <Scale size={16} /> 库存调整
+            </Button>
+            <span style={{ width: 8 }} aria-hidden />
+            <Button
+              variant="primary"
+              onClick={() => navigate('documents', { documents: { view: 'new', type: 'inbound' } })}
+            >
+              <PackagePlus size={16} /> 入库
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => navigate('documents', { documents: { view: 'new', type: 'outbound' } })}
+            >
+              <PackageMinus size={16} /> 出库
+            </Button>
+          </>
+        }
+      />
       <div className={styles.filters}>
         <div className={styles.filterGroup}>
           <div className={seg.group} role="tablist">
@@ -97,27 +122,6 @@ export function DocumentList(): ReactElement {
               </button>
             ))}
           </div>
-        </div>
-        <div className={styles.actions}>
-          <Button onClick={() => setImportOpen(true)}>
-            <Upload size={16} /> 导入 CSV
-          </Button>
-          <Button onClick={() => setAdjustOpen(true)}>
-            <Scale size={16} /> 库存调整
-          </Button>
-          <span style={{ width: 8 }} aria-hidden />
-          <Button
-            variant="primary"
-            onClick={() => navigate('documents', { documents: { view: 'new', type: 'inbound' } })}
-          >
-            <PackagePlus size={16} /> 入库
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() => navigate('documents', { documents: { view: 'new', type: 'outbound' } })}
-          >
-            <PackageMinus size={16} /> 出库
-          </Button>
         </div>
       </div>
 
