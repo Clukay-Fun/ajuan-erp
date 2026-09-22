@@ -93,6 +93,8 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 app.whenReady().then(() => {
+  // 开发模式下没有打包图标，手动给 Dock 设一个；打包后由 electron-builder 的 icns / ico 负责
+  if (isDev && isMac) app.dock?.setIcon(join(app.getAppPath(), 'build/icon.png'))
   state.open()
   registerAttachmentProtocol()
   registerIpc()
