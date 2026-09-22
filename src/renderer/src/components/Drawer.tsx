@@ -1,6 +1,7 @@
 import type { ReactElement, ReactNode } from 'react'
 import { useEffect, useRef } from 'react'
 import { useFocusTrap } from '@/lib/useFocusTrap'
+import { usePresence } from '@/lib/usePresence'
 import { X } from 'lucide-react'
 import styles from './Drawer.module.css'
 
@@ -14,6 +15,7 @@ interface DrawerProps {
 
 export function Drawer({ open, title, onClose, footer, children }: DrawerProps): ReactElement | null {
   const panelRef = useRef<HTMLElement>(null)
+  const { mounted, closing } = usePresence(open)
   useFocusTrap(panelRef, open)
   useEffect(() => {
     if (!open) return
@@ -24,11 +26,18 @@ export function Drawer({ open, title, onClose, footer, children }: DrawerProps):
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
-  if (!open) return null
+  if (!mounted) return null
   return (
     <>
-      <div className={styles.backdrop} onClick={onClose} />
-      <aside ref={panelRef} className={styles.panel} role="dialog" aria-modal="true" aria-label={title}>
+      <div className={styles.backdrop} data-closing={closing || undefined} onClick={onClose} />
+      <aside
+        ref={panelRef}
+        className={styles.panel}
+        data-closing={closing || undefined}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+      >
         <header className={styles.header}>
           <h2 className={styles.title}>{title}</h2>
           <button type="button" className={styles.close} onClick={onClose} aria-label="关闭">

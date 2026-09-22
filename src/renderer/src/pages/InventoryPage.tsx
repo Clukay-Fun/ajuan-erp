@@ -22,10 +22,10 @@ const KIND_LABEL: Record<MovementKind, string> = {
   adjustment: '调整',
   void: '作废冲回'
 }
-const KIND_TONE: Record<MovementKind, 'neutral' | 'info' | 'danger' | 'warning'> = {
+const KIND_TONE: Record<MovementKind, 'neutral' | 'in' | 'out' | 'warning'> = {
   opening: 'neutral',
-  inbound: 'info',
-  outbound: 'danger',
+  inbound: 'in',
+  outbound: 'out',
   adjustment: 'warning',
   void: 'neutral'
 }

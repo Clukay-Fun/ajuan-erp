@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useFocusTrap } from '@/lib/useFocusTrap'
+import { usePresence } from '@/lib/usePresence'
 import { X, FileUp, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react'
 import type { CsvImportPreview, CsvImportResult } from '@shared/types'
 import { Button } from '@/components/Button'
@@ -30,6 +31,7 @@ export function ImportDialog({ open, onClose, onImported }: Props): ReactElement
   const [ack, setAck] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const { mounted, closing } = usePresence(open)
   useFocusTrap(ref, open)
 
   useEffect(() => {
@@ -99,15 +101,16 @@ export function ImportDialog({ open, onClose, onImported }: Props): ReactElement
     }
   }
 
-  if (!open) return null
+  if (!mounted) return null
 
   const preview = phase.step === 'preview' || phase.step === 'committing' ? phase.preview : null
 
   return (
-    <div className={styles.backdrop} onClick={close}>
+    <div className={styles.backdrop} data-closing={closing || undefined} onClick={close}>
       <div
         ref={ref}
         className={styles.dialog}
+        data-closing={closing || undefined}
         role="dialog"
         aria-modal="true"
         aria-label="导入 CSV"

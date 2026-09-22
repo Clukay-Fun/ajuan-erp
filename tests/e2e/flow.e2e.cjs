@@ -82,12 +82,12 @@ module.exports = async () => {
   const settings = await t.ui(`
     await click('设置')
     setVal($('input[placeholder=新渠道名称]'), '小红书'); await click('添加', 300)
-    await click('深色', 100)
+    $$('[role=radio]').find(b => b.textContent.startsWith('深色')).click(); await sleep(100)
     return { channel: text().includes('小红书'), theme: document.documentElement.getAttribute('data-theme') }
   `)
   eq(settings, { channel: true, theme: 'dark' }, '渠道添加与主题切换')
   await t.shot('flow-settings-dark.png')
-  await t.ui(`await click('跟随系统', 100)`)
+  await t.ui(`$$('[role=radio]').find(b => b.textContent.startsWith('跟随系统')).click(); await sleep(100)`)
 
   // 快捷键：⌘/Ctrl+N 新建入库
   const isMac = process.platform === 'darwin'

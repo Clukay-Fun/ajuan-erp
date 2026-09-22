@@ -155,7 +155,10 @@ export function SummaryPage(): ReactElement {
             </div>
             <div className={styles.card}>
               <div className={styles.label}>出库毛利（售价 − 成本快照）</div>
-              <div className={styles.value} style={{ color: gross < 0 ? 'var(--color-danger)' : undefined }}>
+              <div
+                className={styles.value}
+                style={{ color: gross < 0 ? 'var(--color-danger)' : 'var(--chart-profit)' }}
+              >
                 ¥{formatCents(gross)}
               </div>
               <div className={styles.sub}>出库成本 ¥{formatCents(data.outCostCents)}</div>

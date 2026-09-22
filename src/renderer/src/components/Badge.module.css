@@ -16,6 +16,14 @@
   background: var(--color-info-soft);
   color: var(--color-info-soft-text);
 }
+.in {
+  background: var(--color-in-soft);
+  color: var(--color-in-soft-text);
+}
+.out {
+  background: var(--color-out-soft);
+  color: var(--color-out-soft-text);
+}
 .success {
   background: var(--color-success-soft);
   color: var(--color-success-soft-text);

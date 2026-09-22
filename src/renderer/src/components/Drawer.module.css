@@ -28,7 +28,7 @@
 }
 @starting-style {
   .panel {
-    transform: translateX(24px);
+    transform: translateX(calc(24px * var(--motion)));
   }
 }
 .header {
@@ -74,4 +74,17 @@
   gap: var(--space-2);
   padding: var(--space-4) var(--space-6);
   border-top: 1px solid var(--color-border);
+}
+
+/* 退出：比进入快，只淡出 + 轻微回移；transform 幅度受 --motion 控制（reduced-motion 下为 0） */
+.backdrop[data-closing] {
+  opacity: 0;
+  transition-duration: var(--dur-exit);
+}
+.panel[data-closing] {
+  transform: translateX(calc(16px * var(--motion)));
+  opacity: 0;
+  transition:
+    transform var(--dur-exit) ease,
+    opacity var(--dur-exit) ease;
 }

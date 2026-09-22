@@ -23,7 +23,7 @@ function createWindow(): BrowserWindow {
     // macOS 保留交通灯并内嵌到内容区；Windows 使用系统原生标题栏按钮。
     ...(isMac ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 16, y: 18 } } : {}),
     // 与 tokens.css 的 --color-bg 一致，避免启动白闪 / 黑闪
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#1b1916' : '#f8f5ef',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#101114' : '#f6f7f8',
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,

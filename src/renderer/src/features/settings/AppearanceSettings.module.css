@@ -2,6 +2,7 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
   padding: var(--space-5) var(--space-6);
   margin-bottom: var(--space-4);
 }
@@ -14,4 +15,62 @@
   color: var(--color-text-muted);
   font-size: 13px;
   margin-bottom: var(--space-4);
+}
+
+.options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) ease,
+    background var(--dur-fast) ease,
+    transform var(--dur-fast) var(--ease-out);
+}
+.option:hover {
+  border-color: var(--color-border-strong);
+}
+.option:active {
+  transform: scale(0.98);
+}
+.option[aria-checked='true'] {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  box-shadow: 0 0 0 3px var(--color-ring);
+}
+.optionIcon {
+  display: inline-flex;
+  color: var(--color-text-secondary);
+}
+.option[aria-checked='true'] .optionIcon {
+  color: var(--color-primary);
+}
+.optionText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.optionLabel {
+  font-weight: 500;
+}
+.optionDesc {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+@media (max-width: 1000px) {
+  .options {
+    grid-template-columns: 1fr;
+  }
 }

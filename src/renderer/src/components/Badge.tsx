@@ -2,7 +2,7 @@ import type { ReactElement, ReactNode } from 'react'
 import type { DocumentStatus, DocumentType } from '@shared/types'
 import styles from './Badge.module.css'
 
-type Tone = 'neutral' | 'info' | 'success' | 'warning' | 'danger'
+type Tone = 'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'in' | 'out'
 
 export function Badge({ tone = 'neutral', children }: { tone?: Tone; children: ReactNode }): ReactElement {
   return <span className={`${styles.badge} ${styles[tone]}`}>{children}</span>
@@ -17,8 +17,8 @@ export const TYPE_LABEL: Record<DocumentType, string> = {
   adjustment: '调整'
 }
 const TYPE_TONE: Record<DocumentType, Tone> = {
-  inbound: 'info',
-  outbound: 'danger',
+  inbound: 'in',
+  outbound: 'out',
   opening: 'neutral',
   adjustment: 'warning'
 }

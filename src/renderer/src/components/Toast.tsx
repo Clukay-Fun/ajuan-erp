@@ -7,6 +7,7 @@ interface Toast {
   id: number
   kind: Kind
   text: string
+  leaving?: boolean
 }
 
 const ToastContext = createContext<(text: string, kind?: Kind) => void>(() => {})
@@ -22,7 +23,9 @@ export function ToastProvider({ children }: { children: ReactNode }): ReactEleme
   const push = useCallback((text: string, kind: Kind = 'info') => {
     const id = ++seq
     setItems((xs) => [...xs, { id, kind, text }])
-    window.setTimeout(() => setItems((xs) => xs.filter((x) => x.id !== id)), 2800)
+    // 退出比进入快：先标记 leaving 播 160ms 淡出，再移除
+    window.setTimeout(() => setItems((xs) => xs.map((x) => (x.id === id ? { ...x, leaving: true } : x))), 2800)
+    window.setTimeout(() => setItems((xs) => xs.filter((x) => x.id !== id)), 2800 + 160)
   }, [])
   const value = useMemo(() => push, [push])
   return (
@@ -30,7 +33,7 @@ export function ToastProvider({ children }: { children: ReactNode }): ReactEleme
       {children}
       <div className={styles.host} aria-live="polite">
         {items.map((t) => (
-          <div key={t.id} className={`${styles.toast} ${styles[t.kind]}`}>
+          <div key={t.id} className={`${styles.toast} ${styles[t.kind]}`} data-leaving={t.leaving || undefined}>
             {t.text}
           </div>
         ))}

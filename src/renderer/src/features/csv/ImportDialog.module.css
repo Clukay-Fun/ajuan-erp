@@ -32,7 +32,7 @@
 }
 @starting-style {
   .dialog {
-    transform: scale(0.97);
+    transform: scale(calc(1 - 0.03 * var(--motion)));
     opacity: 0;
   }
 }
@@ -199,4 +199,16 @@
 }
 .link:hover {
   text-decoration: underline;
+}
+
+.backdrop[data-closing] {
+  opacity: 0;
+  transition-duration: var(--dur-exit);
+}
+.dialog[data-closing] {
+  transform: scale(calc(1 - 0.02 * var(--motion)));
+  opacity: 0;
+  transition:
+    transform var(--dur-exit) ease,
+    opacity var(--dur-exit) ease;
 }
