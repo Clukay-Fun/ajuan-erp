@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 
 const require = createRequire(import.meta.url)
 const electron = require('electron')
+const pkg = require('../package.json')
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const only = process.argv[2]
 const scenarios = readdirSync(resolve(root, 'tests/e2e'))
@@ -19,6 +20,8 @@ for (const name of scenarios) {
   const r = spawnSync(electron, [resolve(root, 'tests/e2e/run.cjs'), name], {
     cwd: root,
     stdio: ['ignore', 'pipe', 'pipe'],
+    // 开发态 getApplicationVersion() 读 npm_package_version；直接 node 运行时补上
+    env: { ...process.env, npm_package_version: pkg.version },
     timeout: 120_000
   })
   const out = (r.stdout?.toString() ?? '') + (r.stderr?.toString() ?? '')
