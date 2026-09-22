@@ -5,7 +5,7 @@ import type { DocumentSummary, Product, StockRow } from '@shared/types'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
-import { SplitView } from '@/components/SplitView'
+import { DetailAbove } from '@/components/DetailAbove'
 import { SkeletonTable } from '@/components/Skeleton'
 import { TableEmpty } from '@/components/TableEmpty'
 import { useToast } from '@/components/Toast'
@@ -75,18 +75,24 @@ export function ProductsPage(): ReactElement {
       <table className={`${table.table} ${table.clickable} ${table.fixed}`}>
         <colgroup>
           <col />
-          <col style={{ width: 100 }} />
+          <col style={{ width: 160 }} />
+          <col style={{ width: 110 }} />
+          <col style={{ width: 110 }} />
+          <col style={{ width: 110 }} />
           <col style={{ width: 96 }} />
         </colgroup>
         <thead>
           <tr>
             <th>商品</th>
+            <th>SKU</th>
             <th className={table.num}>库存</th>
+            <th className={table.num}>平均成本</th>
+            <th className={table.num}>预警值</th>
             <th>状态</th>
           </tr>
         </thead>
         <tbody>
-          {rows && rows.length === 0 && <TableEmpty cols={3} title="还没有商品" description="点击右上角「新建商品」" />}
+          {rows && rows.length === 0 && <TableEmpty cols={6} title="还没有商品" description="点击右上角「新建商品」" />}
           {rows?.map((r) => {
             const url = productImageUrl(r.product)
             return (
@@ -109,8 +115,13 @@ export function ProductsPage(): ReactElement {
                     </span>
                   </div>
                 </td>
+                <td className={table.mono}>{r.product.defaultSku.code}</td>
                 <td className={table.num}>
                   {formatQty(r.stock.quantity)} {r.product.unit}
+                </td>
+                <td className={table.num}>{r.stock.quantity > 0 ? `¥${formatCents(r.stock.avgCostCents)}` : '—'}</td>
+                <td className={table.num}>
+                  {formatQty(r.product.lowStockThreshold)} {r.product.unit}
                 </td>
                 <td>
                   {!r.product.isActive ? (
@@ -133,7 +144,7 @@ export function ProductsPage(): ReactElement {
 
   const detail = selected ? (
     <>
-      <section className={styles.card}>
+      <section className={`${styles.card} inner-card`}>
         <div className={styles.detailHead}>
           <div className={styles.profile}>
             <ProductImage product={selected.product} onChanged={patchProduct} size={120} />
@@ -187,7 +198,7 @@ export function ProductsPage(): ReactElement {
         </div>
       </section>
 
-      <section className={styles.card}>
+      <section className={`${styles.card} ${styles.openingCard}`}>
         <h2 className={styles.sectionTitle}>
           期初库存
           {!selected.hasOpening && selected.product.isActive && (
@@ -246,9 +257,9 @@ export function ProductsPage(): ReactElement {
         }
       />
       {!rows ? (
-        <SkeletonTable cols={3} />
+        <SkeletonTable cols={6} />
       ) : (
-        <SplitView master={master} detail={detail} placeholder="从左侧选择一个商品" />
+        <DetailAbove detail={detail} onClose={() => setSelectedId(null)} list={master} />
       )}
 
       <ProductEditDrawer

@@ -89,9 +89,19 @@
   justify-content: space-between;
   align-items: center;
 }
+.openingCard {
+  margin: var(--space-4) 0 0;
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-inset);
+  border: 0;
+  box-shadow: none;
+}
+.openingCard .stat {
+  background: var(--color-surface);
+}
 .openingRow {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: var(--space-3);
 }
 .openingEmpty {

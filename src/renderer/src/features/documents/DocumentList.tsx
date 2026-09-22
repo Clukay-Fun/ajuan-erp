@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { StatusBadge, TypeBadge } from '@/components/Badge'
 import { unwrap, errorMessage } from '@/lib/api'
-import { formatQty } from '@/lib/format'
+import { formatCents, formatQty } from '@/lib/format'
 import { useNav } from '@/app/navigation'
 import table from '@/components/Table.module.css'
 import styles from './DocumentList.module.css'
@@ -15,7 +15,7 @@ import { TableEmpty } from '@/components/TableEmpty'
 import { ImportDialog } from '@/features/csv/ImportDialog'
 import { AdjustmentDrawer } from '@/features/adjustments/AdjustmentDrawer'
 import { DocumentDetailView } from '@/features/documents/DocumentDetailView'
-import { SplitView } from '@/components/SplitView'
+import { DetailAbove } from '@/components/DetailAbove'
 import { SkeletonTable } from '@/components/Skeleton'
 
 type TypeFilter = 'all' | DocumentType
@@ -131,29 +131,36 @@ export function DocumentList({ initialSelectedId = null }: { initialSelectedId?:
       {error && <p className={styles.error}>读取失败：{error}</p>}
       {!docs && !error && <SkeletonTable cols={8} />}
       {docs && (
-        <SplitView
-          master={
+        <DetailAbove
+          onClose={() => setSelectedId(null)}
+          list={
             <div className={table.wrap}>
               <table className={`${table.table} ${table.clickable} ${table.fixed}`}>
                 <colgroup>
+                  <col style={{ width: 112 }} />
+                  <col style={{ width: 84 }} />
+                  <col style={{ width: 170 }} />
                   <col style={{ width: 96 }} />
-                  <col style={{ width: 64 }} />
                   <col />
-                  <col style={{ width: 76 }} />
-                  <col style={{ width: 64 }} />
+                  <col style={{ width: 80 }} />
+                  <col style={{ width: 110 }} />
+                  <col style={{ width: '20%' }} />
                 </colgroup>
                 <thead>
                   <tr>
                     <th>日期</th>
                     <th>类型</th>
-                    <th>单号 / 渠道</th>
+                    <th>单号</th>
                     <th>状态</th>
+                    <th>渠道 / 订单号</th>
                     <th className={table.num}>数量</th>
+                    <th className={table.num}>金额</th>
+                    <th>备注</th>
                   </tr>
                 </thead>
                 <tbody>
                   {docs.length === 0 && (
-                    <TableEmpty cols={5} title="没有符合条件的单据" description="点击右上角「入库」或「出库」新建" />
+                    <TableEmpty cols={8} title="没有符合条件的单据" description="点击右上角「入库」或「出库」新建" />
                   )}
                   {docs.map((d) => (
                     <tr
@@ -161,23 +168,21 @@ export function DocumentList({ initialSelectedId = null }: { initialSelectedId?:
                       onClick={() => setSelectedId(d.id)}
                       className={d.id === selectedId ? table.selected : ''}
                     >
-                      <td className={table.mono}>{d.docDate.slice(5)}</td>
+                      <td>{d.docDate}</td>
                       <td>
                         <TypeBadge type={d.type} />
                       </td>
-                      <td>
-                        <div className={styles.cellText}>
-                          <span className={table.mono}>{d.docNo}</span>
-                          <span className={styles.cellSub}>
-                            {d.channelName ?? (d.note ? d.note : '—')}
-                            {d.externalOrderNo ? ` · ${d.externalOrderNo}` : ''}
-                          </span>
-                        </div>
-                      </td>
+                      <td className={table.mono}>{d.docNo}</td>
                       <td>
                         <StatusBadge status={d.status} />
                       </td>
+                      <td className={d.channelName ? '' : table.muted}>
+                        {d.channelName ?? '—'}
+                        {d.externalOrderNo && <span className={table.mono}> · {d.externalOrderNo}</span>}
+                      </td>
                       <td className={table.num}>{formatQty(d.totalQuantity)}</td>
+                      <td className={table.num}>¥{formatCents(d.totalAmountCents)}</td>
+                      <td className={table.muted}>{d.note || '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -196,7 +201,6 @@ export function DocumentList({ initialSelectedId = null }: { initialSelectedId?:
               />
             ) : null
           }
-          placeholder="从左侧选择一张单据查看详情"
         />
       )}
       <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} onImported={() => void load()} />

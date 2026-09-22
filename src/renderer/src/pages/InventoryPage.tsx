@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
 import { Dropdown } from '@/components/Dropdown'
-import { SplitView } from '@/components/SplitView'
+import { DetailAbove } from '@/components/DetailAbove'
 import { SkeletonTable } from '@/components/Skeleton'
 import { TableEmpty } from '@/components/TableEmpty'
 import { useToast } from '@/components/Toast'
@@ -34,13 +34,12 @@ const KIND_TONE: Record<MovementKind, 'neutral' | 'in' | 'out' | 'warning'> = {
   void: 'neutral'
 }
 const PAGE_SIZE = 50
-const ALL = 0
 
 export function InventoryPage(): ReactElement {
   const { navigate } = useNav()
   const toast = useToast()
   const [rows, setRows] = useState<StockRow[] | null>(null)
-  const [selectedSku, setSelectedSku] = useState<number>(ALL)
+  const [selectedSku, setSelectedSku] = useState<number | null>(null)
   const [importOpen, setImportOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [kind, setKind] = useState<'' | MovementKind>('')
@@ -71,7 +70,7 @@ export function InventoryPage(): ReactElement {
   }, [loadStock])
 
   const filter = {
-    skuId: selectedSku || undefined,
+    skuId: selectedSku ?? undefined,
     kind: kind || undefined,
     channelId: channelId || undefined,
     from: from || undefined,
@@ -80,6 +79,10 @@ export function InventoryPage(): ReactElement {
   }
 
   const load = useCallback(async () => {
+    if (selectedSku === null) {
+      setData(null)
+      return
+    }
     try {
       setData(await unwrap(window.ajuan.inventory.listMovements({ ...filter, page, pageSize: PAGE_SIZE })))
       setError(null)
@@ -105,7 +108,7 @@ export function InventoryPage(): ReactElement {
   async function exportCsv(): Promise<void> {
     setExporting(true)
     try {
-      const p = await unwrap(window.ajuan.csv.exportMovements(filter))
+      const p = await unwrap(window.ajuan.csv.exportMovements(selectedSku === null ? {} : filter))
       if (p) toast(`已导出到 ${p}`, 'success')
     } catch (err) {
       toast(errorMessage(err), 'error')
@@ -114,8 +117,6 @@ export function InventoryPage(): ReactElement {
     }
   }
 
-  const totalQty = rows?.reduce((a, r) => a + r.stock.quantity, 0) ?? 0
-  const totalCost = rows?.reduce((a, r) => a + r.stock.costValueCents, 0) ?? 0
   const selectedRow = rows?.find((r) => r.product.defaultSku.id === selectedSku) ?? null
 
   const master = (
@@ -123,27 +124,25 @@ export function InventoryPage(): ReactElement {
       <table className={`${table.table} ${table.clickable} ${table.fixed}`}>
         <colgroup>
           <col />
-          <col style={{ width: 80 }} />
+          <col style={{ width: 160 }} />
           <col style={{ width: 100 }} />
-          <col style={{ width: 84 }} />
+          <col style={{ width: 110 }} />
+          <col style={{ width: 120 }} />
+          <col style={{ width: 100 }} />
+          <col style={{ width: 96 }} />
         </colgroup>
         <thead>
           <tr>
             <th>商品</th>
+            <th>SKU</th>
             <th className={table.num}>库存</th>
+            <th className={table.num}>平均成本</th>
             <th className={table.num}>成本额</th>
+            <th className={table.num}>预警值</th>
             <th>状态</th>
           </tr>
         </thead>
         <tbody>
-          <tr onClick={() => resetPage(setSelectedSku)(ALL)} className={selectedSku === ALL ? table.selected : ''}>
-            <td>
-              <span className={styles.allLabel}>全部商品</span>
-            </td>
-            <td className={table.num}>{formatQty(totalQty)}</td>
-            <td className={table.num}>¥{formatCents(totalCost)}</td>
-            <td />
-          </tr>
           {rows?.map((r) => {
             const url = productImageUrl(r.product)
             const sku = r.product.defaultSku.id
@@ -190,17 +189,11 @@ export function InventoryPage(): ReactElement {
   const detail = (
     <>
       <div className={styles.detailTitle}>
-        {selectedRow ? (
-          <>
-            <span className={styles.detailName}>{selectedRow.product.name}</span>
-            <span className={styles.detailMeta}>
-              均价 {selectedRow.stock.quantity > 0 ? `¥${formatCents(selectedRow.stock.avgCostCents)}` : '—'} · 预警值{' '}
-              {formatQty(selectedRow.product.lowStockThreshold)} {selectedRow.product.unit}
-            </span>
-          </>
-        ) : (
-          <span className={styles.detailName}>全部商品的流水</span>
-        )}
+        <span className={styles.detailName}>{selectedRow?.product.name} 的流水</span>
+        <span className={styles.detailMeta}>
+          当前 {formatQty(selectedRow?.stock.quantity ?? 0)} {selectedRow?.product.unit} · 均价{' '}
+          {selectedRow && selectedRow.stock.quantity > 0 ? `¥${formatCents(selectedRow.stock.avgCostCents)}` : '—'}
+        </span>
       </div>
       <div className={f.bar}>
         <Dropdown
@@ -251,7 +244,6 @@ export function InventoryPage(): ReactElement {
               <colgroup>
                 <col style={{ width: 104 }} />
                 <col style={{ width: 96 }} />
-                {selectedSku === ALL && <col />}
                 <col style={{ width: 150 }} />
                 <col style={{ width: 72 }} />
                 <col style={{ width: 84 }} />
@@ -261,7 +253,6 @@ export function InventoryPage(): ReactElement {
                 <tr>
                   <th>时间</th>
                   <th>类型</th>
-                  {selectedSku === ALL && <th>商品</th>}
                   <th>单号</th>
                   <th className={table.num}>数量</th>
                   <th className={table.num}>成本</th>
@@ -271,7 +262,7 @@ export function InventoryPage(): ReactElement {
               <tbody>
                 {data.total === 0 && (
                   <TableEmpty
-                    cols={selectedSku === ALL ? 7 : 6}
+                    cols={6}
                     title="没有符合条件的流水"
                     description="调整筛选条件，或先确认一张入库 / 出库单"
                   />
@@ -286,7 +277,6 @@ export function InventoryPage(): ReactElement {
                     <td>
                       <Badge tone={KIND_TONE[m.kind]}>{KIND_LABEL[m.kind]}</Badge>
                     </td>
-                    {selectedSku === ALL && <td>{m.productName}</td>}
                     <td className={table.mono}>{m.docNo}</td>
                     <td
                       className={table.num}
@@ -333,13 +323,17 @@ export function InventoryPage(): ReactElement {
             <Button onClick={() => setImportOpen(true)}>
               <Upload size={16} /> 导入 CSV
             </Button>
-            <Button onClick={exportCsv} disabled={exporting || !data || data.total === 0}>
-              <Download size={16} /> {exporting ? '导出中…' : '导出流水'}
+            <Button onClick={exportCsv} disabled={exporting}>
+              <Download size={16} /> {exporting ? '导出中…' : selectedSku === null ? '导出全部流水' : '导出流水'}
             </Button>
           </>
         }
       />
-      {!rows ? <SkeletonTable cols={4} /> : <SplitView master={master} detail={detail} />}
+      {!rows ? (
+        <SkeletonTable cols={7} />
+      ) : (
+        <DetailAbove detail={selectedRow ? detail : null} onClose={() => setSelectedSku(null)} list={master} />
+      )}
       <ImportDialog
         open={importOpen}
         onClose={() => setImportOpen(false)}
