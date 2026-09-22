@@ -109,19 +109,7 @@ export function InventoryPage(): ReactElement {
 
   return (
     <>
-      <PageHeader
-        title="库存流水"
-        actions={
-          <>
-            <Button onClick={() => setImportOpen(true)}>
-              <Upload size={16} /> 导入 CSV
-            </Button>
-            <Button onClick={exportCsv} disabled={exporting || !data || data.total === 0}>
-              <Download size={16} /> {exporting ? '导出中…' : '导出'}
-            </Button>
-          </>
-        }
-      />
+      <PageHeader title="库存流水" />
       <div className={f.bar}>
         <Dropdown
           compact
@@ -159,8 +147,15 @@ export function InventoryPage(): ReactElement {
           value={docNo}
           onChange={(e) => resetPage(setDocNo)(e.target.value)}
         />
-        <span className={f.spacer} />
-        {data && <span className={f.count}>共 {formatQty(data.total)} 条</span>}
+        <div className={f.actions}>
+          {data && <span className={f.count}>共 {formatQty(data.total)} 条</span>}
+          <Button onClick={() => setImportOpen(true)}>
+            <Upload size={16} /> 导入 CSV
+          </Button>
+          <Button onClick={exportCsv} disabled={exporting || !data || data.total === 0}>
+            <Download size={16} /> {exporting ? '导出中…' : '导出'}
+          </Button>
+        </div>
       </div>
 
       {error && <p style={{ color: 'var(--color-danger)' }}>读取失败：{error}</p>}
@@ -168,7 +163,17 @@ export function InventoryPage(): ReactElement {
       {data && (
         <>
           <div className={table.wrap}>
-            <table className={`${table.table} ${table.clickable}`}>
+            <table className={`${table.table} ${table.clickable} ${table.fixed}`}>
+              <colgroup>
+                <col style={{ width: 120 }} />
+                <col style={{ width: 96 }} />
+                <col style={{ width: 160 }} />
+                <col />
+                <col style={{ width: 80 }} />
+                <col style={{ width: 96 }} />
+                <col style={{ width: 96 }} />
+                <col style={{ width: 80 }} />
+              </colgroup>
               <thead>
                 <tr>
                   <th>时间</th>

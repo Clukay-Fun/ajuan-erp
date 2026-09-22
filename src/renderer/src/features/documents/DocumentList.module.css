@@ -1,6 +1,6 @@
 .filters {
   display: flex;
-  gap: var(--space-5);
+  gap: var(--space-3);
   margin-bottom: var(--space-4);
   flex-wrap: wrap;
   align-items: center;
@@ -16,4 +16,12 @@
 }
 .error {
   color: var(--color-danger);
+}
+.spacer {
+  flex: 1;
+}
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-left: auto;
 }

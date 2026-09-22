@@ -21,7 +21,7 @@ function createWindow(): BrowserWindow {
     show: false,
     title: '阿卷 ERP',
     // macOS 保留交通灯并内嵌到内容区；Windows 使用系统原生标题栏按钮。
-    ...(isMac ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 16, y: 18 } } : {}),
+    ...(isMac ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 16, y: 16 } } : {}),
     // 与 tokens.css 的 --color-bg 一致，避免启动白闪 / 黑闪
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#101114' : '#f6f7f8',
     webPreferences: {

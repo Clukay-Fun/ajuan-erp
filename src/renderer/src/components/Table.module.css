@@ -10,6 +10,15 @@
   border-collapse: collapse;
   font-size: 13.5px;
 }
+/* 固定列宽：切换筛选时列不随内容抖动；配合 <col> 指定宽度 */
+.fixed {
+  table-layout: fixed;
+}
+.fixed td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .table th {
   text-align: left;
   font-weight: 500;

@@ -5,8 +5,6 @@ import { unwrap } from '@/lib/api'
 import { applyTheme, type ThemePreference } from '@/lib/theme'
 import styles from './Shell.module.css'
 import { PRIMARY_ROUTES, SETTINGS_ROUTE, type RouteDef, type RouteKey } from '@/app/routes'
-import logoLight from '@/assets/logo.png'
-import logoDark from '@/assets/logo-dark.png'
 
 interface ShellProps {
   route: RouteKey
@@ -149,8 +147,6 @@ export function Shell({ route, seq, onNavigate, children }: ShellProps): ReactEl
       {/* 贯通顶部的标题栏：交通灯、品牌、主题快切。整条可拖动窗口。 */}
       <header className={`${styles.titlebar} ${isMac ? styles.titlebarMac : ''}`}>
         <div className={styles.brand} onDoubleClick={toggleSidebar} title={collapsed ? '双击展开侧栏' : '双击收起侧栏'}>
-          <img className={`${styles.logo} ${styles.logoLight}`} src={logoLight} alt="" draggable={false} />
-          <img className={`${styles.logo} ${styles.logoDark}`} src={logoDark} alt="" draggable={false} />
           <span className={styles.brandText}>
             阿卷<em>ERP</em>
           </span>

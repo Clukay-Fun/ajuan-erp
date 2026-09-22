@@ -64,35 +64,9 @@ export function DocumentList(): ReactElement {
 
   return (
     <>
-      <PageHeader
-        title="单据"
-        actions={
-          <>
-            <Button onClick={() => setImportOpen(true)}>
-              <Upload size={16} /> 导入 CSV
-            </Button>
-            <Button onClick={() => setAdjustOpen(true)}>
-              <Scale size={16} /> 库存调整
-            </Button>
-            <span style={{ width: 12 }} aria-hidden />
-            <Button
-              variant="primary"
-              onClick={() => navigate('documents', { documents: { view: 'new', type: 'inbound' } })}
-            >
-              <PackagePlus size={16} /> 入库
-            </Button>
-            <Button
-              variant="primary"
-              onClick={() => navigate('documents', { documents: { view: 'new', type: 'outbound' } })}
-            >
-              <PackageMinus size={16} /> 出库
-            </Button>
-          </>
-        }
-      />
+      <PageHeader title="单据" />
       <div className={styles.filters}>
         <div className={styles.filterGroup}>
-          <span className={styles.filterLabel}>类型</span>
           <div className={seg.group} role="tablist">
             {TYPE_TABS.map((t) => (
               <button
@@ -109,7 +83,6 @@ export function DocumentList(): ReactElement {
           </div>
         </div>
         <div className={styles.filterGroup}>
-          <span className={styles.filterLabel}>状态</span>
           <div className={seg.group} role="tablist">
             {STATUS_TABS.map((t) => (
               <button
@@ -125,13 +98,44 @@ export function DocumentList(): ReactElement {
             ))}
           </div>
         </div>
+        <div className={styles.actions}>
+          <Button onClick={() => setImportOpen(true)}>
+            <Upload size={16} /> 导入 CSV
+          </Button>
+          <Button onClick={() => setAdjustOpen(true)}>
+            <Scale size={16} /> 库存调整
+          </Button>
+          <span style={{ width: 8 }} aria-hidden />
+          <Button
+            variant="primary"
+            onClick={() => navigate('documents', { documents: { view: 'new', type: 'inbound' } })}
+          >
+            <PackagePlus size={16} /> 入库
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => navigate('documents', { documents: { view: 'new', type: 'outbound' } })}
+          >
+            <PackageMinus size={16} /> 出库
+          </Button>
+        </div>
       </div>
 
       {error && <p className={styles.error}>读取失败：{error}</p>}
       {!docs && !error && <SkeletonTable cols={8} />}
       {docs && (
         <div className={table.wrap}>
-          <table className={`${table.table} ${table.clickable}`}>
+          <table className={`${table.table} ${table.clickable} ${table.fixed}`}>
+            <colgroup>
+              <col style={{ width: 112 }} />
+              <col style={{ width: 72 }} />
+              <col style={{ width: 160 }} />
+              <col style={{ width: 84 }} />
+              <col />
+              <col style={{ width: 80 }} />
+              <col style={{ width: 110 }} />
+              <col style={{ width: '22%' }} />
+            </colgroup>
             <thead>
               <tr>
                 <th>日期</th>

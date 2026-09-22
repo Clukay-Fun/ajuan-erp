@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 import { useCallback, useEffect, useState } from 'react'
-import { PackagePlus, PackageMinus, ImageIcon, ArrowRight } from 'lucide-react'
+import { PackagePlus, PackageMinus, ImageIcon } from 'lucide-react'
 import type { Overview } from '@shared/types'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
@@ -73,20 +73,6 @@ export function OverviewPage(): ReactElement {
   return (
     <>
       <PageHeader title="概览" subtitle={today} actions={actions} />
-
-      {!hasOpening && (
-        <div className={styles.setup}>
-          <span>尚未录入期初库存，库存账还没有起点。</span>
-          <span className={styles.setupActions}>
-            <button type="button" className={styles.setupLink} onClick={() => navigate('settings')}>
-              载入示例数据
-            </button>
-            <button type="button" className={styles.setupLink} onClick={() => navigate('products')}>
-              去录入期初库存 <ArrowRight size={14} />
-            </button>
-          </span>
-        </div>
-      )}
 
       <div className={styles.kpis}>
         <div className={styles.kpi}>

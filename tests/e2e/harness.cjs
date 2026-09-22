@@ -50,7 +50,7 @@ const UI_HELPERS = `
   const sleep = (ms) => new Promise(r => setTimeout(r, ms))
   const $ = (sel) => document.querySelector(sel)
   const $$ = (sel) => [...document.querySelectorAll(sel)]
-  const btn = (text) => $$('button').find(b => b.textContent.trim() === text)
+  const btn = (text) => $$('button').find(b => b.textContent.trim() === text && b.getAttribute('role') !== 'tab')
   const click = async (text, wait = 300) => { const b = btn(text); if (!b) throw new Error('找不到按钮：' + text); b.click(); await sleep(wait) }
   const setVal = (el, v) => { const s = Object.getOwnPropertyDescriptor(el.__proto__, 'value').set; s.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })) }
   const setSel = (el, v) => { const s = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; s.call(el, v); el.dispatchEvent(new Event('change', { bubbles: true })) }

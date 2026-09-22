@@ -60,6 +60,18 @@ export function ChannelSettings(): ReactElement {
     <section className={styles.card}>
       <h2 className={styles.title}>销售渠道</h2>
       <p className={styles.hint}>出库单可选择的渠道。停用后不再出现在新单据中，历史单据不受影响。</p>
+      <form className={styles.add} onSubmit={handleAdd}>
+        <input
+          className={styles.input}
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          placeholder="新渠道名称"
+          maxLength={32}
+        />
+        <Button variant="primary" type="submit" disabled={busy || !newName.trim()}>
+          <Plus size={16} /> 添加
+        </Button>
+      </form>
       <ul className={styles.list}>
         {channels.map((c) => (
           <li key={c.id} className={styles.row}>
@@ -121,18 +133,6 @@ export function ChannelSettings(): ReactElement {
           </li>
         ))}
       </ul>
-      <form className={styles.add} onSubmit={handleAdd}>
-        <input
-          className={styles.input}
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          placeholder="新渠道名称"
-          maxLength={32}
-        />
-        <Button variant="primary" type="submit" disabled={busy || !newName.trim()}>
-          <Plus size={16} /> 添加
-        </Button>
-      </form>
     </section>
   )
 }
