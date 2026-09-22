@@ -33,7 +33,11 @@ export function ProductImage({ product, onChanged, size = 160 }: Props): ReactEl
     try {
       onChanged(
         await unwrap(
-          window.ajuan.products.setImage({ fileName: file.name, mime: file.type, data: await file.arrayBuffer() })
+          window.ajuan.products.setImage(product.id, {
+            fileName: file.name,
+            mime: file.type,
+            data: await file.arrayBuffer()
+          })
         )
       )
       toast('商品图片已更新', 'success')
@@ -47,7 +51,7 @@ export function ProductImage({ product, onChanged, size = 160 }: Props): ReactEl
   async function clear(): Promise<void> {
     setBusy(true)
     try {
-      onChanged(await unwrap(window.ajuan.products.clearImage()))
+      onChanged(await unwrap(window.ajuan.products.clearImage(product.id)))
     } catch (err) {
       toast(errorMessage(err), 'error')
     } finally {

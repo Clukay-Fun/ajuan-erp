@@ -1,0 +1,33 @@
+/* 左列表 / 右详情。右侧独立滚动，左侧列表保持可见。 */
+.split {
+  display: grid;
+  grid-template-columns: minmax(360px, 38%) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+.master {
+  min-width: 0;
+}
+.detail {
+  min-width: 0;
+  position: sticky;
+  top: 0;
+}
+.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-muted);
+  font-size: 13.5px;
+}
+@media (max-width: 1100px) {
+  .split {
+    grid-template-columns: 1fr;
+  }
+  .detail {
+    position: static;
+  }
+}

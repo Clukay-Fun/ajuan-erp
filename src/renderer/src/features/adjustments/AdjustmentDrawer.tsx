@@ -1,8 +1,9 @@
 import type { FormEvent, ReactElement } from 'react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { AdjustDirection, DocumentDetail, Product, StockLevel } from '@shared/types'
 import { Drawer } from '@/components/Drawer'
 import { Field } from '@/components/Field'
+import { Select } from '@/components/Select'
 import { Button } from '@/components/Button'
 import { useToast } from '@/components/Toast'
 import { unwrap, errorMessage } from '@/lib/api'
@@ -12,13 +13,16 @@ import seg from '@/components/Segmented.module.css'
 
 interface Props {
   open: boolean
+  /** 要调整的商品；为 null 时在抽屉内选择 */
+  product: Product | null
   onClose: () => void
   onCreated: (doc: DocumentDetail) => void
 }
 
-export function AdjustmentDrawer({ open, onClose, onCreated }: Props): ReactElement {
+export function AdjustmentDrawer({ open, product: initial, onClose, onCreated }: Props): ReactElement {
   const toast = useToast()
   const [product, setProduct] = useState<Product | null>(null)
+  const [products, setProducts] = useState<Product[]>([])
   const [stock, setStock] = useState<StockLevel | null>(null)
   const [direction, setDirection] = useState<AdjustDirection>('decrease')
   const [quantity, setQuantity] = useState('')
@@ -27,6 +31,13 @@ export function AdjustmentDrawer({ open, onClose, onCreated }: Props): ReactElem
   const [reason, setReason] = useState('')
   const [errors, setErrors] = useState<{ quantity?: string; unitCost?: string; reason?: string }>({})
   const [saving, setSaving] = useState(false)
+
+  const choose = useCallback(async (p: Product): Promise<void> => {
+    const s = await unwrap(window.ajuan.inventory.getStock(p.defaultSku.id))
+    setProduct(p)
+    setStock(s)
+    setUnitCost(formatCents(s.quantity > 0 ? s.avgCostCents : p.defaultCostCents).replaceAll(',', ''))
+  }, [])
 
   useEffect(() => {
     if (!open) return
@@ -37,16 +48,16 @@ export function AdjustmentDrawer({ open, onClose, onCreated }: Props): ReactElem
     setErrors({})
     ;(async () => {
       try {
-        const p = await unwrap(window.ajuan.products.get())
-        const s = await unwrap(window.ajuan.inventory.getStock(p.defaultSku.id))
-        setProduct(p)
-        setStock(s)
-        setUnitCost(formatCents(s.quantity > 0 ? s.avgCostCents : p.defaultCostCents).replaceAll(',', ''))
+        const list = (await unwrap(window.ajuan.products.list())).filter((x) => x.isActive)
+        setProducts(list)
+        const p = initial ?? list[0] ?? null
+        if (!p) return
+        await choose(p)
       } catch (err) {
         toast(errorMessage(err), 'error')
       }
     })()
-  }, [open, toast])
+  }, [open, initial, toast, choose])
 
   const qty = /^\d+$/.test(quantity.trim()) ? Number(quantity) : null
   const cost = parseCents(unitCost)
@@ -122,8 +133,26 @@ export function AdjustmentDrawer({ open, onClose, onCreated }: Props): ReactElem
             盘盈增加
           </button>
         </div>
-        {product && stock && (
-          <Field label="商品" value={`${product.name} · 当前 ${formatQty(stock.quantity)} ${product.unit}`} readOnly />
+        {initial ? (
+          product &&
+          stock && (
+            <Field
+              label="商品"
+              value={`${product.name} · 当前 ${formatQty(stock.quantity)} ${product.unit}`}
+              readOnly
+            />
+          )
+        ) : (
+          <Select
+            label="商品"
+            value={product?.id ?? 0}
+            onChange={(id) => {
+              const p = products.find((x) => x.id === id)
+              if (p) void choose(p)
+            }}
+            options={products.map((x) => ({ value: x.id, label: x.name, hint: x.code }))}
+            hint={stock ? `当前 ${formatQty(stock.quantity)} ${product?.unit ?? ''}` : undefined}
+          />
         )}
         <Field
           label={direction === 'increase' ? '增加数量' : '减少数量'}

@@ -5,6 +5,8 @@ import type { Summary } from '@shared/types'
 import { PageHeader } from '@/components/PageHeader'
 import { TableEmpty } from '@/components/TableEmpty'
 import { TrendChart } from '@/features/overview/TrendChart'
+import { Dropdown } from '@/components/Dropdown'
+import type { Product } from '@shared/types'
 import seg from '@/components/Segmented.module.css'
 import { Button } from '@/components/Button'
 import { useToast } from '@/components/Toast'
@@ -36,18 +38,25 @@ export function SummaryPage(): ReactElement {
   const [exporting, setExporting] = useState(false)
   const [preset, setPreset] = useState<Preset>('30d')
   const [range, setRange] = useState(() => presetRange('30d'))
+  const [products, setProducts] = useState<Product[]>([])
+  const [skuId, setSkuId] = useState<number>(0)
+  useEffect(() => {
+    unwrap(window.ajuan.products.list())
+      .then(setProducts)
+      .catch(() => {})
+  }, [])
   const [data, setData] = useState<Summary | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!range.from || !range.to) return
     try {
-      setData(await unwrap(window.ajuan.summary.get(range)))
+      setData(await unwrap(window.ajuan.summary.get({ ...range, skuId: skuId || undefined })))
       setError(null)
     } catch (err) {
       setError(errorMessage(err))
     }
-  }, [range])
+  }, [range, skuId])
   useEffect(() => {
     void load()
   }, [load])
@@ -78,7 +87,7 @@ export function SummaryPage(): ReactElement {
   async function exportCsv(): Promise<void> {
     setExporting(true)
     try {
-      const p = await unwrap(window.ajuan.csv.exportSummary(range))
+      const p = await unwrap(window.ajuan.csv.exportSummary({ ...range, skuId: skuId || undefined }))
       if (p) toast(`已导出到 ${p}`, 'success')
     } catch (err) {
       toast(errorMessage(err), 'error')
@@ -98,6 +107,16 @@ export function SummaryPage(): ReactElement {
         }
       />
       <div className={styles.range}>
+        <Dropdown
+          compact
+          aria-label="商品"
+          value={skuId}
+          onChange={setSkuId}
+          options={[
+            { value: 0, label: '全部商品' },
+            ...products.map((p) => ({ value: p.defaultSku.id, label: p.name, hint: p.code }))
+          ]}
+        />
         <input
           className={`${f.input} ${f.date}`}
           type="date"

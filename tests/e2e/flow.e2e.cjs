@@ -19,7 +19,7 @@ module.exports = async () => {
   assert((await t.ui(`return text()`)).includes('已生效'), '入库应已生效')
 
   const disabled = await t.ui(`
-    await click('返回单据列表'); await click('出库', 400)
+    await click('出库', 400)
     setVal($('input[inputmode=numeric]'), '200')
     return btn('确认出库').disabled && text().includes('库存不足')
   `)
@@ -35,7 +35,7 @@ module.exports = async () => {
   eq((await t.api('inventory.getStock(1)')).quantity, 120, '出库后库存 120')
 
   const dup = await t.ui(`
-    await click('返回单据列表'); await click('出库', 400)
+    await click('出库', 400)
     await pickOption(0, '抖音小店')
     setVal(inputOf('外部订单号'), 'DY001'); await sleep(600)
     return text().includes('相同订单号')
@@ -73,10 +73,13 @@ module.exports = async () => {
     setVal(inputOf('减少数量'), '5'); setVal(inputOf('调整原因'), '月末盘点少 5 件')
     await click('确认调整', 500)
   `)
-  const detail = await t.ui(`return text()`)
-  assert(detail.includes('TZ') && detail.includes('盘亏减少'), '应跳到调整单详情')
+  const afterAdjust = await t.ui(`return text()`)
+  assert(afterAdjust.includes('当前库存 145 件'), '调整后商品页应显示 145')
+  // 单据页应能看到调整单
+  const listed = await t.ui(`await click('单据'); return text().includes('TZ')`)
+  assert(listed, '单据列表应包含调整单')
   eq((await t.api('inventory.getStock(1)')).quantity, 145, '调整后库存 145')
-  await t.shot('flow-adjustment-detail.png')
+  await t.shot('flow-documents-after-adjust.png')
 
   // 设置：添加渠道、切换外观
   const settings = await t.ui(`

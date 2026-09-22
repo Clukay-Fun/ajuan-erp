@@ -66,9 +66,9 @@ export function OverviewPage(): ReactElement {
       </>
     )
 
-  const { product, stock, today: t, lowStock, hasOpening } = data
-  const unit = product.unit
-  const imgUrl = productImageUrl(product)
+  const { rows, today: t, hasOpening } = data
+  const lowRows = rows.filter((r) => r.lowStock)
+  const singleUnit = new Set(rows.map((r) => r.product.unit)).size === 1 ? rows[0]?.product.unit : ''
 
   return (
     <>
@@ -78,22 +78,22 @@ export function OverviewPage(): ReactElement {
         <div className={styles.kpi}>
           <div className={styles.kpiLabel}>当前库存</div>
           <div className={styles.kpiValue}>
-            {formatQty(stock.quantity)}
-            <span className={styles.kpiUnit}>{unit}</span>
+            {formatQty(data.totalQuantity)}
+            {singleUnit && <span className={styles.kpiUnit}>{singleUnit}</span>}
           </div>
-          <div className={`${styles.kpiSub} ${lowStock ? styles.warn : hasOpening ? styles.ok : ''}`}>
+          <div className={`${styles.kpiSub} ${data.lowStockCount ? styles.warn : hasOpening ? styles.ok : ''}`}>
             {!hasOpening
               ? '未录入期初'
-              : lowStock
-                ? `低于预警值 ${formatQty(product.lowStockThreshold)} ${unit}`
-                : '库存正常'}
+              : data.lowStockCount
+                ? `${data.lowStockCount} 个商品低于预警值`
+                : `${rows.length} 个商品 · 库存正常`}
           </div>
         </div>
         <div className={styles.kpi}>
           <div className={styles.kpiLabel}>今日入库</div>
           <div className={styles.kpiValue}>
             {formatQty(t.inQty)}
-            <span className={styles.kpiUnit}>{unit}</span>
+            {singleUnit && <span className={styles.kpiUnit}>{singleUnit}</span>}
           </div>
           <div className={styles.kpiSub}>¥{formatCents(t.inAmountCents)}</div>
         </div>
@@ -101,14 +101,18 @@ export function OverviewPage(): ReactElement {
           <div className={styles.kpiLabel}>今日出库</div>
           <div className={styles.kpiValue}>
             {formatQty(t.outQty)}
-            <span className={styles.kpiUnit}>{unit}</span>
+            {singleUnit && <span className={styles.kpiUnit}>{singleUnit}</span>}
           </div>
           <div className={styles.kpiSub}>¥{formatCents(t.outAmountCents)}</div>
         </div>
         <div className={styles.kpi}>
           <div className={styles.kpiLabel}>库存成本</div>
-          <div className={styles.kpiValue}>¥{formatCents(stock.costValueCents)}</div>
-          <div className={styles.kpiSub}>{stock.quantity > 0 ? `均价 ¥${formatCents(stock.avgCostCents)}` : '—'}</div>
+          <div className={styles.kpiValue}>¥{formatCents(data.totalCostValueCents)}</div>
+          <div className={styles.kpiSub}>
+            {data.totalQuantity > 0
+              ? `均价 ¥${formatCents(Math.round(data.totalCostValueCents / data.totalQuantity))}`
+              : '—'}
+          </div>
         </div>
       </div>
 
@@ -153,9 +157,7 @@ export function OverviewPage(): ReactElement {
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div className={styles.recentQty}>
-                        {formatQty(d.totalQuantity)} {unit}
-                      </div>
+                      <div className={styles.recentQty}>{formatQty(d.totalQuantity)}</div>
                       {d.status !== 'confirmed' && <StatusBadge status={d.status} />}
                     </div>
                   </li>
@@ -165,14 +167,16 @@ export function OverviewPage(): ReactElement {
           </section>
           <section className={styles.card}>
             <div className={styles.cardTitle}>低库存预警</div>
-            {lowStock ? (
-              <div className={styles.alertRow}>
-                <Badge tone="danger">预警</Badge>
-                <span>
-                  {product.name} 仅剩 <strong>{formatQty(stock.quantity)}</strong> {unit}，预警值{' '}
-                  {formatQty(product.lowStockThreshold)}
-                </span>
-              </div>
+            {lowRows.length > 0 ? (
+              lowRows.map((r) => (
+                <div key={r.product.id} className={styles.alertRow}>
+                  <Badge tone="danger">预警</Badge>
+                  <span>
+                    {r.product.name} 仅剩 <strong>{formatQty(r.stock.quantity)}</strong> {r.product.unit}，预警值{' '}
+                    {formatQty(r.product.lowStockThreshold)}
+                  </span>
+                </div>
+              ))
             ) : (
               <p className={styles.muted}>{hasOpening ? '暂无预警' : '录入期初后开始监控'}</p>
             )}
@@ -194,31 +198,36 @@ export function OverviewPage(): ReactElement {
             </tr>
           </thead>
           <tbody>
-            <tr onClick={() => navigate('products')}>
-              <td>
-                <span className={styles.thumb}>
-                  {imgUrl ? <img src={imgUrl} alt="" /> : <ImageIcon size={14} strokeWidth={1.5} />}
-                </span>
-                <span className={styles.accent}>{product.name}</span>
-              </td>
-              <td className={table.mono}>{product.defaultSku.code}</td>
-              <td className={table.num}>
-                {formatQty(stock.quantity)} {unit}
-              </td>
-              <td className={table.num}>{stock.quantity > 0 ? `¥${formatCents(stock.avgCostCents)}` : '—'}</td>
-              <td className={table.num}>
-                {formatQty(product.lowStockThreshold)} {unit}
-              </td>
-              <td>
-                {!hasOpening ? (
-                  <Badge>未录入期初</Badge>
-                ) : lowStock ? (
-                  <Badge tone="danger">库存预警</Badge>
-                ) : (
-                  <Badge tone="success">库存正常</Badge>
-                )}
-              </td>
-            </tr>
+            {rows.map((r) => {
+              const imgUrl = productImageUrl(r.product)
+              return (
+                <tr key={r.product.id} onClick={() => navigate('products')}>
+                  <td>
+                    <span className={styles.thumb}>
+                      {imgUrl ? <img src={imgUrl} alt="" /> : <ImageIcon size={14} strokeWidth={1.5} />}
+                    </span>
+                    <span className={styles.accent}>{r.product.name}</span>
+                  </td>
+                  <td className={table.mono}>{r.product.defaultSku.code}</td>
+                  <td className={table.num}>
+                    {formatQty(r.stock.quantity)} {r.product.unit}
+                  </td>
+                  <td className={table.num}>{r.stock.quantity > 0 ? `¥${formatCents(r.stock.avgCostCents)}` : '—'}</td>
+                  <td className={table.num}>
+                    {formatQty(r.product.lowStockThreshold)} {r.product.unit}
+                  </td>
+                  <td>
+                    {!r.hasOpening ? (
+                      <Badge>未录入期初</Badge>
+                    ) : r.lowStock ? (
+                      <Badge tone="danger">库存预警</Badge>
+                    ) : (
+                      <Badge tone="success">库存正常</Badge>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

@@ -63,7 +63,7 @@ module.exports = async () => {
   assert(escape === 'blocked' || escape === 403, '越界路径应被拒绝')
 
   const p = await t.api(
-    `products.setImage({ fileName: 'p.png', mime: 'image/png', data: new Uint8Array(${JSON.stringify(red)}).buffer })`
+    `products.setImage(1, { fileName: 'p.png', mime: 'image/png', data: new Uint8Array(${JSON.stringify(red)}).buffer })`
   )
   assert(p.imagePath && p.imagePath.startsWith('product/'), '商品图路径')
   await t.ui(`await click('商品', 500)`)
@@ -127,7 +127,7 @@ module.exports = async () => {
   await sleep(600)
   const check = new DatabaseSync(dbPath)
   eq(check.prepare('SELECT quantity FROM sku_stock WHERE sku_id = 1').get(), { quantity: 50 }, '磁盘上的库存与内存一致')
-  eq(check.prepare('SELECT MAX(version) AS v FROM schema_migrations').get(), { v: 2 }, 'schema 版本')
+  eq(check.prepare('SELECT MAX(version) AS v FROM schema_migrations').get(), { v: 3 }, 'schema 版本')
   check.close()
   const ws = JSON.parse(fs.readFileSync(path.join(t.ud, 'window-state.json'), 'utf8'))
   eq([ws.bounds.width, ws.bounds.height], [1100, 760], '窗口尺寸已记忆')

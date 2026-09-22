@@ -79,7 +79,7 @@ export function Shell({ route, seq, onNavigate, children }: ShellProps): ReactEl
 
   useEffect(() => {
     unwrap(window.ajuan.overview.get())
-      .then((o) => setLowStock(o.lowStock))
+      .then((o) => setLowStock(o.lowStockCount > 0))
       .catch(() => setLowStock(false))
   }, [seq])
 

@@ -82,3 +82,10 @@
   font-size: 13px;
   color: var(--color-text-muted);
 }
+
+.selected td {
+  background: var(--table-selected) !important;
+}
+.clickable tbody tr.selected td {
+  background: var(--table-selected);
+}

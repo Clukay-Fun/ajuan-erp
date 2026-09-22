@@ -133,7 +133,7 @@ export function ImportDialog({ open, onClose, onImported }: Props): ReactElement
                 <strong>选择标准模板格式的 CSV 文件</strong>
               </div>
               <div className={styles.steps}>
-                列顺序：类型（期初 / 入库 / 出库）、日期（YYYY-MM-DD）、数量、单价、渠道、外部订单号、备注
+                列顺序：商品编码、类型（期初 / 入库 / 出库）、日期（YYYY-MM-DD）、数量、单价、渠道、外部订单号、备注
                 <br />
                 尚未录入期初时可带一行「期初」作为起点，日期须最早。
                 <br />
@@ -218,6 +218,7 @@ export function ImportDialog({ open, onClose, onImported }: Props): ReactElement
                   <thead>
                     <tr>
                       <th>行号</th>
+                      <th>商品</th>
                       <th>类型</th>
                       <th>日期</th>
                       <th className={table.num}>数量</th>
@@ -234,6 +235,7 @@ export function ImportDialog({ open, onClose, onImported }: Props): ReactElement
                         className={r.status === 'error' ? styles.rowErr : r.status === 'warning' ? styles.rowWarn : ''}
                       >
                         <td className={table.muted}>{r.line}</td>
+                        <td className={table.mono}>{r.productCode || <span className={table.muted}>—</span>}</td>
                         <td>{r.typeText}</td>
                         <td className={table.mono}>{r.docDate}</td>
                         <td className={table.num}>{r.quantity}</td>

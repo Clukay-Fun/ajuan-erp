@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, Pencil, Trash2, Check, Ban, Download } from 'lucide-react'
+import { Pencil, Trash2, Check, Ban, Download } from 'lucide-react'
 import type { DocumentDetail } from '@shared/types'
 import { Button } from '@/components/Button'
 import { Field } from '@/components/Field'
@@ -18,7 +18,13 @@ import { SkeletonCard } from '@/components/Skeleton'
 /** 用户在保存对话框里取消：不算成功也不算失败 */
 class ApiCancel extends Error {}
 
-export function DocumentDetailView({ id }: { id: number }): ReactElement {
+interface Props {
+  id: number
+  /** 单据状态变化 / 删除后通知父级刷新列表；删除时传 null */
+  onChanged?: (id: number | null) => void
+}
+
+export function DocumentDetailView({ id, onChanged }: Props): ReactElement {
   const { navigate } = useNav()
   const toast = useToast()
   const [doc, setDoc] = useState<DocumentDetail | null>(null)
@@ -68,13 +74,6 @@ export function DocumentDetailView({ id }: { id: number }): ReactElement {
     <>
       <div className={styles.top}>
         <div>
-          <button
-            type="button"
-            className={styles.back}
-            onClick={() => navigate('documents', { documents: { view: 'list' } })}
-          >
-            <ArrowLeft size={16} /> 返回单据列表
-          </button>
           <div className={styles.titleRow}>
             <span className={`${styles.title} selectable`}>{doc.docNo}</span>
             <TypeBadge type={doc.type} />
@@ -216,7 +215,7 @@ export function DocumentDetailView({ id }: { id: number }): ReactElement {
         onConfirm={() =>
           run(async () => {
             await unwrap(window.ajuan.documents.deleteDraft(doc.id))
-            navigate('documents', { documents: { view: 'list' } })
+            onChanged?.(null)
           }, '草稿已删除')
         }
       />
@@ -230,6 +229,7 @@ export function DocumentDetailView({ id }: { id: number }): ReactElement {
         onConfirm={() =>
           run(async () => {
             setDoc(await unwrap(window.ajuan.documents.confirm(doc.id)))
+            onChanged?.(doc.id)
           }, `${label}已确认`)
         }
       />
@@ -245,6 +245,7 @@ export function DocumentDetailView({ id }: { id: number }): ReactElement {
         onConfirm={() =>
           run(async () => {
             setDoc(await unwrap(window.ajuan.documents.void(doc.id, voidReason)))
+            onChanged?.(doc.id)
           }, '单据已作废')
         }
       >

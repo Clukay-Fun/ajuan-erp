@@ -6,6 +6,7 @@ import type { DocumentDraftInput } from '@shared/schemas'
 import { Button } from '@/components/Button'
 import { Field } from '@/components/Field'
 import { Select } from '@/components/Select'
+import { Dropdown } from '@/components/Dropdown'
 import { useToast } from '@/components/Toast'
 import { TYPE_LABEL } from '@/components/Badge'
 import { unwrap, errorMessage } from '@/lib/api'
@@ -38,8 +39,8 @@ const newLine = (skuId: number, price: number): Line => ({
 export function DocumentEditor({ mode }: Props): ReactElement {
   const { navigate } = useNav()
   const toast = useToast()
-  const [product, setProduct] = useState<Product | null>(null)
-  const [stock, setStock] = useState<StockLevel | null>(null)
+  const [products, setProducts] = useState<Product[] | null>(null)
+  const [stocks, setStocks] = useState<Map<number, StockLevel>>(new Map())
   const [channels, setChannels] = useState<SalesChannel[]>([])
   const [existing, setExisting] = useState<DocumentDetail | null>(null)
   const [type, setType] = useState<DocumentType>(mode.view === 'new' ? mode.type : 'inbound')
@@ -59,13 +60,15 @@ export function DocumentEditor({ mode }: Props): ReactElement {
   useEffect(() => {
     ;(async () => {
       try {
-        const p = await unwrap(window.ajuan.products.get())
-        const [s, cs] = await Promise.all([
-          unwrap(window.ajuan.inventory.getStock(p.defaultSku.id)),
+        const [rows, cs] = await Promise.all([
+          unwrap(window.ajuan.inventory.listStock()),
           unwrap(window.ajuan.channels.list())
         ])
-        setProduct(p)
-        setStock(s)
+        const active = rows.filter((r) => r.product.isActive).map((r) => r.product)
+        const p = active[0]
+        if (!p) throw new Error('没有启用的商品')
+        setProducts(active)
+        setStocks(new Map(rows.map((r) => [r.product.defaultSku.id, r.stock])))
         setChannels(cs)
         if (mode.view === 'edit') {
           const d = await unwrap(window.ajuan.documents.get(mode.id))
@@ -96,7 +99,7 @@ export function DocumentEditor({ mode }: Props): ReactElement {
   // 加载完成后的任何改动都算未保存
   const loadedRef = useRef(false)
   useEffect(() => {
-    if (!product) return
+    if (!products) return
     if (!loadedRef.current) {
       loadedRef.current = true
       return
@@ -131,10 +134,17 @@ export function DocumentEditor({ mode }: Props): ReactElement {
     })
     const totalQty = items.reduce((a, i) => a + (i.qty ?? 0), 0)
     const totalAmount = items.reduce((a, i) => a + (i.qty !== null && i.price !== null ? i.qty * i.price : 0), 0)
-    return { items, totalQty, totalAmount, allValid: items.length > 0 && items.every((i) => i.valid) }
+    // 按 SKU 汇总需求量，逐个对比库存
+    const need = new Map<number, number>()
+    for (const i of items) need.set(i.line.skuId, (need.get(i.line.skuId) ?? 0) + (i.qty ?? 0))
+    return { items, totalQty, totalAmount, need, allValid: items.length > 0 && items.every((i) => i.valid) }
   }, [lines])
 
-  const insufficient = type === 'outbound' && stock !== null && parsed.totalQty > stock.quantity
+  const shortages =
+    type === 'outbound' ? [...parsed.need.entries()].filter(([skuId, q]) => q > (stocks.get(skuId)?.quantity ?? 0)) : []
+  const insufficient = shortages.length > 0
+  const productOf = (skuId: number): Product | undefined => products?.find((x) => x.defaultSku.id === skuId)
+  const defaultPrice = (p: Product): number => (type === 'inbound' ? p.defaultCostCents : p.defaultPriceCents)
 
   const buildInput = useCallback((): DocumentDraftInput | null => {
     setTouched(true)
@@ -178,7 +188,8 @@ export function DocumentEditor({ mode }: Props): ReactElement {
 
   async function handleConfirm(): Promise<void> {
     if (insufficient) {
-      setFormError(`库存不足：当前 ${stock!.quantity}，本单需要 ${parsed.totalQty}`)
+      const [skuId, q] = shortages[0]
+      setFormError(`库存不足：${productOf(skuId)?.name ?? ''} 当前 ${stocks.get(skuId)?.quantity ?? 0}，本单需要 ${q}`)
       return
     }
     setBusy('confirm')
@@ -203,7 +214,7 @@ export function DocumentEditor({ mode }: Props): ReactElement {
     )
 
   if (loadError) return <p className={styles.formError}>读取失败：{loadError}</p>
-  if (!product || !stock)
+  if (!products)
     return (
       <>
         <SkeletonCard lines={3} style={{ marginBottom: 16 }} />
@@ -284,15 +295,7 @@ export function DocumentEditor({ mode }: Props): ReactElement {
           {label}商品
           <Button
             variant="ghost"
-            onClick={() =>
-              setLines((ls) => [
-                ...ls,
-                newLine(
-                  product.defaultSku.id,
-                  type === 'inbound' ? product.defaultCostCents : product.defaultPriceCents
-                )
-              ])
-            }
+            onClick={() => setLines((ls) => [...ls, newLine(products[0].defaultSku.id, defaultPrice(products[0]))])}
           >
             <Plus size={16} /> 添加一行
           </Button>
@@ -317,9 +320,20 @@ export function DocumentEditor({ mode }: Props): ReactElement {
               {parsed.items.map(({ line, qty, price }) => (
                 <tr key={line.key}>
                   <td>
-                    {product.name} <span className={table.muted}>· {product.code}</span>
+                    <Dropdown
+                      aria-label="商品"
+                      value={line.skuId}
+                      onChange={(skuId) => {
+                        const p = productOf(skuId)
+                        updateLine(line.key, {
+                          skuId,
+                          unitPrice: p ? (defaultPrice(p) / 100).toFixed(2) : line.unitPrice
+                        })
+                      }}
+                      options={products.map((p) => ({ value: p.defaultSku.id, label: p.name, hint: p.code }))}
+                    />
                   </td>
-                  <td className={table.num}>{formatQty(stock.quantity)}</td>
+                  <td className={table.num}>{formatQty(stocks.get(line.skuId)?.quantity ?? 0)}</td>
                   <td className={table.num}>
                     <input
                       className={`${styles.cellInput} ${touched && (qty === null || qty < 1) ? styles.cellInvalid : ''}`}
@@ -358,14 +372,16 @@ export function DocumentEditor({ mode }: Props): ReactElement {
           <div className={styles.total}>
             {insufficient && (
               <span className={styles.short}>
-                库存不足，当前仅 {formatQty(stock.quantity)} {product.unit}
+                库存不足：
+                {shortages
+                  .map(
+                    ([skuId, q]) => `${productOf(skuId)?.name ?? ''} 需 ${q} / 现 ${stocks.get(skuId)?.quantity ?? 0}`
+                  )
+                  .join('，')}
               </span>
             )}
             <span>
-              合计：
-              <strong>
-                {formatQty(parsed.totalQty)} {product.unit}
-              </strong>
+              合计：<strong>{formatQty(parsed.totalQty)}</strong>
             </span>
             <span>
               金额：<strong>¥{formatCents(parsed.totalAmount)}</strong>
