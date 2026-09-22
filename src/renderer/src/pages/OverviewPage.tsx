@@ -208,7 +208,7 @@ export function OverviewPage(): ReactElement {
                 <span className={styles.thumb}>
                   {imgUrl ? <img src={imgUrl} alt="" /> : <ImageIcon size={14} strokeWidth={1.5} />}
                 </span>
-                {product.name}
+                <span className={styles.accent}>{product.name}</span>
               </td>
               <td className={table.mono}>{product.defaultSku.code}</td>
               <td className={table.num}>

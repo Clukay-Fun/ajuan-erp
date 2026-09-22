@@ -54,6 +54,7 @@ const UI_HELPERS = `
   const click = async (text, wait = 300) => { const b = btn(text); if (!b) throw new Error('找不到按钮：' + text); b.click(); await sleep(wait) }
   const setVal = (el, v) => { const s = Object.getOwnPropertyDescriptor(el.__proto__, 'value').set; s.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })) }
   const setSel = (el, v) => { const s = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; s.call(el, v); el.dispatchEvent(new Event('change', { bubbles: true })) }
+  const pickOption = async (triggerIndex, text) => { const trig = $$('[aria-haspopup=listbox]')[triggerIndex]; trig.click(); await sleep(150); const opt = $$('[role=option]').find(o => o.textContent.trim().startsWith(text)); if (!opt) throw new Error('找不到选项：' + text); opt.click(); await sleep(200) }
   const label = (t) => $$('label').find(l => l.textContent.trim() === t)
   const inputOf = (t) => { const l = label(t); if (!l) throw new Error('找不到字段：' + t); return document.getElementById(l.htmlFor) }
   const text = () => $('main').innerText.replace(/\\s+/g, ' ')

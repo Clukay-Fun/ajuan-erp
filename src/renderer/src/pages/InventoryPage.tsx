@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/PageHeader'
 import { TableEmpty } from '@/components/TableEmpty'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
+import { Dropdown } from '@/components/Dropdown'
 import { useToast } from '@/components/Toast'
 import { ImportDialog } from '@/features/csv/ImportDialog'
 import { SkeletonTable } from '@/components/Skeleton'
@@ -123,30 +124,23 @@ export function InventoryPage(): ReactElement {
         }
       />
       <div className={f.bar}>
-        <select
-          className={f.select}
+        <Dropdown
+          compact
+          aria-label="类型"
           value={kind}
-          onChange={(e) => resetPage(setKind)(e.target.value as '' | MovementKind)}
-        >
-          <option value="">全部类型</option>
-          {(Object.keys(KIND_LABEL) as MovementKind[]).map((k) => (
-            <option key={k} value={k}>
-              {KIND_LABEL[k]}
-            </option>
-          ))}
-        </select>
-        <select
-          className={f.select}
-          value={channelId}
-          onChange={(e) => resetPage(setChannelId)(e.target.value ? Number(e.target.value) : '')}
-        >
-          <option value="">全部渠道</option>
-          {channels.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => resetPage(setKind)(v)}
+          options={[
+            { value: '' as const, label: '全部类型' },
+            ...(Object.keys(KIND_LABEL) as MovementKind[]).map((k) => ({ value: k, label: KIND_LABEL[k] }))
+          ]}
+        />
+        <Dropdown
+          compact
+          aria-label="渠道"
+          value={channelId === '' ? 0 : channelId}
+          onChange={(v) => resetPage(setChannelId)(v === 0 ? '' : v)}
+          options={[{ value: 0, label: '全部渠道' }, ...channels.map((c) => ({ value: c.id, label: c.name }))]}
+        />
         <input
           className={`${f.input} ${f.date}`}
           type="date"

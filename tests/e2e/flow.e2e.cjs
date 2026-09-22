@@ -27,7 +27,7 @@ module.exports = async () => {
 
   const ckNo = await t.ui(`
     setVal($('input[inputmode=numeric]'), '30')
-    setSel($('select'), $('select').options[1].value)
+    await pickOption(0, '抖音小店')
     setVal(inputOf('外部订单号'), 'DY001')
     await click('确认出库', 500)
     return text().match(/CK\\d{8}-\\d{3}/)[0]
@@ -36,7 +36,7 @@ module.exports = async () => {
 
   const dup = await t.ui(`
     await click('返回单据列表'); await click('出库', 400)
-    setSel($('select'), $('select').options[1].value)
+    await pickOption(0, '抖音小店')
     setVal(inputOf('外部订单号'), 'DY001'); await sleep(600)
     return text().includes('相同订单号')
   `)

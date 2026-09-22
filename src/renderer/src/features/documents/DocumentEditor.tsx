@@ -243,19 +243,15 @@ export function DocumentEditor({ mode }: Props): ReactElement {
             <>
               <Select
                 label="销售渠道"
-                value={channelId ?? ''}
-                onChange={(e) => setChannelId(e.target.value ? Number(e.target.value) : null)}
-              >
-                <option value="">未指定</option>
-                {channels
-                  .filter((c) => c.isActive || c.id === channelId)
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                      {!c.isActive ? '（已停用）' : ''}
-                    </option>
-                  ))}
-              </Select>
+                value={channelId ?? 0}
+                onChange={(v) => setChannelId(v === 0 ? null : v)}
+                options={[
+                  { value: 0, label: '未指定' },
+                  ...channels
+                    .filter((c) => c.isActive || c.id === channelId)
+                    .map((c) => ({ value: c.id, label: c.name, hint: c.isActive ? undefined : '已停用' }))
+                ]}
+              />
               <Field
                 label="外部订单号"
                 value={externalOrderNo}

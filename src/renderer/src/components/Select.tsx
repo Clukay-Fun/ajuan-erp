@@ -1,29 +1,27 @@
-import type { ReactElement, SelectHTMLAttributes } from 'react'
+import type { ReactElement } from 'react'
 import { useId } from 'react'
-import { ChevronDown } from 'lucide-react'
 import styles from './Field.module.css'
-import own from './Select.module.css'
+import { Dropdown, type DropdownOption } from './Dropdown'
 
-interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
+interface SelectProps<T extends string | number> {
   label: string
+  value: T
+  options: DropdownOption<T>[]
+  onChange: (value: T) => void
+  placeholder?: string
   error?: string
   hint?: string
 }
 
-export function Select({ label, error, hint, id, children, ...rest }: SelectProps): ReactElement {
-  const autoId = useId()
-  const selectId = id ?? autoId
+/** 带标签的下拉，表单里与 Field 并排使用。 */
+export function Select<T extends string | number>({ label, error, hint, ...rest }: SelectProps<T>): ReactElement {
+  const id = useId()
   return (
     <div className={styles.field}>
-      <label className={styles.label} htmlFor={selectId}>
+      <label className={styles.label} htmlFor={id}>
         {label}
       </label>
-      <div className={`${styles.control} ${own.wrap} ${error ? styles.invalid : ''}`}>
-        <select id={selectId} className={`${styles.input} ${own.select}`} {...rest}>
-          {children}
-        </select>
-        <ChevronDown size={16} className={own.chevron} />
-      </div>
+      <Dropdown id={id} aria-label={label} {...rest} />
       {error ? (
         <span className={styles.error}>{error}</span>
       ) : hint ? (

@@ -34,6 +34,8 @@
   --dur-exit: 160ms;
   --motion: 1;
 
+  --logo-light-display: block;
+  --logo-dark-display: none;
   --sidebar-width: 224px;
   --titlebar-height: 44px;
   --control-height: 40px;
@@ -115,6 +117,8 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
+    --logo-light-display: none;
+    --logo-dark-display: block;
 
     /* 表面：墨黑底，靠明度分层，不用阴影 */
     --color-bg: #101114;
@@ -182,6 +186,8 @@
 
 :root[data-theme='dark'] {
   color-scheme: dark;
+  --logo-light-display: none;
+  --logo-dark-display: block;
 
   /* 表面：墨黑底，靠明度分层，不用阴影 */
   --color-bg: #101114;

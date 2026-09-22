@@ -5,9 +5,9 @@ import { applyTheme, readThemePreference, type ThemePreference } from '@/lib/the
 import styles from './AppearanceSettings.module.css'
 
 const OPTIONS: { value: ThemePreference; label: string; desc: string; icon: typeof Sun }[] = [
+  { value: 'system', label: '跟随系统', desc: '随 macOS / Windows 外观切换', icon: Monitor },
   { value: 'light', label: '浅色', desc: '冷白灰 · 墨绿', icon: Sun },
-  { value: 'dark', label: '深色', desc: '墨黑 · 紫罗兰', icon: Moon },
-  { value: 'system', label: '跟随系统', desc: '随 macOS / Windows 外观切换', icon: Monitor }
+  { value: 'dark', label: '深色', desc: '墨黑 · 紫罗兰', icon: Moon }
 ]
 
 export function AppearanceSettings(): ReactElement {
