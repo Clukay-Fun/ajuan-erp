@@ -5,7 +5,7 @@ import type { DocumentSummary, Product, StockRow } from '@shared/types'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
-import { DetailAbove } from '@/components/DetailAbove'
+import { Drawer } from '@/components/Drawer'
 import { SkeletonTable } from '@/components/Skeleton'
 import { TableEmpty } from '@/components/TableEmpty'
 import { useToast } from '@/components/Toast'
@@ -144,7 +144,7 @@ export function ProductsPage(): ReactElement {
 
   const detail = selected ? (
     <>
-      <section className={`${styles.card} inner-card`}>
+      <section className={`${styles.card} ${styles.flat}`}>
         <div className={styles.detailHead}>
           <div className={styles.profile}>
             <ProductImage product={selected.product} onChanged={patchProduct} size={120} />
@@ -256,11 +256,10 @@ export function ProductsPage(): ReactElement {
           </Button>
         }
       />
-      {!rows ? (
-        <SkeletonTable cols={6} />
-      ) : (
-        <DetailAbove detail={detail} onClose={() => setSelectedId(null)} list={master} />
-      )}
+      {!rows ? <SkeletonTable cols={6} /> : master}
+      <Drawer open={selected !== null && editing === null} wide title="商品详情" onClose={() => setSelectedId(null)}>
+        {detail}
+      </Drawer>
 
       <ProductEditDrawer
         open={editing !== null}

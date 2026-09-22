@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
 import { Dropdown } from '@/components/Dropdown'
-import { DetailAbove } from '@/components/DetailAbove'
+import { Drawer } from '@/components/Drawer'
 import { SkeletonTable } from '@/components/Skeleton'
 import { TableEmpty } from '@/components/TableEmpty'
 import { useToast } from '@/components/Toast'
@@ -188,13 +188,6 @@ export function InventoryPage(): ReactElement {
 
   const detail = (
     <>
-      <div className={styles.detailTitle}>
-        <span className={styles.detailName}>{selectedRow?.product.name} 的流水</span>
-        <span className={styles.detailMeta}>
-          当前 {formatQty(selectedRow?.stock.quantity ?? 0)} {selectedRow?.product.unit} · 均价{' '}
-          {selectedRow && selectedRow.stock.quantity > 0 ? `¥${formatCents(selectedRow.stock.avgCostCents)}` : '—'}
-        </span>
-      </div>
       <div className={f.bar}>
         <Dropdown
           compact
@@ -329,11 +322,23 @@ export function InventoryPage(): ReactElement {
           </>
         }
       />
-      {!rows ? (
-        <SkeletonTable cols={7} />
-      ) : (
-        <DetailAbove detail={selectedRow ? detail : null} onClose={() => setSelectedSku(null)} list={master} />
-      )}
+      {!rows ? <SkeletonTable cols={7} /> : master}
+      <Drawer
+        open={selectedRow !== null}
+        wide
+        title={
+          <span className={styles.detailTitle}>
+            <span className={styles.detailName}>{selectedRow?.product.name} 的流水</span>
+            <span className={styles.detailMeta}>
+              当前 {formatQty(selectedRow?.stock.quantity ?? 0)} {selectedRow?.product.unit} · 均价{' '}
+              {selectedRow && selectedRow.stock.quantity > 0 ? `¥${formatCents(selectedRow.stock.avgCostCents)}` : '—'}
+            </span>
+          </span>
+        }
+        onClose={() => setSelectedSku(null)}
+      >
+        {selectedRow && detail}
+      </Drawer>
       <ImportDialog
         open={importOpen}
         onClose={() => setImportOpen(false)}

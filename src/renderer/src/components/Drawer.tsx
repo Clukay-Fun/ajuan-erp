@@ -1,22 +1,27 @@
 import type { ReactElement, ReactNode } from 'react'
 import { useEffect, useRef } from 'react'
-import { useFocusTrap } from '@/lib/useFocusTrap'
-import { usePresence } from '@/lib/usePresence'
 import { X } from 'lucide-react'
 import styles from './Drawer.module.css'
+import { useFocusTrap } from '@/lib/useFocusTrap'
+import { usePresence } from '@/lib/usePresence'
 
 interface DrawerProps {
   open: boolean
-  title: string
+  /** 标题；也可以传节点（如单号 + 徽标） */
+  title: ReactNode
   onClose: () => void
   footer?: ReactNode
+  /** 宽版：用于详情 */
+  wide?: boolean
   children: ReactNode
 }
 
-export function Drawer({ open, title, onClose, footer, children }: DrawerProps): ReactElement | null {
+/** 居中弹窗。名字沿用 Drawer 以免大面积改引用。 */
+export function Drawer({ open, title, onClose, footer, wide, children }: DrawerProps): ReactElement | null {
   const panelRef = useRef<HTMLElement>(null)
   const { mounted, closing } = usePresence(open)
   useFocusTrap(panelRef, open)
+
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent): void => {
@@ -32,14 +37,13 @@ export function Drawer({ open, title, onClose, footer, children }: DrawerProps):
       <div className={styles.backdrop} data-closing={closing || undefined} onClick={onClose} />
       <aside
         ref={panelRef}
-        className={styles.panel}
+        className={`${styles.panel} ${wide ? styles.wide : ''}`}
         data-closing={closing || undefined}
         role="dialog"
         aria-modal="true"
-        aria-label={title}
       >
         <header className={styles.header}>
-          <h2 className={styles.title}>{title}</h2>
+          <div className={styles.title}>{title}</div>
           <button type="button" className={styles.close} onClick={onClose} aria-label="关闭">
             <X size={18} />
           </button>

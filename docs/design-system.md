@@ -70,7 +70,7 @@ Primary（绿实底）：入库 / 出库 / 保存 / 确认。Secondary（白底�
 | 按钮 / 导航按压 | `scale(0.97)` 120ms | — |
 | hover / 焦点环 | 颜色、box-shadow 120ms | — |
 | 对话框 | `scale(0.96)+opacity` 180ms，`@starting-style` | 淡出 + `scale(0.98)` 160ms |
-| 抽屉 | `translateX(24px)` 260ms，iOS 曲线 | 淡出 + 回移 16px 160ms |
+| 弹窗（Drawer 组件，居中） | `scale(0.96)+opacity` 180ms | 淡出 + `scale(0.98)` 160ms |
 | Toast | 自上 8px 落入 260ms | 淡出 + 上移 4px 160ms |
 | 骨架屏 | 1.4s 线性循环 | — |
 
