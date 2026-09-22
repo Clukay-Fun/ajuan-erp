@@ -87,21 +87,43 @@ export function AttachmentPanel({ documentId, readOnly }: Props): ReactElement {
   }
 
   return (
-    <div className={styles.wrap} onDragOver={(e) => { e.preventDefault(); if (!readOnly) setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={onDrop}>
+    <div
+      className={styles.wrap}
+      onDragOver={(e) => {
+        e.preventDefault()
+        if (!readOnly) setDragging(true)
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={onDrop}
+    >
       <div className={styles.grid}>
         {items.map((a) => (
           <div key={a.id} className={styles.thumb} onClick={() => setPreview(a)} title={a.fileName}>
             <img src={attachmentUrl(a)} alt={a.fileName} loading="lazy" />
             <div className={styles.name}>{a.fileName}</div>
             {!readOnly && (
-              <button type="button" className={styles.remove} aria-label="删除图片" onClick={(e) => { e.stopPropagation(); setPendingRemove(a) }} disabled={busy}>
+              <button
+                type="button"
+                className={styles.remove}
+                aria-label="删除图片"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setPendingRemove(a)
+                }}
+                disabled={busy}
+              >
                 <X size={14} />
               </button>
             )}
           </div>
         ))}
         {!readOnly && items.length < MAX && (
-          <button type="button" className={`${styles.drop} ${dragging ? styles.dropActive : ''}`} onClick={() => inputRef.current?.click()} disabled={busy}>
+          <button
+            type="button"
+            className={`${styles.drop} ${dragging ? styles.dropActive : ''}`}
+            onClick={() => inputRef.current?.click()}
+            disabled={busy}
+          >
             <ImagePlus size={22} strokeWidth={1.5} />
             {busy ? '上传中…' : '拖入图片或点击选择'}
           </button>
@@ -109,7 +131,17 @@ export function AttachmentPanel({ documentId, readOnly }: Props): ReactElement {
         {readOnly && items.length === 0 && <span className={styles.hint}>没有图片附件</span>}
       </div>
       {!readOnly && <span className={styles.hint}>PNG / JPG / WebP / GIF，单张 10MB 以内，最多 {MAX} 张。</span>}
-      <input ref={inputRef} type="file" accept={ACCEPT} multiple hidden onChange={(e) => { if (e.target.files) void addFiles(e.target.files); e.target.value = '' }} />
+      <input
+        ref={inputRef}
+        type="file"
+        accept={ACCEPT}
+        multiple
+        hidden
+        onChange={(e) => {
+          if (e.target.files) void addFiles(e.target.files)
+          e.target.value = ''
+        }}
+      />
 
       {preview && (
         <div className={styles.lightbox} onClick={() => setPreview(null)}>
@@ -117,7 +149,11 @@ export function AttachmentPanel({ documentId, readOnly }: Props): ReactElement {
         </div>
       )}
       <ConfirmDialog
-        open={pendingRemove !== null} danger title="删除这张图片？" confirmText="删除" busy={busy}
+        open={pendingRemove !== null}
+        danger
+        title="删除这张图片？"
+        confirmText="删除"
+        busy={busy}
         description={pendingRemove ? `${pendingRemove.fileName} 将从单据中移除并删除文件。` : ''}
         onCancel={() => setPendingRemove(null)}
         onConfirm={() => pendingRemove && remove(pendingRemove)}

@@ -4,22 +4,48 @@ import type { Db } from '../src/main/db/connection'
 import { createOpening } from '../src/main/services/opening'
 import { getStock } from '../src/main/services/inventory'
 import {
-  createDraft, updateDraft, deleteDraft, confirmDocument, voidDocument, listDocuments, getDocument, findDuplicateOrder
+  createDraft,
+  updateDraft,
+  deleteDraft,
+  confirmDocument,
+  voidDocument,
+  listDocuments,
+  getDocument,
+  findDuplicateOrder
 } from '../src/main/services/documents'
 import { createChannel, listChannels, updateChannel } from '../src/main/services/channels'
 
 const inbound = (qty: number, price: number, date = '2026-09-21') => ({
-  type: 'inbound' as const, docDate: date, channelId: null, externalOrderNo: '', note: '', items: [{ skuId: 1, quantity: qty, unitPriceCents: price }]
+  type: 'inbound' as const,
+  docDate: date,
+  channelId: null,
+  externalOrderNo: '',
+  note: '',
+  items: [{ skuId: 1, quantity: qty, unitPriceCents: price }]
 })
-const outbound = (qty: number, price: number, extra: Partial<{ channelId: number | null; externalOrderNo: string }> = {}) => ({
-  type: 'outbound' as const, docDate: '2026-09-21', channelId: null, externalOrderNo: '', note: '', ...extra,
+const outbound = (
+  qty: number,
+  price: number,
+  extra: Partial<{ channelId: number | null; externalOrderNo: string }> = {}
+) => ({
+  type: 'outbound' as const,
+  docDate: '2026-09-21',
+  channelId: null,
+  externalOrderNo: '',
+  note: '',
+  ...extra,
   items: [{ skuId: 1, quantity: qty, unitPriceCents: price }]
 })
 
 /** 由流水重放库存，验证快照与流水一致 */
 function replay(db: Db, skuId: number): { qty: number; cost: bigint } {
-  const rows = db.prepare(`SELECT quantity_delta, cost_value_delta_e4 FROM stock_movements WHERE sku_id = ? ORDER BY id`).all(skuId) as { quantity_delta: number; cost_value_delta_e4: number | bigint }[]
-  return rows.reduce((acc, r) => ({ qty: acc.qty + r.quantity_delta, cost: acc.cost + BigInt(r.cost_value_delta_e4) }), { qty: 0, cost: 0n })
+  const rows = db
+    .prepare(`SELECT quantity_delta, cost_value_delta_e4 FROM stock_movements WHERE sku_id = ? ORDER BY id`)
+    .all(skuId) as { quantity_delta: number; cost_value_delta_e4: number | bigint }[]
+  return rows.reduce(
+    (acc, r) => ({ qty: acc.qty + r.quantity_delta, cost: acc.cost + BigInt(r.cost_value_delta_e4) }),
+    { qty: 0, cost: 0n }
+  )
 }
 function expectReconciled(db: Db): void {
   const s = getStock(db, 1)
@@ -30,7 +56,9 @@ function expectReconciled(db: Db): void {
 
 describe('单据草稿', () => {
   let db: Db
-  beforeEach(() => { db = testDb() })
+  beforeEach(() => {
+    db = testDb()
+  })
 
   it('创建 / 修改 / 删除草稿，不影响库存', () => {
     const d = createDraft(db, inbound(10, 1000))
@@ -71,7 +99,13 @@ describe('确认与作废', () => {
   })
 
   it('库存不足时整单回滚，不留流水', () => {
-    const d = createDraft(db, { ...outbound(60, 2990), items: [{ skuId: 1, quantity: 60, unitPriceCents: 2990 }, { skuId: 1, quantity: 50, unitPriceCents: 2990 }] })
+    const d = createDraft(db, {
+      ...outbound(60, 2990),
+      items: [
+        { skuId: 1, quantity: 60, unitPriceCents: 2990 },
+        { skuId: 1, quantity: 50, unitPriceCents: 2990 }
+      ]
+    })
     expect(() => confirmDocument(db, d.id)).toThrow(/库存不足/)
     expect(getDocument(db, d.id).status).toBe('draft')
     expect(getStock(db, 1).quantity).toBe(100)
@@ -98,7 +132,9 @@ describe('确认与作废', () => {
     const after = getStock(db, 1)
     expect(after.quantity).toBe(before.quantity + 30)
     expect(after.costValueCents).toBe(before.costValueCents + 30 * 1100)
-    expect(db.prepare(`SELECT COUNT(*) AS c FROM stock_movements WHERE document_id = ? AND kind = 'void'`).get(ck.id)).toEqual({ c: 1 })
+    expect(
+      db.prepare(`SELECT COUNT(*) AS c FROM stock_movements WHERE document_id = ? AND kind = 'void'`).get(ck.id)
+    ).toEqual({ c: 1 })
     expectReconciled(db)
     expect(() => voidDocument(db, ck.id, '再来')).toThrow(/只有已生效/)
   })
@@ -154,7 +190,10 @@ describe('重复外部订单号与渠道', () => {
     const c = createChannel(db, { name: '小红书' })
     expect(c.sortOrder).toBe(6)
     expect(() => createChannel(db, { name: '淘宝' })).toThrow(/已存在/)
-    expect(updateChannel(db, c.id, { name: '小红书店', isActive: false })).toMatchObject({ name: '小红书店', isActive: false })
+    expect(updateChannel(db, c.id, { name: '小红书店', isActive: false })).toMatchObject({
+      name: '小红书店',
+      isActive: false
+    })
     expect(() => updateChannel(db, c.id, { name: '微信', isActive: true })).toThrow(/已存在/)
   })
 })

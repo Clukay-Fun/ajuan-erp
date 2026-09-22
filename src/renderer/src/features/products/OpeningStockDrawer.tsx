@@ -69,14 +69,34 @@ export function OpeningStockDrawer({ open, product, onClose, onSubmit }: Props):
         </>
       }
     >
-      <p className={styles.notice}>
-        期初库存只能录入一次，确认后生成不可删除的期初记录。后续纠错请通过库存调整完成。
-      </p>
+      <p className={styles.notice}>期初库存只能录入一次，确认后生成不可删除的期初记录。后续纠错请通过库存调整完成。</p>
       <form id="opening-form" onSubmit={handleSubmit} style={{ display: 'contents' }}>
         <Field label="商品" value={`${product.name} · ${product.code}`} readOnly />
-        <Field label="期初数量" suffix={product.unit} inputMode="numeric" value={quantity} onChange={(e) => setQuantity(e.target.value)} error={errors.quantity} autoFocus />
-        <Field label="单位成本" prefix="¥" inputMode="decimal" value={unitCost} onChange={(e) => setUnitCost(e.target.value)} error={errors.unitCost} hint="作为初始移动加权平均成本" />
-        <Field label="期初日期" type="date" value={docDate} onChange={(e) => setDocDate(e.target.value)} error={errors.docDate} />
+        <Field
+          label="期初数量"
+          suffix={product.unit}
+          inputMode="numeric"
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+          error={errors.quantity}
+          autoFocus
+        />
+        <Field
+          label="单位成本"
+          prefix="¥"
+          inputMode="decimal"
+          value={unitCost}
+          onChange={(e) => setUnitCost(e.target.value)}
+          error={errors.unitCost}
+          hint="作为初始移动加权平均成本"
+        />
+        <Field
+          label="期初日期"
+          type="date"
+          value={docDate}
+          onChange={(e) => setDocDate(e.target.value)}
+          error={errors.docDate}
+        />
         <Field label="备注" value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} />
       </form>
       <div className={styles.total}>

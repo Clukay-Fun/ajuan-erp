@@ -7,7 +7,9 @@ const api: AjuanApi = {
   },
   products: {
     get: () => ipcRenderer.invoke(IPC.productsGet),
-    update: (input) => ipcRenderer.invoke(IPC.productsUpdate, input)
+    update: (input) => ipcRenderer.invoke(IPC.productsUpdate, input),
+    setImage: (upload) => ipcRenderer.invoke(IPC.productsSetImage, upload),
+    clearImage: () => ipcRenderer.invoke(IPC.productsClearImage)
   },
   inventory: {
     getStock: (skuId) => ipcRenderer.invoke(IPC.inventoryGetStock, skuId),
@@ -25,7 +27,8 @@ const api: AjuanApi = {
     commit: (path, ack) => ipcRenderer.invoke(IPC.csvCommit, path, ack),
     saveTemplate: () => ipcRenderer.invoke(IPC.csvSaveTemplate),
     exportMovements: (filter) => ipcRenderer.invoke(IPC.csvExportMovements, filter),
-    exportSummary: (range) => ipcRenderer.invoke(IPC.csvExportSummary, range)
+    exportSummary: (range) => ipcRenderer.invoke(IPC.csvExportSummary, range),
+    exportDocument: (id) => ipcRenderer.invoke(IPC.csvExportDocument, id)
   },
   opening: {
     get: (skuId) => ipcRenderer.invoke(IPC.openingGet, skuId),
@@ -39,7 +42,8 @@ const api: AjuanApi = {
     deleteDraft: (id) => ipcRenderer.invoke(IPC.documentsDeleteDraft, id),
     confirm: (id) => ipcRenderer.invoke(IPC.documentsConfirm, id),
     void: (id, reason) => ipcRenderer.invoke(IPC.documentsVoid, id, reason),
-    findDuplicate: (channelId, no, excludeId) => ipcRenderer.invoke(IPC.documentsFindDuplicate, channelId, no, excludeId)
+    findDuplicate: (channelId, no, excludeId) =>
+      ipcRenderer.invoke(IPC.documentsFindDuplicate, channelId, no, excludeId)
   },
   channels: {
     list: () => ipcRenderer.invoke(IPC.channelsList),
@@ -55,7 +59,12 @@ const api: AjuanApi = {
     create: () => ipcRenderer.invoke(IPC.backupCreate),
     pick: () => ipcRenderer.invoke(IPC.backupPick),
     inspect: (path) => ipcRenderer.invoke(IPC.backupInspect, path),
-    restore: (path) => ipcRenderer.invoke(IPC.backupRestore, path)
+    restore: (path) => ipcRenderer.invoke(IPC.backupRestore, path),
+    listTrash: () => ipcRenderer.invoke(IPC.backupListTrash),
+    clearTrash: () => ipcRenderer.invoke(IPC.backupClearTrash)
+  },
+  adjustments: {
+    create: (input) => ipcRenderer.invoke(IPC.adjustmentsCreate, input)
   }
 }
 

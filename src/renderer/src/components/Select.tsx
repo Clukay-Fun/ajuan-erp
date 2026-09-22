@@ -24,7 +24,11 @@ export function Select({ label, error, hint, id, children, ...rest }: SelectProp
         </select>
         <ChevronDown size={16} className={own.chevron} />
       </div>
-      {error ? <span className={styles.error}>{error}</span> : hint ? <span className={styles.hint}>{hint}</span> : null}
+      {error ? (
+        <span className={styles.error}>{error}</span>
+      ) : hint ? (
+        <span className={styles.hint}>{hint}</span>
+      ) : null}
     </div>
   )
 }

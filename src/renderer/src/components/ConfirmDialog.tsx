@@ -17,7 +17,18 @@ interface Props {
   children?: ReactNode
 }
 
-export function ConfirmDialog({ open, title, description, confirmText = '确认', danger, busy, disabled, onConfirm, onCancel, children }: Props): ReactElement | null {
+export function ConfirmDialog({
+  open,
+  title,
+  description,
+  confirmText = '确认',
+  danger,
+  busy,
+  disabled,
+  onConfirm,
+  onCancel,
+  children
+}: Props): ReactElement | null {
   const ref = useRef<HTMLDivElement>(null)
   useFocusTrap(ref, open)
   useEffect(() => {
@@ -31,13 +42,28 @@ export function ConfirmDialog({ open, title, description, confirmText = '确认'
   if (!open) return null
   return (
     <div className={styles.backdrop} onClick={onCancel}>
-      <div ref={ref} className={styles.dialog} role="alertdialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={ref}
+        className={styles.dialog}
+        role="alertdialog"
+        aria-modal="true"
+        aria-label={title}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className={styles.title}>{title}</div>
         {description && <div className={styles.desc}>{description}</div>}
         {children}
         <div className={styles.actions}>
-          <Button onClick={onCancel} disabled={busy}>取消</Button>
-          <Button variant="primary" className={danger ? styles.danger : ''} onClick={onConfirm} disabled={busy || disabled} autoFocus>
+          <Button onClick={onCancel} disabled={busy}>
+            取消
+          </Button>
+          <Button
+            variant="primary"
+            className={danger ? styles.danger : ''}
+            onClick={onConfirm}
+            disabled={busy || disabled}
+            autoFocus
+          >
             {busy ? '处理中…' : confirmText}
           </Button>
         </div>

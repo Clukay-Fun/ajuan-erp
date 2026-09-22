@@ -1,6 +1,7 @@
 // 主进程与 renderer 共用的领域类型（读模型）。
 
-export type DocumentType = 'inbound' | 'outbound' | 'opening'
+export type DocumentType = 'inbound' | 'outbound' | 'opening' | 'adjustment'
+export type AdjustDirection = 'increase' | 'decrease'
 export type DocumentStatus = 'draft' | 'confirmed' | 'voided'
 
 export interface Product {
@@ -72,6 +73,7 @@ export interface DocumentItem {
 }
 
 export interface DocumentDetail extends DocumentSummary {
+  adjustDirection: AdjustDirection | null
   channelId: number | null
   channelName: string | null
   externalOrderNo: string
@@ -86,7 +88,7 @@ export interface DocumentListFilter {
   limit?: number
 }
 
-export type MovementKind = 'opening' | 'inbound' | 'outbound' | 'void'
+export type MovementKind = 'opening' | 'inbound' | 'outbound' | 'adjustment' | 'void'
 
 export interface MovementRow {
   id: number
@@ -166,7 +168,7 @@ export type CsvRowStatus = 'ok' | 'warning' | 'error'
 export interface CsvImportRow {
   /** 文件中的行号（含表头，从 1 起） */
   line: number
-  type: 'inbound' | 'outbound' | null
+  type: 'inbound' | 'outbound' | 'opening' | null
   typeText: string
   docDate: string
   quantity: string
@@ -231,6 +233,12 @@ export interface BackupManifest {
   createdAt: string
   counts: { documents: number; movements: number; attachments: number }
   files: { path: string; size: number; sha256: string }[]
+}
+
+export interface TrashEntry {
+  name: string
+  createdAt: string
+  sizeBytes: number
 }
 
 export interface BackupInspection {

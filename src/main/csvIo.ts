@@ -5,7 +5,7 @@ import type { Db } from './db/connection'
 import type { CsvImportPreview, CsvImportResult, MovementFilter, SummaryRange } from '@shared/types'
 import { ServiceError } from './services/errors'
 import { buildTemplateCsv, commitImport, decodeCsv, previewImport } from './services/csvImport'
-import { buildMovementsCsv, buildSummaryCsv, CSV_BOM } from './services/csvExport'
+import { buildDocumentCsv, buildMovementsCsv, buildSummaryCsv, CSV_BOM } from './services/csvExport'
 
 // 文件对话框与磁盘读写只在主进程发生；renderer 只拿到路径字符串。
 
@@ -25,7 +25,8 @@ export async function pickImportFile(): Promise<string | null> {
 }
 
 function readImport(path: string): { text: string; ctx: { fileName: string; encoding: 'utf-8' | 'gbk' } } {
-  if (typeof path !== 'string' || !path.toLowerCase().match(/\.(csv|txt)$/)) throw new ServiceError('VALIDATION', '只支持 .csv 文件')
+  if (typeof path !== 'string' || !path.toLowerCase().match(/\.(csv|txt)$/))
+    throw new ServiceError('VALIDATION', '只支持 .csv 文件')
   let buf: Buffer
   try {
     buf = readFileSync(path)
@@ -70,4 +71,9 @@ export function exportMovements(db: Db, filter: MovementFilter): Promise<string 
 
 export function exportSummary(db: Db, range: SummaryRange): Promise<string | null> {
   return saveCsv(`出入库汇总-${range.from}_${range.to}.csv`, buildSummaryCsv(db, range))
+}
+
+export function exportDocument(db: Db, id: number): Promise<string | null> {
+  const { fileName, content } = buildDocumentCsv(db, id)
+  return saveCsv(fileName, content)
 }

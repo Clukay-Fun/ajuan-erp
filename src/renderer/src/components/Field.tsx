@@ -23,7 +23,11 @@ export function Field({ label, error, hint, prefix, suffix, id, ...rest }: Field
         <input id={inputId} className={styles.input} aria-invalid={!!error} {...rest} />
         {suffix && <span className={styles.suffix}>{suffix}</span>}
       </div>
-      {error ? <span className={styles.error}>{error}</span> : hint ? <span className={styles.hint}>{hint}</span> : null}
+      {error ? (
+        <span className={styles.error}>{error}</span>
+      ) : hint ? (
+        <span className={styles.hint}>{hint}</span>
+      ) : null}
     </div>
   )
 }

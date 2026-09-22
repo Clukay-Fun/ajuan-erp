@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 import { useCallback, useEffect, useState } from 'react'
-import { ImageIcon, PackagePlus } from 'lucide-react'
+import { PackagePlus, Scale } from 'lucide-react'
 import type { DocumentSummary, Product, StockLevel } from '@shared/types'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
@@ -10,11 +10,16 @@ import { unwrap, errorMessage } from '@/lib/api'
 import { formatCents, formatQty } from '@/lib/format'
 import { ProductEditDrawer } from '@/features/products/ProductEditDrawer'
 import { OpeningStockDrawer } from '@/features/products/OpeningStockDrawer'
+import { ProductImage } from '@/features/products/ProductImage'
+import { AdjustmentDrawer } from '@/features/adjustments/AdjustmentDrawer'
+import { useNav } from '@/app/navigation'
 import { SkeletonCard } from '@/components/Skeleton'
 import styles from './ProductsPage.module.css'
 
 export function ProductsPage(): ReactElement {
   const toast = useToast()
+  const { navigate } = useNav()
+  const [adjustOpen, setAdjustOpen] = useState(false)
   const [product, setProduct] = useState<Product | null>(null)
   const [stock, setStock] = useState<StockLevel | null>(null)
   const [opening, setOpening] = useState<DocumentSummary | null>(null)
@@ -67,14 +72,21 @@ export function ProductsPage(): ReactElement {
       <PageHeader
         title="商品资料"
         subtitle="商品编码、价格与库存预警"
-        actions={<Button onClick={() => setEditing(true)}>编辑资料</Button>}
+        actions={
+          <>
+            {opening && (
+              <Button onClick={() => setAdjustOpen(true)}>
+                <Scale size={16} /> 库存调整
+              </Button>
+            )}
+            <Button onClick={() => setEditing(true)}>编辑资料</Button>
+          </>
+        }
       />
 
       <section className={styles.card}>
         <div className={styles.profile}>
-          <div className={styles.image}>
-            <ImageIcon size={32} strokeWidth={1.5} />
-          </div>
+          <ProductImage product={product} onChanged={setProduct} />
           <div>
             <div className={styles.name}>{product.name}</div>
             <dl className={`${styles.meta} selectable`}>
@@ -164,6 +176,14 @@ export function ProductsPage(): ReactElement {
           } catch (err) {
             toast(errorMessage(err), 'error')
           }
+        }}
+      />
+      <AdjustmentDrawer
+        open={adjustOpen}
+        onClose={() => setAdjustOpen(false)}
+        onCreated={(d) => {
+          setAdjustOpen(false)
+          navigate('documents', { documents: { view: 'detail', id: d.id } })
         }}
       />
       <OpeningStockDrawer

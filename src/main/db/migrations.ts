@@ -1,6 +1,7 @@
 import type { Db } from './connection'
 import { transaction, nowIso } from './connection'
 import { m001Init } from './migrations/001_init'
+import { m002Adjustment } from './migrations/002_adjustment'
 
 export interface Migration {
   version: number
@@ -8,7 +9,7 @@ export interface Migration {
   up(db: Db): void
 }
 
-export const MIGRATIONS: Migration[] = [m001Init]
+export const MIGRATIONS: Migration[] = [m001Init, m002Adjustment]
 
 /** 应用所有未执行的 migration。每个版本在独立事务内执行；重复调用无副作用。 */
 export function runMigrations(db: Db, migrations: Migration[] = MIGRATIONS): number[] {
@@ -26,14 +27,22 @@ export function runMigrations(db: Db, migrations: Migration[] = MIGRATIONS): num
   const ran: number[] = []
   for (const m of sorted) {
     if (applied.has(m.version)) continue
-    transaction(db, () => {
-      m.up(db)
-      db.prepare('INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)').run(
-        m.version,
-        m.name,
-        nowIso()
-      )
-    })
+    // 重建表的 migration 需要在事务外关闭外键检查；结束后做一次完整性检查再打开。
+    db.exec('PRAGMA foreign_keys = OFF')
+    try {
+      transaction(db, () => {
+        m.up(db)
+        const violations = db.prepare('PRAGMA foreign_key_check').all()
+        if (violations.length) throw new Error(`migration ${m.version} 产生了 ${violations.length} 条外键违规`)
+        db.prepare('INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)').run(
+          m.version,
+          m.name,
+          nowIso()
+        )
+      })
+    } finally {
+      db.exec('PRAGMA foreign_keys = ON')
+    }
     ran.push(m.version)
   }
   return ran

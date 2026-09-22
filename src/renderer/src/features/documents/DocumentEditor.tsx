@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 import type { DocumentDetail, DocumentSummary, DocumentType, Product, SalesChannel, StockLevel } from '@shared/types'
 import type { DocumentDraftInput } from '@shared/schemas'
@@ -10,7 +10,7 @@ import { useToast } from '@/components/Toast'
 import { TYPE_LABEL } from '@/components/Badge'
 import { unwrap, errorMessage } from '@/lib/api'
 import { formatCents, formatQty, parseCents, todayString } from '@/lib/format'
-import { useNav } from '@/app/navigation'
+import { useNav, useNavGuard } from '@/app/navigation'
 import table from '@/components/Table.module.css'
 import styles from './DocumentEditor.module.css'
 import { AttachmentPanel } from '@/features/attachments/AttachmentPanel'
@@ -28,7 +28,12 @@ interface Line {
 }
 
 let lineSeq = 0
-const newLine = (skuId: number, price: number): Line => ({ key: ++lineSeq, skuId, quantity: '', unitPrice: (price / 100).toFixed(2) })
+const newLine = (skuId: number, price: number): Line => ({
+  key: ++lineSeq,
+  skuId,
+  quantity: '',
+  unitPrice: (price / 100).toFixed(2)
+})
 
 export function DocumentEditor({ mode }: Props): ReactElement {
   const { navigate } = useNav()
@@ -48,6 +53,8 @@ export function DocumentEditor({ mode }: Props): ReactElement {
   const [touched, setTouched] = useState(false)
   const [busy, setBusy] = useState<'save' | 'confirm' | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const dirtyRef = useRef(false)
+  useNavGuard(() => dirtyRef.current)
 
   useEffect(() => {
     ;(async () => {
@@ -68,7 +75,14 @@ export function DocumentEditor({ mode }: Props): ReactElement {
           setChannelId(d.channelId)
           setExternalOrderNo(d.externalOrderNo)
           setNote(d.note)
-          setLines(d.items.map((it) => ({ key: ++lineSeq, skuId: it.skuId, quantity: String(it.quantity), unitPrice: (it.unitPriceCents / 100).toFixed(2) })))
+          setLines(
+            d.items.map((it) => ({
+              key: ++lineSeq,
+              skuId: it.skuId,
+              quantity: String(it.quantity),
+              unitPrice: (it.unitPriceCents / 100).toFixed(2)
+            }))
+          )
         } else {
           const price = mode.type === 'inbound' ? p.defaultCostCents : p.defaultPriceCents
           setLines([newLine(p.defaultSku.id, price)])
@@ -79,6 +93,18 @@ export function DocumentEditor({ mode }: Props): ReactElement {
     })()
   }, [mode])
 
+  // 加载完成后的任何改动都算未保存
+  const loadedRef = useRef(false)
+  useEffect(() => {
+    if (!product) return
+    if (!loadedRef.current) {
+      loadedRef.current = true
+      return
+    }
+    dirtyRef.current = true
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docDate, channelId, externalOrderNo, note, lines])
+
   // 重复外部订单号提示（防抖）
   useEffect(() => {
     if (type !== 'outbound' || channelId === null || !externalOrderNo.trim()) {
@@ -87,7 +113,9 @@ export function DocumentEditor({ mode }: Props): ReactElement {
     }
     const t = window.setTimeout(async () => {
       try {
-        setDuplicate(await unwrap(window.ajuan.documents.findDuplicate(channelId, externalOrderNo, existing?.id ?? null)))
+        setDuplicate(
+          await unwrap(window.ajuan.documents.findDuplicate(channelId, externalOrderNo, existing?.id ?? null))
+        )
       } catch {
         setDuplicate(null)
       }
@@ -139,6 +167,7 @@ export function DocumentEditor({ mode }: Props): ReactElement {
       const d = await saveDraft()
       if (!d) return
       toast(`草稿已保存：${d.docNo}`, 'success')
+      dirtyRef.current = false
       navigate('documents', { documents: { view: 'detail', id: d.id } })
     } catch (err) {
       toast(errorMessage(err), 'error')
@@ -158,6 +187,7 @@ export function DocumentEditor({ mode }: Props): ReactElement {
       if (!d) return
       const c = await unwrap(window.ajuan.documents.confirm(d.id))
       toast(`${TYPE_LABEL[c.type]}已确认：${c.docNo}`, 'success')
+      dirtyRef.current = false
       navigate('documents', { documents: { view: 'detail', id: c.id } })
     } catch (err) {
       toast(errorMessage(err), 'error')
@@ -167,10 +197,19 @@ export function DocumentEditor({ mode }: Props): ReactElement {
   }
 
   const back = (): void =>
-    navigate('documents', existing ? { documents: { view: 'detail', id: existing.id } } : { documents: { view: 'list' } })
+    navigate(
+      'documents',
+      existing ? { documents: { view: 'detail', id: existing.id } } : { documents: { view: 'list' } }
+    )
 
   if (loadError) return <p className={styles.formError}>读取失败：{loadError}</p>
-  if (!product || !stock) return <><SkeletonCard lines={3} style={{ marginBottom: 16 }} /><SkeletonCard lines={2} /></>
+  if (!product || !stock)
+    return (
+      <>
+        <SkeletonCard lines={3} style={{ marginBottom: 16 }} />
+        <SkeletonCard lines={2} />
+      </>
+    )
 
   const label = TYPE_LABEL[type]
   const updateLine = (key: number, patch: Partial<Line>): void =>
@@ -202,7 +241,11 @@ export function DocumentEditor({ mode }: Props): ReactElement {
           <Field label={`${label}日期`} type="date" value={docDate} onChange={(e) => setDocDate(e.target.value)} />
           {type === 'outbound' && (
             <>
-              <Select label="销售渠道" value={channelId ?? ''} onChange={(e) => setChannelId(e.target.value ? Number(e.target.value) : null)}>
+              <Select
+                label="销售渠道"
+                value={channelId ?? ''}
+                onChange={(e) => setChannelId(e.target.value ? Number(e.target.value) : null)}
+              >
                 <option value="">未指定</option>
                 {channels
                   .filter((c) => c.isActive || c.id === channelId)
@@ -213,11 +256,20 @@ export function DocumentEditor({ mode }: Props): ReactElement {
                     </option>
                   ))}
               </Select>
-              <Field label="外部订单号" value={externalOrderNo} onChange={(e) => setExternalOrderNo(e.target.value)} placeholder="平台订单号，选填" maxLength={64} />
+              <Field
+                label="外部订单号"
+                value={externalOrderNo}
+                onChange={(e) => setExternalOrderNo(e.target.value)}
+                placeholder="平台订单号，选填"
+                maxLength={64}
+              />
               {duplicate && (
                 <div className={styles.dup}>
                   该渠道下已有相同订单号的单据{' '}
-                  <button type="button" onClick={() => navigate('documents', { documents: { view: 'detail', id: duplicate.id } })}>
+                  <button
+                    type="button"
+                    onClick={() => navigate('documents', { documents: { view: 'detail', id: duplicate.id } })}
+                  >
                     {duplicate.docNo}
                   </button>
                   ，请确认不是重复录入。
@@ -234,7 +286,18 @@ export function DocumentEditor({ mode }: Props): ReactElement {
       <section className={styles.section}>
         <div className={styles.sectionTitle}>
           {label}商品
-          <Button variant="ghost" onClick={() => setLines((ls) => [...ls, newLine(product.defaultSku.id, type === 'inbound' ? product.defaultCostCents : product.defaultPriceCents)])}>
+          <Button
+            variant="ghost"
+            onClick={() =>
+              setLines((ls) => [
+                ...ls,
+                newLine(
+                  product.defaultSku.id,
+                  type === 'inbound' ? product.defaultCostCents : product.defaultPriceCents
+                )
+              ])
+            }
+          >
             <Plus size={16} /> 添加一行
           </Button>
         </div>
@@ -244,8 +307,12 @@ export function DocumentEditor({ mode }: Props): ReactElement {
               <tr>
                 <th>商品 / SKU</th>
                 <th className={table.num}>{type === 'outbound' ? '可用库存' : '当前库存'}</th>
-                <th className={table.num} style={{ width: 140 }}>数量</th>
-                <th className={table.num} style={{ width: 160 }}>{type === 'inbound' ? '进价' : '售价'}</th>
+                <th className={table.num} style={{ width: 140 }}>
+                  数量
+                </th>
+                <th className={table.num} style={{ width: 160 }}>
+                  {type === 'inbound' ? '进价' : '售价'}
+                </th>
                 <th className={table.num}>小计</th>
                 <th style={{ width: 40 }} />
               </tr>
@@ -258,14 +325,33 @@ export function DocumentEditor({ mode }: Props): ReactElement {
                   </td>
                   <td className={table.num}>{formatQty(stock.quantity)}</td>
                   <td className={table.num}>
-                    <input className={`${styles.cellInput} ${touched && (qty === null || qty < 1) ? styles.cellInvalid : ''}`} inputMode="numeric" value={line.quantity} onChange={(e) => updateLine(line.key, { quantity: e.target.value })} placeholder="0" autoFocus={line.key === lines[0]?.key} />
+                    <input
+                      className={`${styles.cellInput} ${touched && (qty === null || qty < 1) ? styles.cellInvalid : ''}`}
+                      inputMode="numeric"
+                      value={line.quantity}
+                      onChange={(e) => updateLine(line.key, { quantity: e.target.value })}
+                      placeholder="0"
+                      autoFocus={line.key === lines[0]?.key}
+                    />
                   </td>
                   <td className={table.num}>
-                    <input className={`${styles.cellInput} ${touched && price === null ? styles.cellInvalid : ''}`} inputMode="decimal" value={line.unitPrice} onChange={(e) => updateLine(line.key, { unitPrice: e.target.value })} placeholder="0.00" />
+                    <input
+                      className={`${styles.cellInput} ${touched && price === null ? styles.cellInvalid : ''}`}
+                      inputMode="decimal"
+                      value={line.unitPrice}
+                      onChange={(e) => updateLine(line.key, { unitPrice: e.target.value })}
+                      placeholder="0.00"
+                    />
                   </td>
                   <td className={table.num}>{qty !== null && price !== null ? `¥${formatCents(qty * price)}` : '—'}</td>
                   <td>
-                    <button type="button" className={styles.remove} onClick={() => setLines((ls) => ls.filter((l) => l.key !== line.key))} disabled={lines.length <= 1} aria-label="删除此行">
+                    <button
+                      type="button"
+                      className={styles.remove}
+                      onClick={() => setLines((ls) => ls.filter((l) => l.key !== line.key))}
+                      disabled={lines.length <= 1}
+                      aria-label="删除此行"
+                    >
                       <Trash2 size={15} />
                     </button>
                   </td>
@@ -274,9 +360,20 @@ export function DocumentEditor({ mode }: Props): ReactElement {
             </tbody>
           </table>
           <div className={styles.total}>
-            {insufficient && <span className={styles.short}>库存不足，当前仅 {formatQty(stock.quantity)} {product.unit}</span>}
-            <span>合计：<strong>{formatQty(parsed.totalQty)} {product.unit}</strong></span>
-            <span>金额：<strong>¥{formatCents(parsed.totalAmount)}</strong></span>
+            {insufficient && (
+              <span className={styles.short}>
+                库存不足，当前仅 {formatQty(stock.quantity)} {product.unit}
+              </span>
+            )}
+            <span>
+              合计：
+              <strong>
+                {formatQty(parsed.totalQty)} {product.unit}
+              </strong>
+            </span>
+            <span>
+              金额：<strong>¥{formatCents(parsed.totalAmount)}</strong>
+            </span>
           </div>
         </div>
         {formError && <p className={styles.formError}>{formError}</p>}
@@ -285,7 +382,11 @@ export function DocumentEditor({ mode }: Props): ReactElement {
       <section className={styles.section}>
         <div className={styles.sectionTitle}>附件与备注图片</div>
         <div className={styles.card}>
-          {existing ? <AttachmentPanel documentId={existing.id} /> : <span className={styles.muted}>保存草稿后可以添加图片。</span>}
+          {existing ? (
+            <AttachmentPanel documentId={existing.id} />
+          ) : (
+            <span className={styles.muted}>保存草稿后可以添加图片。</span>
+          )}
         </div>
       </section>
     </>

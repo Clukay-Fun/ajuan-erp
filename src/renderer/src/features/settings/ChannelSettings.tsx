@@ -65,19 +65,55 @@ export function ChannelSettings(): ReactElement {
           <li key={c.id} className={styles.row}>
             {editingId === c.id ? (
               <>
-                <input className={styles.input} value={editName} onChange={(e) => setEditName(e.target.value)} maxLength={32} autoFocus
-                  onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(c); if (e.key === 'Escape') setEditingId(null) }} />
-                <Button variant="ghost" onClick={() => saveEdit(c)} disabled={busy || !editName.trim()} aria-label="保存"><Check size={16} /></Button>
-                <Button variant="ghost" onClick={() => setEditingId(null)} disabled={busy} aria-label="取消"><X size={16} /></Button>
+                <input
+                  className={styles.input}
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  maxLength={32}
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveEdit(c)
+                    if (e.key === 'Escape') setEditingId(null)
+                  }}
+                />
+                <Button
+                  variant="ghost"
+                  onClick={() => saveEdit(c)}
+                  disabled={busy || !editName.trim()}
+                  aria-label="保存"
+                >
+                  <Check size={16} />
+                </Button>
+                <Button variant="ghost" onClick={() => setEditingId(null)} disabled={busy} aria-label="取消">
+                  <X size={16} />
+                </Button>
               </>
             ) : (
               <>
                 <span className={`${styles.name} ${c.isActive ? '' : styles.inactive}`}>{c.name}</span>
                 {!c.isActive && <Badge>已停用</Badge>}
                 <span className={styles.spacer} />
-                <Button variant="ghost" onClick={() => { setEditingId(c.id); setEditName(c.name) }} disabled={busy} aria-label="重命名"><Pencil size={15} /></Button>
-                <Button variant="ghost" disabled={busy}
-                  onClick={() => act(() => unwrap(window.ajuan.channels.update(c.id, { name: c.name, isActive: !c.isActive })), c.isActive ? '渠道已停用' : '渠道已启用')}>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setEditingId(c.id)
+                    setEditName(c.name)
+                  }}
+                  disabled={busy}
+                  aria-label="重命名"
+                >
+                  <Pencil size={15} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() =>
+                    act(
+                      () => unwrap(window.ajuan.channels.update(c.id, { name: c.name, isActive: !c.isActive })),
+                      c.isActive ? '渠道已停用' : '渠道已启用'
+                    )
+                  }
+                >
                   {c.isActive ? '停用' : '启用'}
                 </Button>
               </>
@@ -86,8 +122,16 @@ export function ChannelSettings(): ReactElement {
         ))}
       </ul>
       <form className={styles.add} onSubmit={handleAdd}>
-        <input className={styles.input} value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="新渠道名称" maxLength={32} />
-        <Button variant="primary" type="submit" disabled={busy || !newName.trim()}><Plus size={16} /> 添加</Button>
+        <input
+          className={styles.input}
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          placeholder="新渠道名称"
+          maxLength={32}
+        />
+        <Button variant="primary" type="submit" disabled={busy || !newName.trim()}>
+          <Plus size={16} /> 添加
+        </Button>
       </form>
     </section>
   )

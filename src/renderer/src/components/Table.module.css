@@ -23,10 +23,26 @@
   border-bottom: 1px solid var(--color-border);
   vertical-align: middle;
 }
-.table tr:last-child td { border-bottom: 0; }
-.clickable tbody tr { cursor: pointer; }
-.clickable tbody tr td { transition: background var(--dur-fast) ease; }
-.clickable tbody tr:hover td { background: var(--color-surface-hover); }
-.num { text-align: right !important; font-variant-numeric: tabular-nums; }
-.mono { font-family: var(--font-mono); font-size: 12.5px; }
-.muted { color: var(--color-text-muted); }
+.table tr:last-child td {
+  border-bottom: 0;
+}
+.clickable tbody tr {
+  cursor: pointer;
+}
+.clickable tbody tr td {
+  transition: background var(--dur-fast) ease;
+}
+.clickable tbody tr:hover td {
+  background: var(--color-surface-hover);
+}
+.num {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+}
+.mono {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+.muted {
+  color: var(--color-text-muted);
+}

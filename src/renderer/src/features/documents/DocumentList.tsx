@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 import { useCallback, useEffect, useState } from 'react'
-import { FileText, PackagePlus, PackageMinus, Upload } from 'lucide-react'
+import { FileText, PackagePlus, PackageMinus, Upload, Scale } from 'lucide-react'
 import type { DocumentStatus, DocumentSummary, DocumentType } from '@shared/types'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
@@ -12,6 +12,7 @@ import { useNav } from '@/app/navigation'
 import table from '@/components/Table.module.css'
 import styles from './DocumentList.module.css'
 import { ImportDialog } from '@/features/csv/ImportDialog'
+import { AdjustmentDrawer } from '@/features/adjustments/AdjustmentDrawer'
 import { SkeletonTable } from '@/components/Skeleton'
 
 type TypeFilter = 'all' | DocumentType
@@ -21,6 +22,7 @@ const TYPE_TABS: { key: TypeFilter; label: string }[] = [
   { key: 'all', label: '全部' },
   { key: 'inbound', label: '入库' },
   { key: 'outbound', label: '出库' },
+  { key: 'adjustment', label: '调整' },
   { key: 'opening', label: '期初' }
 ]
 const STATUS_TABS: { key: StatusFilter; label: string }[] = [
@@ -37,6 +39,7 @@ export function DocumentList(): ReactElement {
   const [docs, setDocs] = useState<DocumentSummary[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [importOpen, setImportOpen] = useState(false)
+  const [adjustOpen, setAdjustOpen] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -68,10 +71,19 @@ export function DocumentList(): ReactElement {
             <Button onClick={() => setImportOpen(true)}>
               <Upload size={16} /> 导入 CSV
             </Button>
-            <Button variant="primary" onClick={() => navigate('documents', { documents: { view: 'new', type: 'inbound' } })}>
+            <Button onClick={() => setAdjustOpen(true)}>
+              <Scale size={16} /> 库存调整
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => navigate('documents', { documents: { view: 'new', type: 'inbound' } })}
+            >
               <PackagePlus size={16} /> 入库
             </Button>
-            <Button variant="primary" onClick={() => navigate('documents', { documents: { view: 'new', type: 'outbound' } })}>
+            <Button
+              variant="primary"
+              onClick={() => navigate('documents', { documents: { view: 'new', type: 'outbound' } })}
+            >
               <PackageMinus size={16} /> 出库
             </Button>
           </>
@@ -80,14 +92,28 @@ export function DocumentList(): ReactElement {
       <div className={styles.filters}>
         <div className={styles.tabs} role="tablist">
           {TYPE_TABS.map((t) => (
-            <button key={t.key} type="button" role="tab" aria-selected={type === t.key} className={styles.tab} onClick={() => setType(t.key)}>
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={type === t.key}
+              className={styles.tab}
+              onClick={() => setType(t.key)}
+            >
               {t.label}
             </button>
           ))}
         </div>
         <div className={styles.tabs} role="tablist">
           {STATUS_TABS.map((t) => (
-            <button key={t.key} type="button" role="tab" aria-selected={status === t.key} className={styles.tab} onClick={() => setStatus(t.key)}>
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={status === t.key}
+              className={styles.tab}
+              onClick={() => setStatus(t.key)}
+            >
               {t.label}
             </button>
           ))}
@@ -97,7 +123,11 @@ export function DocumentList(): ReactElement {
       {error && <p className={styles.error}>读取失败：{error}</p>}
       {!docs && !error && <SkeletonTable cols={8} />}
       {docs && docs.length === 0 && (
-        <EmptyState icon={FileText} title="没有符合条件的单据" description="点击右上角「入库」或「出库」新建一张单据。" />
+        <EmptyState
+          icon={FileText}
+          title="没有符合条件的单据"
+          description="点击右上角「入库」或「出库」新建一张单据。"
+        />
       )}
       {docs && docs.length > 0 && (
         <div className={table.wrap}>
@@ -118,9 +148,13 @@ export function DocumentList(): ReactElement {
               {docs.map((d) => (
                 <tr key={d.id} onClick={() => navigate('documents', { documents: { view: 'detail', id: d.id } })}>
                   <td>{d.docDate}</td>
-                  <td><TypeBadge type={d.type} /></td>
+                  <td>
+                    <TypeBadge type={d.type} />
+                  </td>
                   <td className={table.mono}>{d.docNo}</td>
-                  <td><StatusBadge status={d.status} /></td>
+                  <td>
+                    <StatusBadge status={d.status} />
+                  </td>
                   <td className={d.channelName ? '' : table.muted}>
                     {d.channelName ?? '—'}
                     {d.externalOrderNo && <span className={table.mono}> · {d.externalOrderNo}</span>}
@@ -135,6 +169,11 @@ export function DocumentList(): ReactElement {
         </div>
       )}
       <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} onImported={() => void load()} />
+      <AdjustmentDrawer
+        open={adjustOpen}
+        onClose={() => setAdjustOpen(false)}
+        onCreated={(d) => navigate('documents', { documents: { view: 'detail', id: d.id } })}
+      />
     </>
   )
 }

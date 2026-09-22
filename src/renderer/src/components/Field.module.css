@@ -17,7 +17,9 @@
   overflow: hidden;
 }
 .control {
-  transition: border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
+  transition:
+    border-color var(--dur-fast) ease,
+    box-shadow var(--dur-fast) ease;
 }
 .control:focus-within {
   border-color: var(--color-primary);

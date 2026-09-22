@@ -44,4 +44,4 @@
 
 ## 延后
 
-产品名 / Logo / 应用图标（侧栏品牌标记留了位置）、代码签名与公证。
+代码签名与公证（决定不做）。Logo 已就位：`src/renderer/src/assets/logo.png`（透明底，侧栏 22px）、`build/icon.png`（1024 米白圆角方底，生成各平台图标）。

@@ -1,5 +1,10 @@
 import type { Db } from '../db/connection'
-import { channelCreateSchema, channelUpdateSchema, type ChannelCreateInput, type ChannelUpdateInput } from '@shared/schemas'
+import {
+  channelCreateSchema,
+  channelUpdateSchema,
+  type ChannelCreateInput,
+  type ChannelUpdateInput
+} from '@shared/schemas'
 import type { SalesChannel } from '@shared/types'
 import { ServiceError } from './errors'
 
@@ -10,7 +15,12 @@ interface Row {
   is_active: number
 }
 
-const toChannel = (r: Row): SalesChannel => ({ id: r.id, name: r.name, sortOrder: r.sort_order, isActive: r.is_active === 1 })
+const toChannel = (r: Row): SalesChannel => ({
+  id: r.id,
+  name: r.name,
+  sortOrder: r.sort_order,
+  isActive: r.is_active === 1
+})
 
 export function listChannels(db: Db): SalesChannel[] {
   return (db.prepare(`SELECT * FROM sales_channels ORDER BY sort_order, id`).all() as unknown as Row[]).map(toChannel)
@@ -38,6 +48,10 @@ export function updateChannel(db: Db, id: number, raw: ChannelUpdateInput): Sale
   getChannel(db, id)
   if (db.prepare(`SELECT 1 FROM sales_channels WHERE name = ? AND id <> ?`).get(input.name, id))
     throw new ServiceError('DUPLICATE_NAME', `渠道「${input.name}」已存在`)
-  db.prepare(`UPDATE sales_channels SET name = ?, is_active = ? WHERE id = ?`).run(input.name, input.isActive ? 1 : 0, id)
+  db.prepare(`UPDATE sales_channels SET name = ?, is_active = ? WHERE id = ?`).run(
+    input.name,
+    input.isActive ? 1 : 0,
+    id
+  )
   return getChannel(db, id)
 }

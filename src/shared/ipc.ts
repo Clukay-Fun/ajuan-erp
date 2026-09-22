@@ -1,4 +1,5 @@
 import type {
+  AdjustmentInput,
   ProductUpdateInput,
   OpeningStockInput,
   DocumentDraftInput,
@@ -12,6 +13,7 @@ import type {
   CsvImportPreview,
   CsvImportResult,
   DocumentDetail,
+  TrashEntry,
   DocumentListFilter,
   DocumentSummary,
   IpcResult,
@@ -62,7 +64,13 @@ export const IPC = {
   backupCreate: 'backup:create',
   backupPick: 'backup:pick',
   backupInspect: 'backup:inspect',
-  backupRestore: 'backup:restore'
+  backupRestore: 'backup:restore',
+  adjustmentsCreate: 'adjustments:create',
+  productsSetImage: 'products:setImage',
+  productsClearImage: 'products:clearImage',
+  csvExportDocument: 'csv:exportDocument',
+  backupListTrash: 'backup:listTrash',
+  backupClearTrash: 'backup:clearTrash'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]
@@ -84,6 +92,8 @@ export interface AjuanApi {
     /** 首版只有一个商品 */
     get(): Promise<IpcResult<Product>>
     update(input: ProductUpdateInput): Promise<IpcResult<Product>>
+    setImage(upload: AttachmentUpload): Promise<IpcResult<Product>>
+    clearImage(): Promise<IpcResult<Product>>
   }
   inventory: {
     getStock(skuId: number): Promise<IpcResult<StockLevel>>
@@ -104,6 +114,7 @@ export interface AjuanApi {
     saveTemplate(): Promise<IpcResult<string | null>>
     exportMovements(filter: MovementFilter): Promise<IpcResult<string | null>>
     exportSummary(range: SummaryRange): Promise<IpcResult<string | null>>
+    exportDocument(id: number): Promise<IpcResult<string | null>>
   }
   opening: {
     /** 该 SKU 已确认的期初单，没有则为 null */
@@ -119,7 +130,11 @@ export interface AjuanApi {
     confirm(id: number): Promise<IpcResult<DocumentDetail>>
     void(id: number, reason: string): Promise<IpcResult<DocumentDetail>>
     /** 同渠道下已存在相同外部订单号的单据（用于提示，不阻断） */
-    findDuplicate(channelId: number | null, externalOrderNo: string, excludeId: number | null): Promise<IpcResult<DocumentSummary | null>>
+    findDuplicate(
+      channelId: number | null,
+      externalOrderNo: string,
+      excludeId: number | null
+    ): Promise<IpcResult<DocumentSummary | null>>
   }
   channels: {
     list(): Promise<IpcResult<SalesChannel[]>>
@@ -138,5 +153,11 @@ export interface AjuanApi {
     inspect(path: string): Promise<IpcResult<BackupInspection>>
     /** 恢复成功后主进程会重新加载窗口 */
     restore(path: string): Promise<IpcResult<void>>
+    listTrash(): Promise<IpcResult<TrashEntry[]>>
+    clearTrash(): Promise<IpcResult<void>>
+  }
+  adjustments: {
+    /** 直接生成已确认的库存调整单 */
+    create(input: AdjustmentInput): Promise<IpcResult<DocumentDetail>>
   }
 }

@@ -15,8 +15,20 @@ import { useNav } from '@/app/navigation'
 import table from '@/components/Table.module.css'
 import f from '@/components/Filters.module.css'
 
-const KIND_LABEL: Record<MovementKind, string> = { opening: '期初', inbound: '入库', outbound: '出库', void: '作废冲回' }
-const KIND_TONE: Record<MovementKind, 'neutral' | 'info' | 'danger' | 'warning'> = { opening: 'neutral', inbound: 'info', outbound: 'danger', void: 'warning' }
+const KIND_LABEL: Record<MovementKind, string> = {
+  opening: '期初',
+  inbound: '入库',
+  outbound: '出库',
+  adjustment: '调整',
+  void: '作废冲回'
+}
+const KIND_TONE: Record<MovementKind, 'neutral' | 'info' | 'danger' | 'warning'> = {
+  opening: 'neutral',
+  inbound: 'info',
+  outbound: 'danger',
+  adjustment: 'warning',
+  void: 'neutral'
+}
 const PAGE_SIZE = 50
 
 export function InventoryPage(): ReactElement {
@@ -35,7 +47,9 @@ export function InventoryPage(): ReactElement {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    unwrap(window.ajuan.channels.list()).then(setChannels).catch(() => {})
+    unwrap(window.ajuan.channels.list())
+      .then(setChannels)
+      .catch(() => {})
   }, [])
 
   const load = useCallback(async () => {
@@ -69,7 +83,15 @@ export function InventoryPage(): ReactElement {
   async function exportCsv(): Promise<void> {
     setExporting(true)
     try {
-      const p = await unwrap(window.ajuan.csv.exportMovements({ kind: kind || undefined, channelId: channelId || undefined, from: from || undefined, to: to || undefined, docNo: docNo || undefined }))
+      const p = await unwrap(
+        window.ajuan.csv.exportMovements({
+          kind: kind || undefined,
+          channelId: channelId || undefined,
+          from: from || undefined,
+          to: to || undefined,
+          docNo: docNo || undefined
+        })
+      )
       if (p) toast(`已导出到 ${p}`, 'success')
     } catch (err) {
       toast(errorMessage(err), 'error')
@@ -77,7 +99,12 @@ export function InventoryPage(): ReactElement {
       setExporting(false)
     }
   }
-  const resetPage = <T,>(setter: (v: T) => void) => (v: T) => { setter(v); setPage(1) }
+  const resetPage =
+    <T,>(setter: (v: T) => void) =>
+    (v: T) => {
+      setter(v)
+      setPage(1)
+    }
 
   return (
     <>
@@ -86,31 +113,72 @@ export function InventoryPage(): ReactElement {
         subtitle="每一次库存增减的不可变记录"
         actions={
           <>
-            <Button onClick={() => setImportOpen(true)}><Upload size={16} /> 导入 CSV</Button>
-            <Button onClick={exportCsv} disabled={exporting || !data || data.total === 0}><Download size={16} /> {exporting ? '导出中…' : '导出'}</Button>
+            <Button onClick={() => setImportOpen(true)}>
+              <Upload size={16} /> 导入 CSV
+            </Button>
+            <Button onClick={exportCsv} disabled={exporting || !data || data.total === 0}>
+              <Download size={16} /> {exporting ? '导出中…' : '导出'}
+            </Button>
           </>
         }
       />
       <div className={f.bar}>
-        <select className={f.select} value={kind} onChange={(e) => resetPage(setKind)(e.target.value as '' | MovementKind)}>
+        <select
+          className={f.select}
+          value={kind}
+          onChange={(e) => resetPage(setKind)(e.target.value as '' | MovementKind)}
+        >
           <option value="">全部类型</option>
-          {(Object.keys(KIND_LABEL) as MovementKind[]).map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
+          {(Object.keys(KIND_LABEL) as MovementKind[]).map((k) => (
+            <option key={k} value={k}>
+              {KIND_LABEL[k]}
+            </option>
+          ))}
         </select>
-        <select className={f.select} value={channelId} onChange={(e) => resetPage(setChannelId)(e.target.value ? Number(e.target.value) : '')}>
+        <select
+          className={f.select}
+          value={channelId}
+          onChange={(e) => resetPage(setChannelId)(e.target.value ? Number(e.target.value) : '')}
+        >
           <option value="">全部渠道</option>
-          {channels.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          {channels.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
         </select>
-        <input className={`${f.input} ${f.date}`} type="date" value={from} onChange={(e) => resetPage(setFrom)(e.target.value)} />
+        <input
+          className={`${f.input} ${f.date}`}
+          type="date"
+          value={from}
+          onChange={(e) => resetPage(setFrom)(e.target.value)}
+        />
         <span className={f.sep}>—</span>
-        <input className={`${f.input} ${f.date}`} type="date" value={to} onChange={(e) => resetPage(setTo)(e.target.value)} />
-        <input className={f.input} placeholder="搜索单号 / 外部订单号" value={docNo} onChange={(e) => resetPage(setDocNo)(e.target.value)} />
+        <input
+          className={`${f.input} ${f.date}`}
+          type="date"
+          value={to}
+          onChange={(e) => resetPage(setTo)(e.target.value)}
+        />
+        <input
+          className={f.input}
+          placeholder="搜索单号 / 外部订单号"
+          value={docNo}
+          onChange={(e) => resetPage(setDocNo)(e.target.value)}
+        />
         <span className={f.spacer} />
         {data && <span className={f.count}>共 {formatQty(data.total)} 条</span>}
       </div>
 
       {error && <p style={{ color: 'var(--color-danger)' }}>读取失败：{error}</p>}
       {!data && !error && <SkeletonTable cols={8} />}
-      {data && data.total === 0 && <EmptyState icon={ArrowLeftRight} title="没有符合条件的流水" description="调整筛选条件，或先确认一张入库 / 出库单。" />}
+      {data && data.total === 0 && (
+        <EmptyState
+          icon={ArrowLeftRight}
+          title="没有符合条件的流水"
+          description="调整筛选条件，或先确认一张入库 / 出库单。"
+        />
+      )}
       {data && data.total > 0 && (
         <>
           <div className={table.wrap}>
@@ -129,16 +197,28 @@ export function InventoryPage(): ReactElement {
               </thead>
               <tbody>
                 {data.rows.map((m) => (
-                  <tr key={m.id} onClick={() => navigate('documents', { documents: { view: 'detail', id: m.documentId } })}>
+                  <tr
+                    key={m.id}
+                    onClick={() => navigate('documents', { documents: { view: 'detail', id: m.documentId } })}
+                  >
                     <td className={table.mono}>{formatOccurred(m.occurredAt)}</td>
-                    <td><Badge tone={KIND_TONE[m.kind]}>{KIND_LABEL[m.kind]}</Badge></td>
+                    <td>
+                      <Badge tone={KIND_TONE[m.kind]}>{KIND_LABEL[m.kind]}</Badge>
+                    </td>
                     <td className={table.mono}>{m.docNo}</td>
                     <td className={m.channelName ? '' : table.muted}>
                       {m.channelName ?? '—'}
                       {m.externalOrderNo && <span className={table.mono}> · {m.externalOrderNo}</span>}
                     </td>
-                    <td className={table.num} style={{ color: m.quantityDelta < 0 ? 'var(--color-danger)' : 'var(--color-success)' }}>{signedQty(m.quantityDelta)}</td>
-                    <td className={table.num}>{m.unitPriceCents === null ? '—' : `¥${formatCents(m.unitPriceCents)}`}</td>
+                    <td
+                      className={table.num}
+                      style={{ color: m.quantityDelta < 0 ? 'var(--color-danger)' : 'var(--color-success)' }}
+                    >
+                      {signedQty(m.quantityDelta)}
+                    </td>
+                    <td className={table.num}>
+                      {m.unitPriceCents === null ? '—' : `¥${formatCents(m.unitPriceCents)}`}
+                    </td>
                     <td className={`${table.num} ${table.muted}`}>¥{formatCents(m.unitCostCents)}</td>
                     <td className={table.num}>{formatQty(m.quantityAfter)}</td>
                   </tr>
@@ -147,9 +227,20 @@ export function InventoryPage(): ReactElement {
             </table>
           </div>
           <div className={f.pager}>
-            <Button variant="ghost" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} aria-label="上一页"><ChevronLeft size={16} /></Button>
-            <span>{page} / {totalPages}</span>
-            <Button variant="ghost" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} aria-label="下一页"><ChevronRight size={16} /></Button>
+            <Button variant="ghost" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} aria-label="上一页">
+              <ChevronLeft size={16} />
+            </Button>
+            <span>
+              {page} / {totalPages}
+            </span>
+            <Button
+              variant="ghost"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+              aria-label="下一页"
+            >
+              <ChevronRight size={16} />
+            </Button>
           </div>
         </>
       )}

@@ -2,6 +2,7 @@ import type { ReactElement } from 'react'
 import { Shell } from '@/components/Shell'
 import { ToastProvider } from '@/components/Toast'
 import { NavProvider, useNav } from './navigation'
+import { useShortcuts } from './useShortcuts'
 import type { RouteKey } from './routes'
 import { OverviewPage } from '@/pages/OverviewPage'
 import { ProductsPage } from '@/pages/ProductsPage'
@@ -21,9 +22,10 @@ const PAGES: Record<RouteKey, () => ReactElement> = {
 
 function Routed(): ReactElement {
   const { location, navigate } = useNav()
+  useShortcuts()
   const Page = PAGES[location.key]
   return (
-    <Shell route={location.key} onNavigate={(key) => navigate(key)}>
+    <Shell route={location.key} seq={location.seq} onNavigate={(key) => navigate(key)}>
       <Page key={location.seq} />
     </Shell>
   )

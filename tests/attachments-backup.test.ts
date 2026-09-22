@@ -7,13 +7,24 @@ import { openDatabase, type Db } from '../src/main/db/connection'
 import { runMigrations } from '../src/main/db/migrations'
 import { createOpening } from '../src/main/services/opening'
 import { createDraft, confirmDocument, deleteDraft, voidDocument } from '../src/main/services/documents'
-import { addAttachment, listAttachments, removeAttachment, resolveAttachmentPath } from '../src/main/services/attachments'
+import {
+  addAttachment,
+  listAttachments,
+  removeAttachment,
+  resolveAttachmentPath
+} from '../src/main/services/attachments'
 import { createBackup, inspectBackup, restoreBackup } from '../src/main/services/backup'
 import { getStock } from '../src/main/services/inventory'
 
-const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0x0d, 0x49, 0x48, 0x44, 0x52, 1, 2, 3])
+const PNG = new Uint8Array([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0x0d, 0x49, 0x48, 0x44, 0x52, 1, 2, 3
+])
 const JPG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46, 0, 1, 1])
-const upload = (bytes: Uint8Array, name = 'a.png', mime = 'image/png') => ({ fileName: name, mime, data: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer })
+const upload = (bytes: Uint8Array, name = 'a.png', mime = 'image/png') => ({
+  fileName: name,
+  mime,
+  data: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
+})
 
 let root: string
 let db: Db
@@ -26,11 +37,23 @@ beforeEach(() => {
   createOpening(db, { skuId: 1, quantity: 10, unitCostCents: 1000, docDate: '2026-09-01', note: '' })
 })
 afterEach(() => {
-  try { db.close() } catch {}
+  try {
+    db.close()
+  } catch {
+    /* 部分用例已自行关闭 */
+  }
   rmSync(root, { recursive: true, force: true })
 })
 
-const draft = () => createDraft(db, { type: 'inbound', docDate: '2026-09-02', channelId: null, externalOrderNo: '', note: '', items: [{ skuId: 1, quantity: 1, unitPriceCents: 1 }] })
+const draft = () =>
+  createDraft(db, {
+    type: 'inbound',
+    docDate: '2026-09-02',
+    channelId: null,
+    externalOrderNo: '',
+    note: '',
+    items: [{ skuId: 1, quantity: 1, unitPriceCents: 1 }]
+  })
 
 describe('附件', () => {
   it('按魔数识别类型并落盘到受控目录', () => {
@@ -47,7 +70,14 @@ describe('附件', () => {
 
   it('拒绝非图片、空文件、越界路径、作废单据', () => {
     const d = draft()
-    expect(() => addAttachment(db, paths.attachmentsDir, d.id, upload(new TextEncoder().encode('<script>alert(1)</script>'), 'x.png'))).toThrow(/只支持/)
+    expect(() =>
+      addAttachment(
+        db,
+        paths.attachmentsDir,
+        d.id,
+        upload(new TextEncoder().encode('<script>alert(1)</script>'), 'x.png')
+      )
+    ).toThrow(/只支持/)
     expect(() => addAttachment(db, paths.attachmentsDir, d.id, upload(new Uint8Array(0)))).toThrow(/为空/)
     expect(() => addAttachment(db, paths.attachmentsDir, 999, upload(PNG))).toThrow(/不存在/)
     expect(() => resolveAttachmentPath(paths.attachmentsDir, '../../etc/passwd')).toThrow(/非法/)
@@ -77,8 +107,16 @@ describe('备份与恢复', () => {
     addAttachment(db, paths.attachmentsDir, d.id, upload(PNG, 'p.png'))
     const out = join(root, 'b.zip')
     const m = createBackup(db, paths, '0.1.0', out)
-    expect(m).toMatchObject({ app: 'ajuan-inventory', formatVersion: 1, schemaVersion: 1, counts: { documents: 2, movements: 2, attachments: 1 } })
-    expect(m.files.map((f) => f.path)).toEqual(['ajuan.db', expect.stringMatching(/^attachments\/\d{4}\/\d{2}\/.+\.png$/)])
+    expect(m).toMatchObject({
+      app: 'ajuan-inventory',
+      formatVersion: 1,
+      schemaVersion: 2,
+      counts: { documents: 2, movements: 2, attachments: 1 }
+    })
+    expect(m.files.map((f) => f.path)).toEqual([
+      'ajuan.db',
+      expect.stringMatching(/^attachments\/\d{4}\/\d{2}\/.+\.png$/)
+    ])
     expect(inspectBackup(out).problems).toEqual([])
 
     // 全新数据目录恢复
@@ -128,10 +166,12 @@ describe('备份与恢复', () => {
     createBackup(db, paths, '0.1.0', out)
     const z = new AdmZip(out)
     const m = JSON.parse(z.readAsText('manifest.json'))
-    m.app = 'other'; m.schemaVersion = 99
+    m.app = 'other'
+    m.schemaVersion = 99
     z.updateFile('manifest.json', Buffer.from(JSON.stringify(m)))
     z.deleteFile('ajuan.db')
-    const bad = join(root, 'bad.zip'); z.writeZip(bad)
+    const bad = join(root, 'bad.zip')
+    z.writeZip(bad)
     const p = inspectBackup(bad).problems.join('\n')
     expect(p).toMatch(/不是本应用/)
     expect(p).toMatch(/数据库版本 99/)

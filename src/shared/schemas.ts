@@ -54,3 +54,14 @@ export const channelUpdateSchema = z.object({
 })
 export type ChannelCreateInput = z.infer<typeof channelCreateSchema>
 export type ChannelUpdateInput = z.infer<typeof channelUpdateSchema>
+
+export const adjustmentSchema = z.object({
+  skuId: z.number().int().positive(),
+  direction: z.enum(['increase', 'decrease']),
+  quantity: qtyInt.min(1, '调整数量至少为 1'),
+  /** 仅增加时有效；不传则按当前平均成本 */
+  unitCostCents: centsInt.nullable().default(null),
+  docDate: dateString,
+  reason: z.string().trim().min(1, '请填写调整原因').max(200, '原因过长')
+})
+export type AdjustmentInput = z.infer<typeof adjustmentSchema>

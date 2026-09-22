@@ -12,8 +12,7 @@ interface StockRow {
 
 export function getStock(db: Db, skuId: number): StockLevel {
   const row = db.prepare(`SELECT sku_id, quantity, cost_value_e4 FROM sku_stock WHERE sku_id = ?`).get(skuId) as
-    | StockRow
-    | undefined
+    StockRow | undefined
   if (!row) throw new ServiceError('NOT_FOUND', 'SKU 不存在')
   const costValue = BigInt(row.cost_value_e4)
   return {
@@ -28,7 +27,7 @@ export interface ApplyMovementInput {
   skuId: number
   documentId: number
   documentItemId: number | null
-  kind: 'opening' | 'inbound' | 'outbound' | 'void'
+  kind: 'opening' | 'inbound' | 'outbound' | 'adjustment' | 'void'
   quantityDelta: number
   /** 入库/期初：本次单价；出库：忽略，按当前平均成本；作废：按原流水成本 */
   unitCostE4: bigint
@@ -41,8 +40,7 @@ export interface ApplyMovementInput {
  */
 export function applyMovement(db: Db, input: ApplyMovementInput): void {
   const row = db.prepare(`SELECT quantity, cost_value_e4 FROM sku_stock WHERE sku_id = ?`).get(input.skuId) as
-    | { quantity: number; cost_value_e4: number | bigint }
-    | undefined
+    { quantity: number; cost_value_e4: number | bigint } | undefined
   if (!row) throw new ServiceError('NOT_FOUND', 'SKU 不存在')
 
   const before = row.quantity

@@ -19,6 +19,7 @@ interface DocRow {
   confirmed_at: string | null
   voided_at: string | null
   void_reason: string | null
+  adjust_direction: 'increase' | 'decrease' | null
   channel_id: number | null
   channel_name: string | null
   external_order_no: string | null
@@ -39,7 +40,7 @@ interface ItemRow {
 
 const SUMMARY_SELECT = `
   SELECT d.id, d.doc_no, d.type, d.status, d.doc_date, d.note, d.confirmed_at, d.voided_at, d.void_reason,
-         d.channel_id, c.name AS channel_name, d.external_order_no,
+         d.adjust_direction, d.channel_id, c.name AS channel_name, d.external_order_no,
          SUM(i.quantity) AS total_qty, SUM(i.quantity * i.unit_price_cents) AS total_amount
   FROM documents d
   LEFT JOIN sales_channels c ON c.id = d.channel_id
@@ -110,6 +111,7 @@ export function getDocument(db: Db, id: number): DocumentDetail {
     .all(id) as unknown as ItemRow[]
   return {
     ...toSummary(row),
+    adjustDirection: row.adjust_direction,
     channelId: row.channel_id,
     voidedAt: row.voided_at,
     voidReason: row.void_reason,
@@ -184,7 +186,8 @@ export function createDraft(db: Db, raw: DocumentDraftInput): DocumentDetail {
 
 function getDraftOrThrow(db: Db, id: number): DocumentDetail {
   const doc = getDocument(db, id)
-  if (doc.status !== 'draft') throw new ServiceError('NOT_DRAFT', `单据 ${doc.docNo} 已${doc.status === 'confirmed' ? '生效' : '作废'}，不能修改`)
+  if (doc.status !== 'draft')
+    throw new ServiceError('NOT_DRAFT', `单据 ${doc.docNo} 已${doc.status === 'confirmed' ? '生效' : '作废'}，不能修改`)
   return doc
 }
 
@@ -252,7 +255,11 @@ export function confirmDocument(db: Db, id: number): DocumentDetail {
       }
     }
     const now = nowIso()
-    db.prepare(`UPDATE documents SET status = 'confirmed', confirmed_at = ?, updated_at = ? WHERE id = ?`).run(now, now, id)
+    db.prepare(`UPDATE documents SET status = 'confirmed', confirmed_at = ?, updated_at = ? WHERE id = ?`).run(
+      now,
+      now,
+      id
+    )
     return getDocument(db, id)
   })
 }
@@ -270,7 +277,12 @@ export function voidDocument(db: Db, id: number, reason: string): DocumentDetail
         `SELECT sku_id, document_item_id, quantity_delta, unit_cost_e4 FROM stock_movements
          WHERE document_id = ? AND kind <> 'void' ORDER BY id`
       )
-      .all(id) as { sku_id: number; document_item_id: number | null; quantity_delta: number; unit_cost_e4: number | bigint }[]
+      .all(id) as {
+      sku_id: number
+      document_item_id: number | null
+      quantity_delta: number
+      unit_cost_e4: number | bigint
+    }[]
     const occurredAt = localDateTime()
     const now = nowIso()
     for (const mv of movements) {
@@ -284,12 +296,9 @@ export function voidDocument(db: Db, id: number, reason: string): DocumentDetail
         occurredAt
       })
     }
-    db.prepare(`UPDATE documents SET status = 'voided', voided_at = ?, void_reason = ?, updated_at = ? WHERE id = ?`).run(
-      now,
-      trimmed,
-      now,
-      id
-    )
+    db.prepare(
+      `UPDATE documents SET status = 'voided', voided_at = ?, void_reason = ?, updated_at = ? WHERE id = ?`
+    ).run(now, trimmed, now, id)
     return getDocument(db, id)
   })
 }

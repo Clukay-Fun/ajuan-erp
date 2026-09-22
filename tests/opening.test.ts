@@ -11,7 +11,13 @@ describe('opening stock', () => {
     const db = testDb()
     expect(getOpening(db, 1)).toBeNull()
     const doc = createOpening(db, base)
-    expect(doc).toMatchObject({ docNo: 'QC20260921-001', type: 'opening', status: 'confirmed', totalQuantity: 100, totalAmountCents: 100000 })
+    expect(doc).toMatchObject({
+      docNo: 'QC20260921-001',
+      type: 'opening',
+      status: 'confirmed',
+      totalQuantity: 100,
+      totalAmountCents: 100000
+    })
     expect(getOpening(db, 1)?.id).toBe(doc.id)
     expect(getStock(db, 1)).toEqual({ skuId: 1, quantity: 100, avgCostCents: 1000, costValueCents: 100000 })
     const mv = db.prepare('SELECT * FROM stock_movements').all()
@@ -39,7 +45,15 @@ describe('移动加权平均成本', () => {
     const db = testDb()
     const doc = createOpening(db, { ...base, quantity: 100, unitCostCents: 1000 })
     const mv = (delta: number, cents: number, kind: 'inbound' | 'outbound') =>
-      applyMovement(db, { skuId: 1, documentId: doc.id, documentItemId: null, kind, quantityDelta: delta, unitCostE4: centsToE4(cents), occurredAt: '2026-09-21T10:00:00' })
+      applyMovement(db, {
+        skuId: 1,
+        documentId: doc.id,
+        documentItemId: null,
+        kind,
+        quantityDelta: delta,
+        unitCostE4: centsToE4(cents),
+        occurredAt: '2026-09-21T10:00:00'
+      })
     mv(50, 1300, 'inbound')
     expect(getStock(db, 1)).toMatchObject({ quantity: 150, avgCostCents: 1100, costValueCents: 165000 })
     mv(-30, 0, 'outbound')

@@ -4,14 +4,17 @@ import { pathToFileURL } from 'node:url'
 import { state } from './appState'
 import { registerIpc } from './ipc'
 import { resolveAttachmentPath } from './services/attachments'
+import { loadWindowState, trackWindowState } from './windowState'
 
 const isMac = process.platform === 'darwin'
 const isDev = !app.isPackaged
 
 function createWindow(): BrowserWindow {
+  const saved = loadWindowState()
   const win = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: saved.bounds.width,
+    height: saved.bounds.height,
+    ...(saved.bounds.x >= 0 ? { x: saved.bounds.x, y: saved.bounds.y } : {}),
     minWidth: 960,
     minHeight: 640,
     show: false,
@@ -30,7 +33,11 @@ function createWindow(): BrowserWindow {
     }
   })
 
-  win.once('ready-to-show', () => win.show())
+  win.once('ready-to-show', () => {
+    if (saved.maximized) win.maximize()
+    win.show()
+  })
+  trackWindowState(win)
 
   // 阻止 renderer 打开新窗口；外链交给系统浏览器。
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -51,7 +58,9 @@ function createWindow(): BrowserWindow {
 
 // 附件图片通过自定义协议提供：ajuan-file://attachments/<relPath>，只允许读附件目录内的文件。
 if (!app.isReady()) {
-  protocol.registerSchemesAsPrivileged([{ scheme: 'ajuan-file', privileges: { standard: true, secure: true, supportFetchAPI: false } }])
+  protocol.registerSchemesAsPrivileged([
+    { scheme: 'ajuan-file', privileges: { standard: true, secure: true, supportFetchAPI: false } }
+  ])
 }
 
 function registerAttachmentProtocol(): void {
@@ -69,6 +78,19 @@ function registerAttachmentProtocol(): void {
 }
 
 app.setName('阿卷库存')
+
+// 单实例：两个进程同时写同一个 SQLite 没有意义，第二个实例把已有窗口带到前台后退出。
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (win) {
+      if (win.isMinimized()) win.restore()
+      win.focus()
+    }
+  })
+}
 
 app.whenReady().then(() => {
   state.open()

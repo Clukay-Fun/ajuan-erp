@@ -1,7 +1,7 @@
 import type { Db } from '../db/connection'
 import type { DocumentType } from '@shared/types'
 
-const PREFIX: Record<DocumentType, string> = { inbound: 'RK', outbound: 'CK', opening: 'QC' }
+const PREFIX: Record<DocumentType, string> = { inbound: 'RK', outbound: 'CK', opening: 'QC', adjustment: 'TZ' }
 
 /** 生成 RK20260921-001 形式的单号。必须在事务内调用以保证同日序号连续。 */
 export function nextDocNo(db: Db, type: DocumentType, docDate: string): string {

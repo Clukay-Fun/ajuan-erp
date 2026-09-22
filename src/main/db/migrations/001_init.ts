@@ -111,7 +111,9 @@ export const m001Init: Migration = {
     db.prepare(
       `INSERT INTO products (id, code, name, unit, created_at, updated_at) VALUES (1, 'FG001', '电动车发光小饰品', '件', ?, ?)`
     ).run(now, now)
-    db.prepare(`INSERT INTO skus (id, product_id, code, is_default, created_at) VALUES (1, 1, 'FG001-DEFAULT', 1, ?)`).run(now)
+    db.prepare(
+      `INSERT INTO skus (id, product_id, code, is_default, created_at) VALUES (1, 1, 'FG001-DEFAULT', 1, ?)`
+    ).run(now)
     db.prepare(`INSERT INTO sku_stock (sku_id, quantity, cost_value_e4, updated_at) VALUES (1, 0, 0, ?)`).run(now)
 
     const insertChannel = db.prepare(`INSERT INTO sales_channels (name, sort_order) VALUES (?, ?)`)

@@ -12,6 +12,31 @@
 
 ### Added
 
+- 库存调整单（TZ）：盘盈增加 / 盘亏减少，原因必填，直接生效并写流水；增加可指定计入成本（默认当前均价），减少按均价结转；可作废冲回。商品页与单据页均有入口。migration 002 重建 documents / stock_movements 以放开类型约束。
+- 商品主图：商品页点击 / 拖入上传，概览缩略图；存于 `attachments/product/`。
+- 单张单据导出 CSV（详情页「导出」）。
+- CSV 导入支持一行「期初」：仅在尚无流水时允许，且日期须最早；模板已更新。
+- 设置页显示恢复备份时移入回收目录的旧数据（份数、大小），可一键清空。
+- 全局快捷键：⌘/Ctrl+N 新建入库、⇧+N 新建出库、1–5 切换页面、`,` 打开设置。
+- 单据编辑页有未保存改动时切换页面会弹出确认。
+- 侧栏「概览」「商品」在库存低于预警值时显示红点。
+- 应用图标与侧栏 Logo（`build/icon.png`，electron-builder 自动生成 icns / ico）。
+- 单实例锁；窗口尺寸 / 位置 / 最大化状态记忆（`window-state.json`，越出屏幕时回到默认）。
+- Electron E2E 套件 `npm run e2e`（flow / csv / backup 三个场景，真实 renderer 内驱动 DOM）。
+- ESLint + Prettier（`npm run lint` / `npm run format`）。
+
+### Changed
+
+- 版本号升至 0.2.0；vitest 升至 5（修复 @vitest/mocker 安全通告，`npm audit` 归零）。
+
+### Fixed
+
+### Removed
+
+## [0.1.0] - 2026-09-22
+
+### Added
+
 - M0 桌面安全外壳：Electron + electron-vite + React 19 + TypeScript 项目骨架。
 - 主进程 / preload / renderer 三层边界，`window.ajuan` 白名单 API 与 IPC 来源校验。
 - 应用外壳：侧栏导航（概览 / 商品 / 库存 / 单据 / 汇总 / 设置）与各页空状态。
@@ -41,14 +66,5 @@
 ### Fixed
 
 - 流水 `occurred_at` 统一为本地时间（YYYY-MM-DDTHH:mm:ss），此前作废流水写入 UTC ISO 导致排序与日期筛选错位。
-
-### Changed
-
-### Removed
-
-## [0.1.0] - 2026-09-21
-
-### Added
-
 - 初始化项目文档。
 - 创建 `README.md` 和 `CHANGELOG.md`。

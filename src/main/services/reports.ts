@@ -81,7 +81,8 @@ export function getOverview(db: Db, today = localToday()): Overview {
 }
 
 export function getSummary(db: Db, range: SummaryRange): Summary {
-  if (!DATE_RE.test(range.from) || !DATE_RE.test(range.to)) throw new ServiceError('VALIDATION', '日期格式应为 YYYY-MM-DD')
+  if (!DATE_RE.test(range.from) || !DATE_RE.test(range.to))
+    throw new ServiceError('VALIDATION', '日期格式应为 YYYY-MM-DD')
   if (range.from > range.to) throw new ServiceError('VALIDATION', '开始日期不能晚于结束日期')
   const flows = dailyFlows(db, range.from, range.to)
   const daily = [...flows.values()].sort((a, b) => (a.date < b.date ? 1 : -1))

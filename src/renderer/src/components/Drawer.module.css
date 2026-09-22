@@ -52,7 +52,9 @@
   display: flex;
 }
 .close {
-  transition: background var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition:
+    background var(--dur-fast) ease,
+    color var(--dur-fast) ease;
 }
 .close:hover {
   background: var(--color-inset);

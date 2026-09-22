@@ -6,3 +6,4 @@ dist/
 .DS_Store
 scope/
 *.tsbuildinfo
+tests/e2e/.artifacts/

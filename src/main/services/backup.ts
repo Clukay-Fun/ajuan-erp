@@ -1,6 +1,16 @@
 import AdmZip from 'adm-zip'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  unlinkSync,
+  writeFileSync
+} from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import type { Db } from '../db/connection'
 import { openDatabase } from '../db/connection'
@@ -102,7 +112,8 @@ export function inspectBackup(path: string): BackupInspection {
   const latestSchema = MIGRATIONS.at(-1)!.version
   if (typeof manifest.schemaVersion !== 'number' || manifest.schemaVersion > latestSchema)
     problems.push(`数据库版本 ${manifest.schemaVersion} 高于当前应用的 ${latestSchema}，请升级应用后再恢复`)
-  if (!Array.isArray(manifest.files) || !manifest.files.some((f) => f.path === DB_ENTRY)) problems.push('manifest 中缺少数据库文件')
+  if (!Array.isArray(manifest.files) || !manifest.files.some((f) => f.path === DB_ENTRY))
+    problems.push('manifest 中缺少数据库文件')
 
   for (const f of manifest.files ?? []) {
     if (f.path.includes('..') || f.path.startsWith('/')) {

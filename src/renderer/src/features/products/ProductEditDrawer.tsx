@@ -106,8 +106,22 @@ export function ProductEditDrawer({ open, product, onClose, onSubmit }: Props): 
         <Field label="商品编码" value={form.code} onChange={set('code')} error={errors.code} autoFocus />
         <Field label="商品名称" value={form.name} onChange={set('name')} error={errors.name} />
         <Field label="单位" value={form.unit} onChange={set('unit')} error={errors.unit} />
-        <Field label="默认进价" prefix="¥" inputMode="decimal" value={form.defaultCost} onChange={set('defaultCost')} error={errors.defaultCost} />
-        <Field label="默认售价" prefix="¥" inputMode="decimal" value={form.defaultPrice} onChange={set('defaultPrice')} error={errors.defaultPrice} />
+        <Field
+          label="默认进价"
+          prefix="¥"
+          inputMode="decimal"
+          value={form.defaultCost}
+          onChange={set('defaultCost')}
+          error={errors.defaultCost}
+        />
+        <Field
+          label="默认售价"
+          prefix="¥"
+          inputMode="decimal"
+          value={form.defaultPrice}
+          onChange={set('defaultPrice')}
+          error={errors.defaultPrice}
+        />
         <Field
           label="库存预警值"
           suffix={form.unit || '件'}

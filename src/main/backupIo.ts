@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog } from 'electron'
 import { join } from 'node:path'
-import type { BackupInspection } from '@shared/types'
+import { existsSync, readdirSync, rmSync, statSync } from 'node:fs'
+import type { BackupInspection, TrashEntry } from '@shared/types'
 import { state } from './appState'
 import { createBackup, inspectBackup, restoreBackup } from './services/backup'
 import { ServiceError } from './services/errors'
@@ -36,7 +37,8 @@ export async function pickBackupFile(): Promise<string | null> {
 }
 
 export function inspectBackupFile(path: string): BackupInspection {
-  if (typeof path !== 'string' || !path.toLowerCase().endsWith('.zip')) throw new ServiceError('VALIDATION', '只支持 .zip 备份文件')
+  if (typeof path !== 'string' || !path.toLowerCase().endsWith('.zip'))
+    throw new ServiceError('VALIDATION', '只支持 .zip 备份文件')
   return inspectBackup(path)
 }
 
@@ -53,4 +55,26 @@ export function restoreBackupFile(path: string): void {
   }
   // 让 renderer 丢弃所有内存状态，重新从新库加载
   setTimeout(() => owner()?.webContents.reload(), 50)
+}
+
+function dirSize(p: string): number {
+  const st = statSync(p)
+  if (st.isFile()) return st.size
+  return readdirSync(p).reduce((sum, n) => sum + dirSize(join(p, n)), 0)
+}
+
+/** 恢复时移入回收目录的历史数据。 */
+export function listTrash(): TrashEntry[] {
+  if (!existsSync(state.trashDir)) return []
+  return readdirSync(state.trashDir, { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => {
+      const p = join(state.trashDir, d.name)
+      return { name: d.name, createdAt: statSync(p).mtime.toISOString(), sizeBytes: dirSize(p) }
+    })
+    .sort((a, b) => (a.name < b.name ? 1 : -1))
+}
+
+export function clearTrash(): void {
+  if (existsSync(state.trashDir)) rmSync(state.trashDir, { recursive: true, force: true })
 }

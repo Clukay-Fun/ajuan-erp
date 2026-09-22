@@ -1,6 +1,6 @@
 {
   "name": "ajuan-inventory",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "阿卷库存 —— 本地单用户成品库存管理桌面应用",
   "author": "Clukay",
   "private": true,
@@ -16,7 +16,11 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
     "build:mac": "npm run build && electron-builder --mac --arm64 --publish=never",
-    "build:win": "npm run build && electron-builder --win nsis --x64 --publish=never"
+    "build:win": "npm run build && electron-builder --win nsis --x64 --publish=never",
+    "e2e": "npm run build && node scripts/e2e.mjs",
+    "e2e:only": "node scripts/e2e.mjs",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write ."
   },
   "build": {
     "appId": "com.clukay.ajuan-inventory",
@@ -69,6 +73,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/adm-zip": "^0.5.8",
     "@types/node": "^22.19.0",
     "@types/react": "^19.2.0",
@@ -77,8 +82,13 @@
     "electron": "43.2.0",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
+    "eslint": "^10.11.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "prettier": "^3.9.8",
     "typescript": "^5.9.0",
+    "typescript-eslint": "^8.70.1",
     "vite": "^7.3.6",
-    "vitest": "^3.2.0"
+    "vitest": "^5.0.1"
   }
 }

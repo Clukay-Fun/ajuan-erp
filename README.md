@@ -14,7 +14,9 @@ Electron 43 · electron-vite · React 19 + TypeScript · CSS Modules + CSS Varia
 npm install
 npm run dev          # 开发模式（热更新）
 npm run typecheck    # 主进程 / preload / renderer 类型检查
-npm test             # Vitest
+npm test             # Vitest 单元测试
+npm run e2e          # 构建后在 Electron 里跑 tests/e2e 场景（npm run e2e:only <name> 跳过构建）
+npm run lint         # ESLint + Prettier 检查
 npm run build        # 产出 out/
 npm run build:mac    # macOS Apple Silicon DMG（未签名时设 CSC_IDENTITY_AUTO_DISCOVERY=false）
 npm run build:win    # Windows x64 NSIS 安装包
@@ -33,7 +35,7 @@ src/
    ├─ app/       页面路由与导航上下文（无 router 依赖，state 驱动）
    ├─ components/ Button / Field / Select / Drawer / ConfirmDialog / Toast / Badge 等通用组件
    └─ features/  按业务拆分的页面块（products / documents / settings）
-tests/         Vitest 单元测试
+tests/         Vitest 单元测试；tests/e2e/ 为 Electron 端到端场景
 docs/          产品与技术计划
 ```
 
@@ -69,7 +71,7 @@ docs/          产品与技术计划
 
 ## 里程碑
 
-M0 桌面安全外壳 ✅ → M1 SQLite/商品/期初 ✅ → M2 入库出库作废 ✅ → M3 流水搜索汇总 ✅ → M4 CSV ✅ → M5 附件备份 ✅ → M6 UI 精修 ✅（Windows 冒烟待做）
+M0 桌面安全外壳 ✅ → M1 SQLite/商品/期初 ✅ → M2 入库出库作废 ✅ → M3 流水搜索汇总 ✅ → M4 CSV ✅ → M5 附件备份 ✅ → M6 UI 精修 ✅ → v0.2 库存调整 / 商品图 / E2E ✅（Windows 冒烟待做）
 
 ## 许可证
 

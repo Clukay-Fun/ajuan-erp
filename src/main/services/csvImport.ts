@@ -14,6 +14,7 @@ import { nextDocNo } from './docNo'
 export const CSV_COLUMNS = ['类型', '日期', '数量', '单价', '渠道', '外部订单号', '备注'] as const
 
 export const CSV_TEMPLATE_ROWS: string[][] = [
+  ['期初', '2026-08-31', '300', '10.00', '', '', '导入前实际库存（只能有一行，且需尚未录入期初）'],
   ['入库', '2026-09-01', '100', '10.50', '', '', '首批到货'],
   ['出库', '2026-09-02', '2', '29.90', '抖音小店', 'DY20260902001', ''],
   ['出库', '2026-09-02', '1', '29.90', '微信', '', '朋友代购']
@@ -23,7 +24,9 @@ export function buildTemplateCsv(): string {
   return stringify([[...CSV_COLUMNS], ...CSV_TEMPLATE_ROWS])
 }
 
-const TYPE_MAP: Record<string, 'inbound' | 'outbound'> = {
+const TYPE_MAP: Record<string, 'inbound' | 'outbound' | 'opening'> = {
+  期初: 'opening',
+  opening: 'opening',
   入库: 'inbound',
   进货: 'inbound',
   in: 'inbound',
@@ -81,7 +84,10 @@ function executionOrder(parsed: ParsedRow[]): number[] {
     .sort((a, b) => {
       const da = parsed[a].row.docDate
       const db2 = parsed[b].row.docDate
-      return da < db2 ? -1 : da > db2 ? 1 : a - b
+      if (da !== db2) return da < db2 ? -1 : 1
+      const oa = parsed[a].row.type === 'opening' ? 0 : 1
+      const ob = parsed[b].row.type === 'opening' ? 0 : 1
+      return oa !== ob ? oa - ob : a - b
     })
 }
 
@@ -90,6 +96,8 @@ export function previewImport(db: Db, text: string, ctx: PreviewContext): CsvImp
   const records = parseRecords(text)
   const product = getProduct(db)
   const stockBefore = getStock(db, product.defaultSku.id).quantity
+  const hasMovements = !!db.prepare(`SELECT 1 FROM stock_movements WHERE sku_id = ? LIMIT 1`).get(product.defaultSku.id)
+  let openingLine: number | null = null
   const channelByName = new Map(listChannels(db).map((c) => [c.name, c]))
   const seenOrders = new Map<string, number>()
   const existingDup = db.prepare(
@@ -97,7 +105,8 @@ export function previewImport(db: Db, text: string, ctx: PreviewContext): CsvImp
   )
 
   const parsed: ParsedRow[] = records.map((cells, i) => {
-    const [typeText = '', docDate = '', quantity = '', unitPrice = '', channel = '', externalOrderNo = '', note = ''] = cells
+    const [typeText = '', docDate = '', quantity = '', unitPrice = '', channel = '', externalOrderNo = '', note = ''] =
+      cells
     const messages: string[] = []
     let status: CsvImportRow['status'] = 'ok'
     const fail = (m: string): void => {
@@ -111,14 +120,21 @@ export function previewImport(db: Db, text: string, ctx: PreviewContext): CsvImp
 
     if (cells.length > CSV_COLUMNS.length) fail(`列数过多（${cells.length} 列）`)
     const type = TYPE_MAP[typeText.trim().toLowerCase()] ?? null
-    if (!type) fail(`类型无法识别：「${typeText}」，应为 入库 / 出库`)
-    if (!DATE_RE.test(docDate) || Number.isNaN(Date.parse(docDate))) fail(`日期格式错误：「${docDate}」，应为 YYYY-MM-DD`)
+    if (!type) fail(`类型无法识别：「${typeText}」，应为 期初 / 入库 / 出库`)
+    if (type === 'opening') {
+      if (hasMovements) fail('已有库存流水，不能再导入期初；请改用库存调整')
+      if (openingLine !== null) fail(`文件里已有期初行（第 ${openingLine} 行），期初只能有一行`)
+      else openingLine = i + 2
+    }
+    if (!DATE_RE.test(docDate) || Number.isNaN(Date.parse(docDate)))
+      fail(`日期格式错误：「${docDate}」，应为 YYYY-MM-DD`)
     const qty = /^\d+$/.test(quantity) ? Number(quantity) : null
     if (qty === null || qty < 1) fail(`数量错误：「${quantity}」，应为正整数`)
     const price = parseCents(unitPrice)
     if (price === null) fail(`单价错误：「${unitPrice}」，应为非负金额，最多两位小数`)
     let channelId: number | null = null
-    if (type === 'inbound' && (channel || externalOrderNo)) fail('入库行不能填写渠道或外部订单号')
+    if ((type === 'inbound' || type === 'opening') && (channel || externalOrderNo))
+      fail(`${type === 'opening' ? '期初' : '入库'}行不能填写渠道或外部订单号`)
     if (type === 'outbound' && channel) {
       const c = channelByName.get(channel)
       if (!c) fail(`渠道不存在：「${channel}」，请先在设置中添加`)
@@ -136,7 +152,19 @@ export function previewImport(db: Db, text: string, ctx: PreviewContext): CsvImp
     }
 
     return {
-      row: { line: i + 2, type, typeText, docDate, quantity, unitPrice, channel, externalOrderNo, note, status, messages },
+      row: {
+        line: i + 2,
+        type,
+        typeText,
+        docDate,
+        quantity,
+        unitPrice,
+        channel,
+        externalOrderNo,
+        note,
+        status,
+        messages
+      },
       quantity: qty,
       unitPriceCents: price,
       channelId
@@ -144,6 +172,17 @@ export function previewImport(db: Db, text: string, ctx: PreviewContext): CsvImp
   })
 
   // 字段全部合法时才模拟库存；否则库存不足的提示没有意义
+  // 期初必须是最早的日期
+  const opening = parsed.find((p) => p.row.type === 'opening' && p.row.status !== 'error')
+  if (opening) {
+    const earlier = parsed.find((p) => p !== opening && p.row.status !== 'error' && p.row.docDate < opening.row.docDate)
+    if (earlier) {
+      opening.row.messages.push(
+        `期初日期必须早于或等于其他所有行（第 ${earlier.row.line} 行是 ${earlier.row.docDate}）`
+      )
+      opening.row.status = 'error'
+    }
+  }
   const hasFieldErrors = parsed.some((p) => p.row.status === 'error')
   let stock = stockBefore
   let inQty = 0
@@ -153,7 +192,9 @@ export function previewImport(db: Db, text: string, ctx: PreviewContext): CsvImp
   for (const i of executionOrder(parsed)) {
     const p = parsed[i]
     if (p.row.status === 'error' || p.quantity === null || p.unitPriceCents === null) continue
-    if (p.row.type === 'inbound') {
+    if (p.row.type === 'opening') {
+      stock += p.quantity
+    } else if (p.row.type === 'inbound') {
       stock += p.quantity
       inQty += p.quantity
       inAmount += p.quantity * p.unitPriceCents
@@ -191,12 +232,7 @@ export function previewImport(db: Db, text: string, ctx: PreviewContext): CsvImp
 }
 
 /** 重新解析校验，全部通过后在单个事务内写入已确认单据。任一行失败整批不写。 */
-export function commitImport(
-  db: Db,
-  text: string,
-  ctx: PreviewContext,
-  acknowledgeWarnings: boolean
-): CsvImportResult {
+export function commitImport(db: Db, text: string, ctx: PreviewContext, acknowledgeWarnings: boolean): CsvImportResult {
   const preview = previewImport(db, text, ctx)
   if (preview.errorCount > 0)
     throw new ServiceError('CSV_HAS_ERRORS', `存在 ${preview.errorCount} 行错误，未写入任何数据`)
@@ -227,19 +263,48 @@ export function commitImport(
       const docNo = nextDocNo(db, type, p.row.docDate)
       const note = p.row.note || `CSV 导入：${ctx.fileName}`
       const { id: docId } = insertDoc.get(
-        docNo, type, p.row.docDate, p.channelId, p.row.externalOrderNo || null, note, now, now, now
+        docNo,
+        type,
+        p.row.docDate,
+        p.channelId,
+        p.row.externalOrderNo || null,
+        note,
+        now,
+        now,
+        now
       ) as { id: number }
       const { id: itemId } = insertItem.get(docId, skuId, quantity, unitPriceCents) as { id: number }
       const occurredAt = `${p.row.docDate}T00:00:00`
-      if (type === 'inbound') {
+      if (type === 'opening') {
+        setSnapshot.run(centsToE4(unitPriceCents), itemId)
         applyMovement(db, {
-          skuId, documentId: docId, documentItemId: itemId, kind: 'inbound',
-          quantityDelta: quantity, unitCostE4: centsToE4(unitPriceCents), occurredAt
+          skuId,
+          documentId: docId,
+          documentItemId: itemId,
+          kind: 'opening',
+          quantityDelta: quantity,
+          unitCostE4: centsToE4(unitPriceCents),
+          occurredAt
+        })
+      } else if (type === 'inbound') {
+        applyMovement(db, {
+          skuId,
+          documentId: docId,
+          documentItemId: itemId,
+          kind: 'inbound',
+          quantityDelta: quantity,
+          unitCostE4: centsToE4(unitPriceCents),
+          occurredAt
         })
       } else {
         applyMovement(db, {
-          skuId, documentId: docId, documentItemId: itemId, kind: 'outbound',
-          quantityDelta: -quantity, unitCostE4: 0n, occurredAt
+          skuId,
+          documentId: docId,
+          documentItemId: itemId,
+          kind: 'outbound',
+          quantityDelta: -quantity,
+          unitCostE4: 0n,
+          occurredAt
         })
         const mv = lastCost.get(itemId) as { unit_cost_e4: number | bigint }
         setSnapshot.run(mv.unit_cost_e4, itemId)

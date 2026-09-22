@@ -18,7 +18,9 @@
   font-size: 13px;
   opacity: 1;
   transform: translateY(0);
-  transition: opacity var(--dur-slow) var(--ease-out), transform var(--dur-slow) var(--ease-out);
+  transition:
+    opacity var(--dur-slow) var(--ease-out),
+    transform var(--dur-slow) var(--ease-out);
 }
 @starting-style {
   .toast {

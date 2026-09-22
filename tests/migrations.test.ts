@@ -24,7 +24,14 @@ describe('migrations', () => {
   it('某个版本失败时回滚且不记录版本', () => {
     const db = openDatabase(':memory:')
     runMigrations(db)
-    const bad = { version: 999, name: 'bad', up: (d: typeof db) => { d.exec('CREATE TABLE t (x)'); throw new Error('boom') } }
+    const bad = {
+      version: 999,
+      name: 'bad',
+      up: (d: typeof db) => {
+        d.exec('CREATE TABLE t (x)')
+        throw new Error('boom')
+      }
+    }
     expect(() => runMigrations(db, [...MIGRATIONS, bad])).toThrow('boom')
     expect(currentSchemaVersion(db)).toBe(MIGRATIONS.at(-1)!.version)
     expect(() => db.exec('SELECT * FROM t')).toThrow()

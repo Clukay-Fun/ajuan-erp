@@ -10,8 +10,18 @@ export function Badge({ tone = 'neutral', children }: { tone?: Tone; children: R
 
 export const STATUS_LABEL: Record<DocumentStatus, string> = { draft: '草稿', confirmed: '已生效', voided: '已作废' }
 const STATUS_TONE: Record<DocumentStatus, Tone> = { draft: 'warning', confirmed: 'success', voided: 'neutral' }
-export const TYPE_LABEL: Record<DocumentType, string> = { inbound: '入库', outbound: '出库', opening: '期初' }
-const TYPE_TONE: Record<DocumentType, Tone> = { inbound: 'info', outbound: 'danger', opening: 'neutral' }
+export const TYPE_LABEL: Record<DocumentType, string> = {
+  inbound: '入库',
+  outbound: '出库',
+  opening: '期初',
+  adjustment: '调整'
+}
+const TYPE_TONE: Record<DocumentType, Tone> = {
+  inbound: 'info',
+  outbound: 'danger',
+  opening: 'neutral',
+  adjustment: 'warning'
+}
 
 export function StatusBadge({ status }: { status: DocumentStatus }): ReactElement {
   return <Badge tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</Badge>

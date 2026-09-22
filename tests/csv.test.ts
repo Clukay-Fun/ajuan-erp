@@ -17,11 +17,12 @@ function withOpening(qty = 100) {
 }
 
 describe('CSV 解码与模板', () => {
-  it('模板可被自己解析且全部合法', () => {
+  it('模板可被自己解析；已有期初时只有期初行报错', () => {
     const db = withOpening()
     const p = previewImport(db, buildTemplateCsv(), ctx)
-    expect(p.errorCount).toBe(0)
-    expect(p.total).toBe(3)
+    expect(p.total).toBe(4)
+    expect(p.errorCount).toBe(1)
+    expect(p.rows[0].messages[0]).toMatch(/已有库存流水/)
   })
   it('UTF-8 BOM 与 GBK 都能解码', () => {
     const utf8 = new TextEncoder().encode('﻿' + csv('入库,2026-09-02,1,1,,,备注'))
@@ -46,15 +47,19 @@ describe('CSV 预览校验', () => {
 
   it('逐行错误定位，且有错误时 stockAfter 为 null', () => {
     const db = withOpening()
-    const p = previewImport(db, csv(
-      '出库,2026-09-02,2,29.90,抖音小店,DY1,',       // ok
-      '出库,2026-09-02,-3,29.90,淘宝,TB1,',          // 数量错误
-      '出库,2026/99/99,1,29.90,微信,WX1,',           // 日期错误
-      '退货,2026-09-03,1,1,,,',                      // 类型错误
-      '出库,2026-09-03,1,1.234,,,',                  // 单价错误
-      '出库,2026-09-03,1,1,小红书,,',                // 渠道不存在
-      '入库,2026-09-03,1,1,抖音小店,,'               // 入库带渠道
-    ), ctx)
+    const p = previewImport(
+      db,
+      csv(
+        '出库,2026-09-02,2,29.90,抖音小店,DY1,', // ok
+        '出库,2026-09-02,-3,29.90,淘宝,TB1,', // 数量错误
+        '出库,2026/99/99,1,29.90,微信,WX1,', // 日期错误
+        '退货,2026-09-03,1,1,,,', // 类型错误
+        '出库,2026-09-03,1,1.234,,,', // 单价错误
+        '出库,2026-09-03,1,1,小红书,,', // 渠道不存在
+        '入库,2026-09-03,1,1,抖音小店,,' // 入库带渠道
+      ),
+      ctx
+    )
     expect(p.rows.map((r) => r.status)).toEqual(['ok', 'error', 'error', 'error', 'error', 'error', 'error'])
     expect(p.rows[1].messages[0]).toMatch(/数量错误/)
     expect(p.rows[2].messages[0]).toMatch(/日期格式/)
@@ -70,11 +75,15 @@ describe('CSV 预览校验', () => {
 
   it('按日期顺序模拟库存，中途不足标记为错误', () => {
     const db = withOpening(10)
-    const p = previewImport(db, csv(
-      '出库,2026-09-05,50,29.90,,,',     // 到这天时库存 10+30=40 <50 → 错误
-      '入库,2026-09-03,30,10,,,',
-      '出库,2026-09-02,5,29.90,,,'
-    ), ctx)
+    const p = previewImport(
+      db,
+      csv(
+        '出库,2026-09-05,50,29.90,,,', // 到这天时库存 10+30=40 <50 → 错误
+        '入库,2026-09-03,30,10,,,',
+        '出库,2026-09-02,5,29.90,,,'
+      ),
+      ctx
+    )
     expect(p.rows[0].status).toBe('error')
     expect(p.rows[0].messages[0]).toMatch(/库存为 35，需要 50/)
     expect(p.rows[1].status).toBe('ok')
@@ -83,8 +92,23 @@ describe('CSV 预览校验', () => {
 
   it('重复外部订单号：文件内与库内均为警告，不阻断但需确认', () => {
     const db = withOpening()
-    confirmDocument(db, createDraft(db, { type: 'outbound', docDate: '2026-09-01', channelId: 1, externalOrderNo: 'DY1', note: '', items: [{ skuId: 1, quantity: 1, unitPriceCents: 1 }] }).id)
-    const text = csv('出库,2026-09-02,1,29.90,抖音小店,DY1,', '出库,2026-09-02,1,29.90,抖音小店,DY2,', '出库,2026-09-02,1,29.90,抖音小店,DY2,', '出库,2026-09-02,1,29.90,淘宝,DY2,')
+    confirmDocument(
+      db,
+      createDraft(db, {
+        type: 'outbound',
+        docDate: '2026-09-01',
+        channelId: 1,
+        externalOrderNo: 'DY1',
+        note: '',
+        items: [{ skuId: 1, quantity: 1, unitPriceCents: 1 }]
+      }).id
+    )
+    const text = csv(
+      '出库,2026-09-02,1,29.90,抖音小店,DY1,',
+      '出库,2026-09-02,1,29.90,抖音小店,DY2,',
+      '出库,2026-09-02,1,29.90,抖音小店,DY2,',
+      '出库,2026-09-02,1,29.90,淘宝,DY2,'
+    )
     const p = previewImport(db, text, ctx)
     expect(p.rows.map((r) => r.status)).toEqual(['warning', 'ok', 'warning', 'ok'])
     expect(p.rows[0].messages[0]).toMatch(/已有单据 CK20260901-001/)
@@ -107,21 +131,31 @@ describe('CSV 原子导入', () => {
 
   it('合法文件按日期顺序生成已确认单据、流水与成本快照', () => {
     const db = testDb()
-    const r = commitImport(db, csv(
-      '出库,2026-09-03,2,29.90,抖音小店,DY1,发货',
-      '入库,2026-09-02,10,12,,,',
-      '入库,2026-09-02,10,10,,,首批'
-    ), ctx, false)
+    const r = commitImport(
+      db,
+      csv('出库,2026-09-03,2,29.90,抖音小店,DY1,发货', '入库,2026-09-02,10,12,,,', '入库,2026-09-02,10,10,,,首批'),
+      ctx,
+      false
+    )
     expect(r.documentCount).toBe(3)
     expect(r.docNos).toEqual(['RK20260902-001', 'RK20260902-002', 'CK20260903-001'])
     expect(r.stockAfter).toBe(18)
     const s = getStock(db, 1)
     expect(s.avgCostCents).toBe(1100)
     const docs = listDocuments(db, { type: 'outbound' })
-    expect(docs[0]).toMatchObject({ status: 'confirmed', channelName: '抖音小店', externalOrderNo: 'DY1', note: '发货' })
-    const snap = db.prepare('SELECT cost_snapshot_e4 FROM document_items WHERE document_id = ?').get(docs[0].id) as { cost_snapshot_e4: number }
+    expect(docs[0]).toMatchObject({
+      status: 'confirmed',
+      channelName: '抖音小店',
+      externalOrderNo: 'DY1',
+      note: '发货'
+    })
+    const snap = db.prepare('SELECT cost_snapshot_e4 FROM document_items WHERE document_id = ?').get(docs[0].id) as {
+      cost_snapshot_e4: number
+    }
     expect(Number(snap.cost_snapshot_e4)).toBe(1100 * 100)
-    const notes = listDocuments(db, { type: 'inbound' }).map((d) => d.note).sort()
+    const notes = listDocuments(db, { type: 'inbound' })
+      .map((d) => d.note)
+      .sort()
     expect(notes).toEqual(['CSV 导入：test.csv', '首批'])
   })
 
@@ -145,5 +179,37 @@ describe('CSV 导出', () => {
     const sm = buildSummaryCsv(db, { from: '2026-09-01', to: '2026-09-30' })
     expect(sm).toContain('2026-09-02,0,0.00,2,59.80')
     expect(sm).toContain('合计 2026-09-01 ~ 2026-09-30,0,0.00,2,59.80')
+  })
+})
+
+describe('CSV 期初行', () => {
+  const H2 = CSV_COLUMNS.join(',')
+  const csv2 = (...rows: string[]) => [H2, ...rows].join('\n')
+  it('全新库可导入一行期初，日期须最早，之后不能再导', () => {
+    const db = testDb()
+    const p = previewImport(db, csv2('入库,2026-09-01,10,10,,,', '期初,2026-08-31,50,8,,,'), ctx)
+    expect(p.errorCount).toBe(0)
+    expect(p.stockAfter).toBe(60)
+    expect(p.inQty).toBe(10) // 期初不算入库
+    const r = commitImport(db, csv2('入库,2026-09-01,10,10,,,', '期初,2026-08-31,50,8,,,'), ctx, false)
+    expect(r.docNos).toEqual(['QC20260831-001', 'RK20260901-001'])
+    expect(getStock(db, 1)).toMatchObject({ quantity: 60, costValueCents: 50 * 800 + 10 * 1000 })
+    const again = previewImport(db, csv2('期初,2026-08-30,1,1,,,'), ctx)
+    expect(again.rows[0].messages[0]).toMatch(/已有库存流水/)
+  })
+  it('期初晚于其他行、两行期初、带渠道 都是错误', () => {
+    const db = testDb()
+    const p = previewImport(
+      db,
+      csv2('期初,2026-09-02,50,8,,,', '入库,2026-09-01,10,10,,,', '期初,2026-08-01,1,1,抖音小店,,'),
+      ctx
+    )
+    expect(p.rows[0].messages.join()).toMatch(/必须早于/)
+    expect(p.rows[2].messages.join()).toMatch(/只能有一行/)
+    expect(p.rows[2].messages.join()).toMatch(/期初行不能填写渠道/)
+    expect(p.canCommit).toBe(false)
+  })
+  it('模板自带期初行，在空库上整体合法', () => {
+    expect(previewImport(testDb(), buildTemplateCsv(), ctx).errorCount).toBe(0)
   })
 })
