@@ -1,5 +1,5 @@
 import type { DragEvent, ReactElement } from 'react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ImagePlus, X } from 'lucide-react'
 import type { Attachment } from '@shared/types'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
@@ -11,6 +11,8 @@ interface Props {
   documentId: number
   /** 只读时不显示上传与删除 */
   readOnly?: boolean
+  pendingFiles?: File[]
+  onPendingFilesChange?: (files: File[]) => void
 }
 
 const ACCEPT = 'image/png,image/jpeg,image/webp,image/gif'
@@ -20,7 +22,12 @@ export function attachmentUrl(a: Attachment): string {
   return `ajuan-file://attachments/${a.relPath}`
 }
 
-export function AttachmentPanel({ documentId, readOnly }: Props): ReactElement {
+export function AttachmentPanel({
+  documentId,
+  readOnly,
+  pendingFiles = [],
+  onPendingFilesChange
+}: Props): ReactElement {
   const toast = useToast()
   const [items, setItems] = useState<Attachment[]>([])
   const [busy, setBusy] = useState(false)
@@ -28,6 +35,8 @@ export function AttachmentPanel({ documentId, readOnly }: Props): ReactElement {
   const [preview, setPreview] = useState<Attachment | null>(null)
   const [pendingRemove, setPendingRemove] = useState<Attachment | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const pendingUrls = useMemo(() => pendingFiles.map((f) => URL.createObjectURL(f)), [pendingFiles])
+  useEffect(() => () => pendingUrls.forEach((url) => URL.revokeObjectURL(url)), [pendingUrls])
 
   const load = useCallback(async () => {
     try {
@@ -46,8 +55,12 @@ export function AttachmentPanel({ documentId, readOnly }: Props): ReactElement {
       toast('只支持 PNG / JPG / WebP / GIF 图片', 'error')
       return
     }
-    if (items.length + list.length > MAX) {
+    if (items.length + pendingFiles.length + list.length > MAX) {
       toast(`每张单据最多 ${MAX} 张图片`, 'error')
+      return
+    }
+    if (!documentId && onPendingFilesChange) {
+      onPendingFilesChange([...pendingFiles, ...list])
       return
     }
     setBusy(true)
@@ -117,7 +130,21 @@ export function AttachmentPanel({ documentId, readOnly }: Props): ReactElement {
             )}
           </div>
         ))}
-        {!readOnly && items.length < MAX && (
+        {pendingFiles.map((f, i) => (
+          <div key={`${f.name}-${f.lastModified}-${i}`} className={styles.thumb} title={f.name}>
+            <img src={pendingUrls[i]} alt={f.name} />
+            <div className={styles.name}>{f.name}</div>
+            <button
+              type="button"
+              className={styles.remove}
+              aria-label="删除图片"
+              onClick={() => onPendingFilesChange?.(pendingFiles.filter((_, n) => n !== i))}
+            >
+              <X size={14} />
+            </button>
+          </div>
+        ))}
+        {!readOnly && items.length + pendingFiles.length < MAX && (
           <button
             type="button"
             className={`${styles.drop} ${dragging ? styles.dropActive : ''}`}

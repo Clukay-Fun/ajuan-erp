@@ -3,7 +3,12 @@ import { IPC, type AjuanApi } from '@shared/ipc'
 
 const api: AjuanApi = {
   app: {
-    getInfo: () => ipcRenderer.invoke(IPC.appGetInfo)
+    getInfo: () => ipcRenderer.invoke(IPC.appGetInfo),
+    onState: (handler) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof handler>[0]) => handler(payload)
+      ipcRenderer.on(IPC.windowState, listener)
+      return () => ipcRenderer.removeListener(IPC.windowState, listener)
+    }
   },
   update: {
     getState: () => ipcRenderer.invoke(IPC.updateGetState),

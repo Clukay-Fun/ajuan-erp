@@ -3,6 +3,24 @@
   grid-template-columns: var(--sidebar-width) 1fr;
   grid-template-rows: var(--titlebar-height) 1fr;
   height: 100%;
+  overflow: hidden;
+  border-radius: 0;
+}
+.maximized {
+  border-radius: 0;
+}
+.macNative {
+  grid-template-rows: 0 1fr;
+  border-radius: 0;
+}
+.macNative .titlebar {
+  visibility: hidden;
+  height: 0;
+  min-height: 0;
+  margin-top: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border: 0;
 }
 
 .dragging {
@@ -16,17 +34,24 @@
 /* ---- 顶部标题栏：贯通两栏，细线分隔 ---- */
 .titlebar {
   grid-column: 1 / -1;
+  height: 32px;
+  margin-top: 4px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 var(--space-3) 0 var(--space-4);
-  background: var(--color-sidebar);
+  background: var(--color-bg);
   border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
   -webkit-app-region: drag;
+}
+.maximized .titlebar {
+  margin-top: 0;
+  border-radius: 0;
 }
 /* macOS：给交通灯留位置 */
 .titlebarMac {
-  padding-left: 84px;
+  padding-left: 76px;
 }
 .brand {
   display: flex;
@@ -95,42 +120,35 @@
   display: flex;
   flex-direction: column;
   background: var(--color-sidebar);
-  border-right: 1px solid var(--color-border);
-  padding: var(--space-3);
+  border-right: 0;
+  padding: 12px 6px 10px;
   min-width: 0;
   overflow: hidden;
 }
 
 /* 右缘拖拽区：只改光标，不画线 */
-.handle {
-  position: absolute;
-  top: 0;
-  right: -3px;
-  width: 7px;
-  height: 100%;
-  cursor: col-resize;
-  z-index: 5;
-  pointer-events: auto !important;
-}
-
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 8px;
 }
 
 .navItem {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--space-3);
-  height: var(--nav-item-height);
-  padding: 0 12px;
+  justify-content: center;
+  gap: 0;
+  width: 100%;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
-  text-align: left;
+  text-align: center;
   width: 100%;
   transition:
     background var(--dur-fast) ease,
@@ -150,6 +168,8 @@
   font-weight: 600;
 }
 .navLabel {
+  display: none;
+  font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -162,19 +182,10 @@
   background: var(--color-danger);
 }
 
-.collapsed {
-  padding-left: var(--space-2);
-  padding-right: var(--space-2);
-}
-.collapsed .navItem {
-  justify-content: center;
-  padding: 0;
-  position: relative;
-}
-.collapsed .dot {
+.dot {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 7px;
+  right: 16px;
   margin: 0;
 }
 
@@ -187,7 +198,11 @@
   min-width: 0;
   overflow: auto;
   scrollbar-gutter: stable;
-  padding: var(--page-pad-top) var(--page-pad-x) var(--space-8);
+  padding: 18px 18px 28px;
+  background: var(--color-bg);
+  border-left: 1px solid var(--color-border);
+  border-radius: 0;
+  box-shadow: -8px 0 24px rgba(20, 32, 28, 0.05);
 }
 .contentInner {
   max-width: var(--content-max);

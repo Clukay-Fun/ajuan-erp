@@ -54,6 +54,7 @@ export function DocumentEditor({ mode, onClose, onSaved }: Props): ReactElement 
   const [externalOrderNo, setExternalOrderNo] = useState('')
   const [note, setNote] = useState('')
   const [lines, setLines] = useState<Line[]>([])
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [duplicate, setDuplicate] = useState<DocumentSummary | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
   const [touched, setTouched] = useState(false)
@@ -117,7 +118,7 @@ export function DocumentEditor({ mode, onClose, onSaved }: Props): ReactElement 
     }
     dirtyRef.current = true
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [docDate, channelId, externalOrderNo, note, lines])
+  }, [docDate, channelId, externalOrderNo, note, lines, pendingFiles])
 
   // 重复外部订单号提示（防抖）
   useEffect(() => {
@@ -182,11 +183,26 @@ export function DocumentEditor({ mode, onClose, onSaved }: Props): ReactElement 
       : unwrap(window.ajuan.documents.createDraft(input))
   }
 
+  async function persistPendingFiles(documentId: number): Promise<void> {
+    for (const f of pendingFiles) {
+      await unwrap(
+        window.ajuan.attachments.add(documentId, {
+          fileName: f.name,
+          mime: f.type,
+          data: await f.arrayBuffer()
+        })
+      )
+    }
+  }
+
   async function handleSave(): Promise<void> {
     setBusy('save')
     try {
       const d = await saveDraft()
       if (!d) return
+      setExisting(d)
+      await persistPendingFiles(d.id)
+      setPendingFiles([])
       toast(`草稿已保存：${d.docNo}`, 'success')
       dirtyRef.current = false
       onSaved(d)
@@ -207,6 +223,9 @@ export function DocumentEditor({ mode, onClose, onSaved }: Props): ReactElement 
     try {
       const d = await saveDraft()
       if (!d) return
+      setExisting(d)
+      await persistPendingFiles(d.id)
+      setPendingFiles([])
       const c = await unwrap(window.ajuan.documents.confirm(d.id))
       toast(`${TYPE_LABEL[c.type]}已确认：${c.docNo}`, 'success')
       dirtyRef.current = false
@@ -234,6 +253,13 @@ export function DocumentEditor({ mode, onClose, onSaved }: Props): ReactElement 
       <section className={styles.section}>
         <div className={styles.sectionTitle}>基本信息</div>
         <div className={`${styles.card} ${styles.grid}`}>
+          <div className={styles.full}>
+            {existing ? (
+              <AttachmentPanel documentId={existing.id} />
+            ) : (
+              <AttachmentPanel documentId={0} pendingFiles={pendingFiles} onPendingFilesChange={setPendingFiles} />
+            )}
+          </div>
           <Field label={`${label}单号`} value={existing?.docNo ?? '保存后自动生成'} readOnly />
           <Field label={`${label}日期`} type="date" value={docDate} onChange={(e) => setDocDate(e.target.value)} />
           {type === 'outbound' && (
@@ -302,6 +328,7 @@ export function DocumentEditor({ mode, onClose, onSaved }: Props): ReactElement 
                   <td>
                     <Dropdown
                       aria-label="商品"
+                      className={styles.productSelect}
                       value={line.skuId}
                       onChange={(skuId) => {
                         const p = productOf(skuId)
@@ -316,7 +343,7 @@ export function DocumentEditor({ mode, onClose, onSaved }: Props): ReactElement 
                   <td className={table.num}>{formatQty(stocks.get(line.skuId)?.quantity ?? 0)}</td>
                   <td className={table.num}>
                     <input
-                      className={`${styles.cellInput} ${touched && (qty === null || qty < 1) ? styles.cellInvalid : ''}`}
+                      className={`${styles.cellInput} ${styles.productCellInput} ${touched && (qty === null || qty < 1) ? styles.cellInvalid : ''}`}
                       inputMode="numeric"
                       value={line.quantity}
                       onChange={(e) => updateLine(line.key, { quantity: e.target.value })}
@@ -326,7 +353,7 @@ export function DocumentEditor({ mode, onClose, onSaved }: Props): ReactElement 
                   </td>
                   <td className={table.num}>
                     <input
-                      className={`${styles.cellInput} ${touched && price === null ? styles.cellInvalid : ''}`}
+                      className={`${styles.cellInput} ${styles.productCellInput} ${touched && price === null ? styles.cellInvalid : ''}`}
                       inputMode="decimal"
                       value={line.unitPrice}
                       onChange={(e) => updateLine(line.key, { unitPrice: e.target.value })}
@@ -349,37 +376,24 @@ export function DocumentEditor({ mode, onClose, onSaved }: Props): ReactElement 
               ))}
             </tbody>
           </table>
-          <div className={styles.total}>
-            {insufficient && (
-              <span className={styles.short}>
-                库存不足：
-                {shortages
-                  .map(
-                    ([skuId, q]) => `${productOf(skuId)?.name ?? ''} 需 ${q} / 现 ${stocks.get(skuId)?.quantity ?? 0}`
-                  )
-                  .join('，')}
-              </span>
-            )}
-            <span>
-              合计：<strong>{formatQty(parsed.totalQty)}</strong>
+        </div>
+        <div className={styles.total}>
+          {insufficient && (
+            <span className={styles.short}>
+              库存不足：
+              {shortages
+                .map(([skuId, q]) => `${productOf(skuId)?.name ?? ''} 需 ${q} / 现 ${stocks.get(skuId)?.quantity ?? 0}`)
+                .join('，')}
             </span>
-            <span>
-              金额：<strong>¥{formatCents(parsed.totalAmount)}</strong>
-            </span>
-          </div>
+          )}
+          <span>
+            合计：<strong>{formatQty(parsed.totalQty)}</strong>
+          </span>
+          <span>
+            金额：<strong>¥{formatCents(parsed.totalAmount)}</strong>
+          </span>
         </div>
         {formError && <p className={styles.formError}>{formError}</p>}
-      </section>
-
-      <section className={styles.section}>
-        <div className={styles.sectionTitle}>附件与备注图片</div>
-        <div className={styles.card}>
-          {existing ? (
-            <AttachmentPanel documentId={existing.id} />
-          ) : (
-            <span className={styles.muted}>保存草稿后可以添加图片。</span>
-          )}
-        </div>
       </section>
     </>
   )

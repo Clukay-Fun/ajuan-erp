@@ -51,6 +51,31 @@
 .full {
   grid-column: 1 / -1;
 }
+.productSelect {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+.productSelect:hover,
+.productSelect:focus-visible,
+.productSelect.open {
+  border-color: transparent;
+  background: var(--color-surface-raised);
+  box-shadow: none;
+}
+.productCellInput {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+.productCellInput:focus {
+  border-color: transparent;
+  box-shadow: none;
+  background: var(--color-surface-raised);
+}
+.productCellInput.cellInvalid {
+  border-color: var(--color-danger);
+}
 .dup {
   grid-column: 1 / -1;
   padding: 10px 12px;

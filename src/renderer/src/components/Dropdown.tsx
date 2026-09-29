@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react'
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Check, ChevronDown } from 'lucide-react'
 import styles from './Dropdown.module.css'
 
@@ -154,37 +155,40 @@ export function Dropdown<T extends string | number>({
         <span className={selected ? styles.value : styles.placeholder}>{selected?.label ?? placeholder}</span>
         <ChevronDown size={16} className={styles.chevron} />
       </button>
-      {open && rect && (
-        <ul
-          ref={listRef}
-          id={listId}
-          role="listbox"
-          className={`${styles.menu} ${rect.up ? styles.menuUp : ''}`}
-          data-closing={closing || undefined}
-          style={{ top: rect.top, left: rect.left, minWidth: rect.width, width: compact ? undefined : rect.width }}
-          onKeyDown={onKey}
-        >
-          {options.map((o, i) => (
-            <li
-              key={String(o.value)}
-              role="option"
-              aria-selected={o.value === value}
-              aria-disabled={o.disabled || undefined}
-              data-active={i === active || undefined}
-              className={styles.item}
-              onMouseEnter={() => setActive(i)}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => pick(i)}
-            >
-              <span className={styles.itemLabel}>
-                {o.label}
-                {o.hint && <span className={styles.itemHint}>{o.hint}</span>}
-              </span>
-              {o.value === value && <Check size={14} className={styles.check} />}
-            </li>
-          ))}
-        </ul>
-      )}
+      {open &&
+        rect &&
+        createPortal(
+          <ul
+            ref={listRef}
+            id={listId}
+            role="listbox"
+            className={`${styles.menu} ${rect.up ? styles.menuUp : ''}`}
+            data-closing={closing || undefined}
+            style={{ top: rect.top, left: rect.left, minWidth: rect.width, width: compact ? undefined : rect.width }}
+            onKeyDown={onKey}
+          >
+            {options.map((o, i) => (
+              <li
+                key={String(o.value)}
+                role="option"
+                aria-selected={o.value === value}
+                aria-disabled={o.disabled || undefined}
+                data-active={i === active || undefined}
+                className={styles.item}
+                onMouseEnter={() => setActive(i)}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => pick(i)}
+              >
+                <span className={styles.itemLabel}>
+                  {o.label}
+                  {o.hint && <span className={styles.itemHint}>{o.hint}</span>}
+                </span>
+                {o.value === value && <Check size={14} className={styles.check} />}
+              </li>
+            ))}
+          </ul>,
+          document.body
+        )}
     </>
   )
 }

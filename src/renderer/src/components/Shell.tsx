@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from 'react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Sun, Moon } from 'lucide-react'
 import { unwrap } from '@/lib/api'
 import { applyTheme, type ThemePreference } from '@/lib/theme'
@@ -15,22 +15,7 @@ interface ShellProps {
 }
 
 const isMac = navigator.platform.toUpperCase().includes('MAC')
-const WIDTH_KEY = 'ajuan.sidebarWidth'
-const MIN_EXPANDED = 150
-const MAX_WIDTH = 320
-const COLLAPSED = 64
-const DEFAULT_WIDTH = 168
-
-function readWidth(): number {
-  try {
-    const v = Number(localStorage.getItem(WIDTH_KEY))
-    if (v === COLLAPSED) return v
-    if (v >= MIN_EXPANDED && v <= MAX_WIDTH && v !== 224) return v
-  } catch {
-    /* ignore */
-  }
-  return DEFAULT_WIDTH
-}
+const SIDEBAR_WIDTH = 56
 
 function isDarkNow(): boolean {
   const t = document.documentElement.getAttribute('data-theme')
@@ -43,13 +28,11 @@ function NavItem({
   def,
   active,
   alert,
-  collapsed,
   onClick
 }: {
   def: RouteDef
   active: boolean
   alert?: boolean
-  collapsed: boolean
   onClick: () => void
 }): ReactElement {
   const Icon = def.icon
@@ -58,12 +41,11 @@ function NavItem({
       type="button"
       className={styles.navItem}
       aria-current={active ? 'page' : undefined}
-      aria-label={collapsed ? def.label : undefined}
-      title={collapsed ? def.label : undefined}
+      title={def.label}
       onClick={onClick}
     >
       <Icon size={18} strokeWidth={1.8} />
-      {!collapsed && <span className={styles.navLabel}>{def.label}</span>}
+      <span className={styles.navLabel}>{def.label}</span>
       {alert && <span className={styles.dot} aria-label="库存预警" title="库存低于预警值" />}
     </button>
   )
@@ -71,17 +53,17 @@ function NavItem({
 
 export function Shell({ route, seq, onNavigate, children }: ShellProps): ReactElement {
   const [lowStock, setLowStock] = useState(false)
-  const [width, setWidth] = useState<number>(readWidth)
-  const [dragging, setDragging] = useState(false)
+  const [width] = useState<number>(SIDEBAR_WIDTH)
   const [dark, setDark] = useState(isDarkNow)
-  const dragStart = useRef<{ x: number; w: number } | null>(null)
-  const collapsed = width === COLLAPSED
+  const [maximized, setMaximized] = useState(false)
 
   useEffect(() => {
     unwrap(window.ajuan.overview.get())
       .then((o) => setLowStock(o.lowStockCount > 0))
       .catch(() => setLowStock(false))
   }, [seq])
+
+  useEffect(() => window.ajuan.app.onState(({ maximized: next }) => setMaximized(next)), [])
 
   // 跟随系统时，系统切换外观要同步图标
   useEffect(() => {
@@ -98,55 +80,14 @@ export function Shell({ route, seq, onNavigate, children }: ShellProps): ReactEl
     setDark(next === 'dark')
   }
 
-  // 拖拽右缘改宽度；拖到阈值以下吸附为折叠态（只剩图标）
-  const onHandleDown = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault()
-      dragStart.current = { x: e.clientX, w: collapsed ? COLLAPSED : width }
-      setDragging(true)
-      const move = (ev: MouseEvent): void => {
-        if (!dragStart.current) return
-        const raw = dragStart.current.w + (ev.clientX - dragStart.current.x)
-        setWidth(raw < MIN_EXPANDED - 24 ? COLLAPSED : Math.min(MAX_WIDTH, Math.max(MIN_EXPANDED, raw)))
-      }
-      const up = (): void => {
-        dragStart.current = null
-        setDragging(false)
-        window.removeEventListener('mousemove', move)
-        window.removeEventListener('mouseup', up)
-        setWidth((w) => {
-          try {
-            localStorage.setItem(WIDTH_KEY, String(w))
-          } catch {
-            /* ignore */
-          }
-          return w
-        })
-      }
-      window.addEventListener('mousemove', move)
-      window.addEventListener('mouseup', up)
-    },
-    [collapsed, width]
-  )
-
-  const toggleSidebar = (): void => {
-    const next = collapsed ? DEFAULT_WIDTH : COLLAPSED
-    setWidth(next)
-    try {
-      localStorage.setItem(WIDTH_KEY, String(next))
-    } catch {
-      /* ignore */
-    }
-  }
-
   return (
     <div
-      className={`${styles.shell} ${dragging ? styles.dragging : ''}`}
+      className={`${styles.shell} ${isMac ? styles.macNative : ''} ${maximized ? styles.maximized : ''}`}
       style={{ '--sidebar-width': `${width}px` } as React.CSSProperties}
     >
       {/* 贯通顶部的标题栏：交通灯、品牌、主题快切。整条可拖动窗口。 */}
       <header className={`${styles.titlebar} ${isMac ? styles.titlebarMac : ''}`}>
-        <div className={styles.brand} onDoubleClick={toggleSidebar} title={collapsed ? '双击展开侧栏' : '双击收起侧栏'}>
+        <div className={styles.brand}>
           <span className={styles.brandText}>
             阿卷<em>ERP</em>
           </span>
@@ -164,34 +105,20 @@ export function Shell({ route, seq, onNavigate, children }: ShellProps): ReactEl
         </div>
       </header>
 
-      <aside className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''}`}>
+      <aside className={styles.sidebar}>
         <nav className={styles.nav} aria-label="主导航">
           {PRIMARY_ROUTES.map((def) => (
             <NavItem
               key={def.key}
               def={def}
               active={route === def.key}
-              collapsed={collapsed}
               alert={lowStock && (def.key === 'overview' || def.key === 'products')}
               onClick={() => onNavigate(def.key)}
             />
           ))}
         </nav>
         <div className={styles.spacer} />
-        <NavItem
-          def={SETTINGS_ROUTE}
-          active={route === 'settings'}
-          collapsed={collapsed}
-          onClick={() => onNavigate('settings')}
-        />
-        <div
-          className={styles.handle}
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="拖动调整侧栏宽度"
-          onMouseDown={onHandleDown}
-          onDoubleClick={toggleSidebar}
-        />
+        <NavItem def={SETTINGS_ROUTE} active={route === 'settings'} onClick={() => onNavigate('settings')} />
       </aside>
 
       <main className={styles.content}>

@@ -9,9 +9,9 @@
   --font-sans: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', system-ui, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
-  --radius-sm: 8px;
+  --radius-sm: 9px;
   --radius-md: 10px;
-  --radius-lg: 12px;
+  --radius-lg: 14px;
 
   --space-1: 4px;
   --space-2: 8px;
@@ -36,13 +36,13 @@
 
   --logo-light-display: block;
   --logo-dark-display: none;
-  --sidebar-width: 168px;
-  --titlebar-height: 44px;
-  --control-height: 40px;
+  --sidebar-width: 64px;
+  --titlebar-height: 36px;
+  --control-height: 38px;
   --nav-item-height: 42px;
   --content-max: 1360px;
-  --page-pad-x: 32px;
-  --page-pad-top: 30px;
+  --page-pad-x: 36px;
+  --page-pad-top: 32px;
 
   color-scheme: light;
 

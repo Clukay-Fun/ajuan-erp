@@ -36,6 +36,7 @@ import type {
 
 export const IPC = {
   appGetInfo: 'app:getInfo',
+  windowState: 'window:state',
   updateGetState: 'update:getState',
   updateSetAutoCheck: 'update:setAutoCheck',
   updateCheck: 'update:check',
@@ -104,6 +105,7 @@ export interface AppInfo {
 export interface AjuanApi {
   app: {
     getInfo(): Promise<IpcResult<AppInfo>>
+    onState(handler: (state: { maximized: boolean }) => void): () => void
   }
   update: {
     getState(): Promise<IpcResult<UpdateState>>
