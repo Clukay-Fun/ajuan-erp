@@ -47,6 +47,25 @@ import {
   listTrash,
   clearTrash
 } from './backupIo'
+import {
+  addPsdSlotInteractive,
+  cancelPsdJobInteractive,
+  createPsdJobInteractive,
+  createPsdTemplateInteractive,
+  deletePsdAssetInteractive,
+  deletePsdSlotInteractive,
+  deletePsdTemplateInteractive,
+  getPsdBoardInteractive,
+  importPsdAssetInteractive,
+  openPhotoshopApp,
+  openPsdBridge,
+  openPsdPlugin,
+  pickPsdTemplate,
+  requeuePsdInteractive,
+  revealPsdJob,
+  retryPsdJobInteractive,
+  syncPsdInteractive
+} from './psdIo'
 
 const isDev = !app.isPackaged
 
@@ -140,4 +159,21 @@ export function registerIpc(): void {
   handle(IPC.demoHasData, () => hasBusinessData(state.db))
   handle(IPC.demoSeed, () => seedDemo(state.db))
   handle(IPC.demoReset, () => resetBusinessData(state.db, state.attachmentsDir))
+  handle(IPC.psdGetBoard, () => getPsdBoardInteractive())
+  handle(IPC.psdPickTemplate, () => pickPsdTemplate())
+  handle(IPC.psdCreateTemplate, (input) => createPsdTemplateInteractive(input))
+  handle(IPC.psdDeleteTemplate, (id: number) => deletePsdTemplateInteractive(id))
+  handle(IPC.psdAddSlot, (input) => addPsdSlotInteractive(input))
+  handle(IPC.psdDeleteSlot, (id: number) => deletePsdSlotInteractive(id))
+  handle(IPC.psdImportAsset, (kind) => importPsdAssetInteractive(kind))
+  handle(IPC.psdDeleteAsset, (id: number) => deletePsdAssetInteractive(id))
+  handle(IPC.psdCreateJob, (input) => createPsdJobInteractive(input))
+  handle(IPC.psdCancelJob, (id: number) => cancelPsdJobInteractive(id))
+  handle(IPC.psdRetryJob, (id: number) => retryPsdJobInteractive(id))
+  handle(IPC.psdSync, () => syncPsdInteractive())
+  handle(IPC.psdRequeueStuck, () => requeuePsdInteractive())
+  handle(IPC.psdOpenBridge, () => openPsdBridge())
+  handle(IPC.psdOpenPlugin, () => openPsdPlugin())
+  handle(IPC.psdOpenPhotoshop, () => openPhotoshopApp())
+  handle(IPC.psdRevealJob, (id: number) => revealPsdJob(id))
 }

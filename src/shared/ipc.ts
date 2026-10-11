@@ -5,8 +5,12 @@ import type {
   OpeningStockInput,
   DocumentDraftInput,
   ChannelCreateInput,
-  ChannelUpdateInput
+  ChannelUpdateInput,
+  PsdJobCreateInput,
+  PsdSlotCreateInput,
+  PsdTemplateCreateInput
 } from './schemas'
+import type { PsdAssetKind, PsdBoard } from './psd'
 import type {
   Attachment,
   AttachmentUpload,
@@ -88,7 +92,24 @@ export const IPC = {
   backupClearTrash: 'backup:clearTrash',
   demoSeed: 'demo:seed',
   demoReset: 'demo:reset',
-  demoHasData: 'demo:hasData'
+  demoHasData: 'demo:hasData',
+  psdGetBoard: 'psd:getBoard',
+  psdPickTemplate: 'psd:pickTemplate',
+  psdCreateTemplate: 'psd:createTemplate',
+  psdDeleteTemplate: 'psd:deleteTemplate',
+  psdAddSlot: 'psd:addSlot',
+  psdDeleteSlot: 'psd:deleteSlot',
+  psdImportAsset: 'psd:importAsset',
+  psdDeleteAsset: 'psd:deleteAsset',
+  psdCreateJob: 'psd:createJob',
+  psdCancelJob: 'psd:cancelJob',
+  psdRetryJob: 'psd:retryJob',
+  psdSync: 'psd:sync',
+  psdRequeueStuck: 'psd:requeueStuck',
+  psdOpenBridge: 'psd:openBridge',
+  psdOpenPlugin: 'psd:openPlugin',
+  psdOpenPhotoshop: 'psd:openPhotoshop',
+  psdRevealJob: 'psd:revealJob'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]
@@ -198,5 +219,25 @@ export interface AjuanApi {
     seed(): Promise<IpcResult<{ documents: number }>>
     /** 清空全部业务数据，保留商品与渠道 */
     reset(): Promise<IpcResult<void>>
+  }
+  psd: {
+    getBoard(): Promise<IpcResult<PsdBoard>>
+    pickTemplate(): Promise<IpcResult<string | null>>
+    createTemplate(input: PsdTemplateCreateInput): Promise<IpcResult<PsdBoard>>
+    deleteTemplate(id: number): Promise<IpcResult<PsdBoard>>
+    addSlot(input: PsdSlotCreateInput): Promise<IpcResult<PsdBoard>>
+    deleteSlot(id: number): Promise<IpcResult<PsdBoard>>
+    /** 取消选择时返回 null */
+    importAsset(kind: PsdAssetKind): Promise<IpcResult<PsdBoard | null>>
+    deleteAsset(id: number): Promise<IpcResult<PsdBoard>>
+    createJob(input: PsdJobCreateInput): Promise<IpcResult<PsdBoard>>
+    cancelJob(id: number): Promise<IpcResult<PsdBoard>>
+    retryJob(id: number): Promise<IpcResult<PsdBoard>>
+    sync(): Promise<IpcResult<PsdBoard>>
+    requeueStuck(): Promise<IpcResult<{ board: PsdBoard; count: number }>>
+    openBridge(): Promise<IpcResult<void>>
+    openPlugin(): Promise<IpcResult<void>>
+    openPhotoshop(): Promise<IpcResult<void>>
+    revealJob(id: number): Promise<IpcResult<void>>
   }
 }

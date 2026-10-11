@@ -6,7 +6,7 @@ const isMac = navigator.platform.toUpperCase().includes('MAC')
 
 /**
  * 全局快捷键（⌘ / Ctrl）：
- * N 新建入库 · ⇧N 新建出库 · 1–3 切换主导航 · , 设置
+ * N 新建入库 · ⇧N 新建出库 · 1–4 切换主导航 · , 设置
  * 键盘触发的切换不带动效感知问题：页面本身就是重新挂载。
  */
 export function useShortcuts(): void {
@@ -22,7 +22,7 @@ export function useShortcuts(): void {
       } else if (key === ',') {
         e.preventDefault()
         navigate('settings')
-      } else if (/^[1-3]$/.test(key) && !e.shiftKey) {
+      } else if (/^[1-4]$/.test(key) && !e.shiftKey) {
         const route = PRIMARY_ROUTES[Number(key) - 1]
         if (route) {
           e.preventDefault()

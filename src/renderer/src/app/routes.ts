@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
-import { LayoutDashboard, Package, FileText, Settings } from 'lucide-react'
+import { LayoutDashboard, Package, FileText, Layers, Settings } from 'lucide-react'
 
-export type RouteKey = 'overview' | 'products' | 'documents' | 'settings'
+export type RouteKey = 'overview' | 'products' | 'documents' | 'psd' | 'settings'
 
 export interface RouteDef {
   key: RouteKey
@@ -13,7 +13,8 @@ export interface RouteDef {
 export const PRIMARY_ROUTES: RouteDef[] = [
   { key: 'overview', label: '概览', icon: LayoutDashboard },
   { key: 'products', label: '商品', icon: Package },
-  { key: 'documents', label: '单据', icon: FileText }
+  { key: 'documents', label: '单据', icon: FileText },
+  { key: 'psd', label: '定制', icon: Layers }
 ]
 
 export const SETTINGS_ROUTE: RouteDef = { key: 'settings', label: '设置', icon: Settings }

@@ -92,6 +92,25 @@ const api: AjuanApi = {
     hasData: () => ipcRenderer.invoke(IPC.demoHasData),
     seed: () => ipcRenderer.invoke(IPC.demoSeed),
     reset: () => ipcRenderer.invoke(IPC.demoReset)
+  },
+  psd: {
+    getBoard: () => ipcRenderer.invoke(IPC.psdGetBoard),
+    pickTemplate: () => ipcRenderer.invoke(IPC.psdPickTemplate),
+    createTemplate: (input) => ipcRenderer.invoke(IPC.psdCreateTemplate, input),
+    deleteTemplate: (id) => ipcRenderer.invoke(IPC.psdDeleteTemplate, id),
+    addSlot: (input) => ipcRenderer.invoke(IPC.psdAddSlot, input),
+    deleteSlot: (id) => ipcRenderer.invoke(IPC.psdDeleteSlot, id),
+    importAsset: (kind) => ipcRenderer.invoke(IPC.psdImportAsset, kind),
+    deleteAsset: (id) => ipcRenderer.invoke(IPC.psdDeleteAsset, id),
+    createJob: (input) => ipcRenderer.invoke(IPC.psdCreateJob, input),
+    cancelJob: (id) => ipcRenderer.invoke(IPC.psdCancelJob, id),
+    retryJob: (id) => ipcRenderer.invoke(IPC.psdRetryJob, id),
+    sync: () => ipcRenderer.invoke(IPC.psdSync),
+    requeueStuck: () => ipcRenderer.invoke(IPC.psdRequeueStuck),
+    openBridge: () => ipcRenderer.invoke(IPC.psdOpenBridge),
+    openPlugin: () => ipcRenderer.invoke(IPC.psdOpenPlugin),
+    openPhotoshop: () => ipcRenderer.invoke(IPC.psdOpenPhotoshop),
+    revealJob: (id) => ipcRenderer.invoke(IPC.psdRevealJob, id)
   }
 }
 

@@ -1,0 +1,25 @@
+{
+  "manifestVersion": 5,
+  "id": "com.clukay.ajuan.psd",
+  "name": "阿卷 PSD",
+  "version": "0.1.0",
+  "main": "index.html",
+  "host": {
+    "app": "PS",
+    "minVersion": "24.0.0"
+  },
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "ajuanPsd",
+      "label": { "default": "阿卷 PSD" },
+      "minimumSize": { "width": 280, "height": 360 },
+      "maximumSize": { "width": 640, "height": 2000 },
+      "preferredDockedSize": { "width": 300, "height": 480 },
+      "preferredFloatingSize": { "width": 320, "height": 520 }
+    }
+  ],
+  "requiredPermissions": {
+    "localFileSystem": "request"
+  }
+}

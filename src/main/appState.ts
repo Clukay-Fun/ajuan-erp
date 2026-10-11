@@ -1,5 +1,6 @@
+import { existsSync, mkdirSync, renameSync } from 'node:fs'
 import { app } from 'electron'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { openDatabase, type Db } from './db/connection'
 import { runMigrations } from './db/migrations'
 
@@ -12,6 +13,22 @@ class AppState {
   }
   get attachmentsDir(): string {
     return join(app.getPath('userData'), 'attachments')
+  }
+  get psdAssetsDir(): string {
+    return join(app.getPath('userData'), 'psd-assets')
+  }
+  /**
+   * 放在「文稿」里。Photoshop 的文件夹选择框点不到隐藏的「资源库」。
+   * 旧版本写在 userData 下，这里仍能看到时就搬过去。
+   */
+  get psdBridgeDir(): string {
+    const next = join(app.getPath('documents'), '阿卷 ERP', 'psd-bridge')
+    const prev = join(app.getPath('userData'), 'psd-bridge')
+    if (!existsSync(next) && existsSync(prev)) {
+      mkdirSync(dirname(next), { recursive: true })
+      renameSync(prev, next)
+    }
+    return next
   }
   get trashDir(): string {
     return join(app.getPath('userData'), 'restore-trash')

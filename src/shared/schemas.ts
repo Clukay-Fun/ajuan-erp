@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { SLOT_KEY_PATTERN, isSafeLayerName } from './psd'
 
 // 表单、IPC、CSV 共用的校验规则。
 
@@ -57,6 +58,51 @@ export const channelUpdateSchema = z.object({
 })
 export type ChannelCreateInput = z.infer<typeof channelCreateSchema>
 export type ChannelUpdateInput = z.infer<typeof channelUpdateSchema>
+
+const psdLayerName = z
+  .string()
+  .trim()
+  .min(1, '图层名不能为空')
+  .max(80, '图层名过长')
+  .refine((name) => isSafeLayerName(name), '图层名含有不能使用的字符')
+
+export const psdTemplateCreateSchema = z.object({
+  name: z.string().trim().min(1, '模板名称不能为空').max(64, '模板名称过长'),
+  sourcePath: z.string().trim().min(1, '请选择 PSD')
+})
+export type PsdTemplateCreateInput = z.infer<typeof psdTemplateCreateSchema>
+
+export const psdSlotCreateSchema = z
+  .object({
+    templateId: z.number().int().positive(),
+    slotKey: z.string().trim().regex(SLOT_KEY_PATTERN, '位置编号应为 slot_01 到 slot_99'),
+    dogLayer: psdLayerName,
+    nameLayer: psdLayerName
+  })
+  .refine((value) => value.dogLayer !== value.nameLayer, '狗图图层和名字图层不能同名')
+export type PsdSlotCreateInput = z.infer<typeof psdSlotCreateSchema>
+
+export const psdAssetKindSchema = z.enum(['dog', 'name'])
+
+export const psdJobCreateSchema = z
+  .object({
+    templateId: z.number().int().positive(),
+    title: z.string().trim().min(1, '请填写定制标题').max(60, '标题过长'),
+    items: z
+      .array(
+        z.object({
+          slotId: z.number().int().positive(),
+          dogAssetId: z.number().int().positive(),
+          nameAssetId: z.number().int().positive()
+        })
+      )
+      .min(1, '至少选择一个位置')
+  })
+  .refine(
+    (value) => new Set(value.items.map((item) => item.slotId)).size === value.items.length,
+    '同一个位置不能重复替换'
+  )
+export type PsdJobCreateInput = z.infer<typeof psdJobCreateSchema>
 
 export const adjustmentSchema = z.object({
   skuId: z.number().int().positive(),

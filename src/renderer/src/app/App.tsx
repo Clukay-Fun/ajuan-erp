@@ -8,11 +8,13 @@ import { OverviewPage } from '@/pages/OverviewPage'
 import { ProductsPage } from '@/pages/ProductsPage'
 import { DocumentsPage } from '@/pages/DocumentsPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { PsdPage } from '@/pages/PsdPage'
 
 const PAGES: Record<RouteKey, () => ReactElement> = {
   overview: OverviewPage,
   products: ProductsPage,
   documents: DocumentsPage,
+  psd: PsdPage,
   settings: SettingsPage
 }
 

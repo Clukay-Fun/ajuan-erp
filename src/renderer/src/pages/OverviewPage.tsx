@@ -81,7 +81,6 @@ export function OverviewPage(): ReactElement {
       .catch((err: unknown) => toast(errorMessage(err), 'error'))
   }, [range, skuId, toast])
 
-  const today = new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
   const actions = (
     <>
       <Button variant="primary" onClick={() => navigate('documents', { documents: { view: 'new', type: 'inbound' } })}>
@@ -96,14 +95,14 @@ export function OverviewPage(): ReactElement {
   if (error)
     return (
       <>
-        <PageHeader title="概览" subtitle={today} />
+        <PageHeader title="概览" />
         <p className={styles.error}>读取失败：{error}</p>
       </>
     )
   if (!data)
     return (
       <>
-        <PageHeader title="概览" subtitle={today} actions={actions} />
+        <PageHeader title="概览" actions={actions} />
         <div className={styles.kpis}>
           {[0, 1, 2, 3].map((i) => (
             <SkeletonCard key={i} lines={1} />
@@ -158,7 +157,7 @@ export function OverviewPage(): ReactElement {
 
   return (
     <>
-      <PageHeader title="概览" subtitle={today} actions={actions} />
+      <PageHeader title="概览" actions={actions} />
 
       {/* 当前状态 */}
       <div className={styles.kpis}>

@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url'
 import { state } from './appState'
 import { registerIpc } from './ipc'
 import { resolveAttachmentPath } from './services/attachments'
+import { resolvePsdAssetPath } from './services/psdExport'
 import { loadWindowState, trackWindowState } from './windowState'
 import { initUpdater } from './updater'
 import { IPC } from '@shared/ipc'
@@ -63,7 +64,7 @@ function createWindow(): BrowserWindow {
   return win
 }
 
-// 附件图片通过自定义协议提供：ajuan-file://attachments/<relPath>，只允许读附件目录内的文件。
+// 本地图片：ajuan-file://attachments/<rel> 与 ajuan-file://psd-assets/<rel>，都限制在对应目录内。
 if (!app.isReady()) {
   protocol.registerSchemesAsPrivileged([
     { scheme: 'ajuan-file', privileges: { standard: true, secure: true, supportFetchAPI: false } }
@@ -73,10 +74,15 @@ if (!app.isReady()) {
 function registerAttachmentProtocol(): void {
   protocol.handle('ajuan-file', (request) => {
     const url = new URL(request.url)
-    if (url.host !== 'attachments') return new Response('Not found', { status: 404 })
+    const rel = decodeURIComponent(url.pathname.replace(/^\/+/, ''))
     try {
-      const rel = decodeURIComponent(url.pathname.replace(/^\/+/, ''))
-      const full = resolveAttachmentPath(state.attachmentsDir, rel)
+      const full =
+        url.host === 'attachments'
+          ? resolveAttachmentPath(state.attachmentsDir, rel)
+          : url.host === 'psd-assets'
+            ? resolvePsdAssetPath(state.psdAssetsDir, rel)
+            : null
+      if (!full) return new Response('Not found', { status: 404 })
       return net.fetch(pathToFileURL(full).toString())
     } catch {
       return new Response('Forbidden', { status: 403 })

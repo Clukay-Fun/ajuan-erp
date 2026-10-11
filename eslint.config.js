@@ -24,5 +24,21 @@ export default tseslint.config(
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/consistent-type-imports': ['error', { fixStyle: 'inline-type-imports' }]
     }
+  },
+  {
+    files: ['photoshop-plugin/**/*.js'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off'
+    },
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: {
+        document: 'readonly',
+        localStorage: 'readonly',
+        TextDecoder: 'readonly',
+        console: 'readonly',
+        decodeURIComponent: 'readonly'
+      }
+    }
   }
 )
