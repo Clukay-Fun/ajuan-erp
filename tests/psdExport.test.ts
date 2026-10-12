@@ -21,13 +21,20 @@ import {
   retryPsdJob,
   type PsdPaths
 } from '../src/main/services/psdExport'
+import {
+  backgroundLaunch,
+  createLaunchGate,
+  darwinPhotoshopPids,
+  shouldQuitOwned,
+  windowsPhotoshopPids
+} from '../src/main/photoshopProcess'
 
 const require = createRequire(import.meta.url)
-const { fitContain } = require('../photoshop-plugin/ajuan-psd/fit.js') as {
-  fitContain: (
+const { fitToBounds } = require('../photoshop-plugin/ajuan-psd/fit.js') as {
+  fitToBounds: (
     oldBounds: { left: number; top: number; right: number; bottom: number },
     newBounds: { left: number; top: number; right: number; bottom: number }
-  ) => { scale: number; dx: number; dy: number }
+  ) => { scaleX: number; scaleY: number; dx: number; dy: number }
 }
 
 const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
@@ -99,30 +106,47 @@ function seed(fx: ReturnType<typeof fixture>, slots = ['slot_01']) {
 describe('缩放回原边界', () => {
   it('相同边界不缩放也不移动', () => {
     expect(
-      fitContain({ left: 0, top: 0, right: 100, bottom: 100 }, { left: 0, top: 0, right: 100, bottom: 100 })
+      fitToBounds({ left: 0, top: 0, right: 100, bottom: 100 }, { left: 0, top: 0, right: 100, bottom: 100 })
     ).toEqual({
-      scale: 1,
+      scaleX: 1,
+      scaleY: 1,
       dx: 0,
       dy: 0
     })
   })
 
-  it('三种狗图尺寸和扁长名字图都按短边装入并回到原中心', () => {
+  it('不同宽高的素材分别强制缩放到模板宽高并回到原中心', () => {
     const slot = { left: 0, top: 0, right: 1000, bottom: 1000 }
-    expect(fitContain(slot, { left: 0, top: 0, right: 500, bottom: 500 }).scale).toBe(2)
-    expect(fitContain(slot, { left: 0, top: 0, right: 2000, bottom: 2000 }).scale).toBe(0.5)
-    expect(fitContain(slot, { left: 0, top: 0, right: 2000, bottom: 500 }).scale).toBe(0.5)
+    expect(fitToBounds(slot, { left: 0, top: 0, right: 500, bottom: 500 })).toEqual({
+      scaleX: 2,
+      scaleY: 2,
+      dx: 250,
+      dy: 250
+    })
+    expect(fitToBounds(slot, { left: 0, top: 0, right: 2000, bottom: 2000 })).toEqual({
+      scaleX: 0.5,
+      scaleY: 0.5,
+      dx: -500,
+      dy: -500
+    })
+    expect(fitToBounds(slot, { left: 0, top: 0, right: 2000, bottom: 500 })).toEqual({
+      scaleX: 0.5,
+      scaleY: 2,
+      dx: -500,
+      dy: 250
+    })
     const nameSlot = { left: 10, top: 20, right: 810, bottom: 220 }
     const nameImage = { left: 0, top: 0, right: 2172, bottom: 724 }
-    const fit = fitContain(nameSlot, nameImage)
-    expect(fit.scale).toBeCloseTo(200 / 724)
+    const fit = fitToBounds(nameSlot, nameImage)
+    expect(fit.scaleX).toBeCloseTo(800 / 2172)
+    expect(fit.scaleY).toBeCloseTo(200 / 724)
     expect(fit.dx).toBeCloseTo(410 - 1086)
     expect(fit.dy).toBeCloseTo(120 - 362)
   })
 
   it('边界无效时不能缩放', () => {
     expect(() =>
-      fitContain({ left: 0, top: 0, right: 0, bottom: 10 }, { left: 0, top: 0, right: 10, bottom: 10 })
+      fitToBounds({ left: 0, top: 0, right: 0, bottom: 10 }, { left: 0, top: 0, right: 10, bottom: 10 })
     ).toThrow('图层边界无效')
   })
 })
@@ -349,6 +373,9 @@ describe('插件约定', () => {
       join(dirname(fileURLToPath(import.meta.url)), '../photoshop-plugin/ajuan-psd/index.js'),
       'utf8'
     )
+    const manifest = JSON.parse(
+      readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../photoshop-plugin/ajuan-psd/manifest.json'), 'utf8')
+    ) as { host: { data?: { loadEvent?: string; apiVersion?: number } } }
     expect(source).toContain('placedLayerReplaceContents')
     expect(source).toContain('saveAs.psd')
     expect(source).toContain('DONOTSAVECHANGES')
@@ -356,7 +383,58 @@ describe('插件约定', () => {
     expect(source).toContain('图层已锁定:')
     expect(source).toContain('图层不是智能对象:')
     expect(source).toContain('打开了错误文件:')
+    expect(source).toContain('startWorker')
+    expect(source).toContain('unmountPanel')
+    expect(source).toContain('create(rootNode)')
     expect(source).not.toMatch(/doc\.save\(/)
+    expect(manifest.host.data?.loadEvent).toBe('startup')
+    expect(manifest.host.data?.apiVersion).toBeUndefined()
+  })
+})
+
+describe('Photoshop 进程', () => {
+  it('只认主进程，后台启动不激活窗口，并且不退出用户自己打开的进程', () => {
+    const listing = [
+      '17829 /Applications/Utilities/AdobeIPCBroker -launchedbyvulcan /Applications/Adobe Photoshop 2026/Adobe Photoshop 2026.app/Contents/MacOS/Adobe Photoshop 2026',
+      '19606 /Applications/Adobe Photoshop 2026/Adobe Photoshop 2026.app/Contents/MacOS/Adobe Photoshop 2026'
+    ].join('\n')
+    expect(darwinPhotoshopPids(listing)).toEqual([19606])
+    expect(windowsPhotoshopPids('"Photoshop.exe","4242","Console","1","120,000 K"')).toEqual([4242])
+    expect(backgroundLaunch('darwin', '/Applications/Adobe Photoshop 2026/Adobe Photoshop 2026.app')).toEqual({
+      command: 'open',
+      args: ['-g', '-a', '/Applications/Adobe Photoshop 2026/Adobe Photoshop 2026.app']
+    })
+    expect(shouldQuitOwned(19606, [19606])).toBe(true)
+    expect(shouldQuitOwned(19606, [30000])).toBe(false)
+    expect(shouldQuitOwned(null, [19606])).toBe(false)
+  })
+
+  it('并发启动共用同一次，结束后下一次会重新启动', async () => {
+    const gate = createLaunchGate<number>()
+    let starts = 0
+    let release!: (pid: number) => void
+    const started = new Promise<number>((resolve) => {
+      release = resolve
+    })
+    const first = gate.run(async () => {
+      starts += 1
+      return started
+    })
+    const second = gate.run(async () => {
+      starts += 1
+      return 2
+    })
+    expect(starts).toBe(1)
+    release(9)
+    await expect(first).resolves.toBe(9)
+    await expect(second).resolves.toBe(9)
+    await expect(
+      gate.run(async () => {
+        starts += 1
+        return 3
+      })
+    ).resolves.toBe(3)
+    expect(starts).toBe(2)
   })
 })
 

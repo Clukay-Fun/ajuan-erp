@@ -11,7 +11,7 @@ import { unwrap, errorMessage } from '@/lib/api'
 import styles from './PsdPage.module.css'
 
 const STATUS_LABEL: Record<PsdJobStatus, string> = {
-  queued: '等待插件',
+  queued: '等待 Photoshop / 插件',
   running: '处理中',
   done: '已导出',
   failed: '失败',
@@ -63,6 +63,15 @@ export function PsdPage(): ReactElement {
   useEffect(() => {
     load().catch((err: unknown) => toast(errorMessage(err), 'error'))
   }, [load, toast])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      void load().catch(() => {
+        // 手动同步按钮仍然可以显示错误；后台刷新不打断用户操作。
+      })
+    }, 1500)
+    return () => window.clearInterval(timer)
+  }, [load])
 
   useEffect(() => {
     if (!board) return
@@ -259,6 +268,7 @@ export function PsdPage(): ReactElement {
       <section className={styles.card}>
         <h2 className={styles.title}>导出</h2>
         <p className={styles.hint}>勾选要替换的位置。只选一个就是单张替换，选多个会写进同一个 PSD。</p>
+        <p className={styles.hint}>素材会按模板图层的宽、高分别强制缩放；比例不一致时会产生拉伸。</p>
         {!template && <p className={styles.muted}>先添加模板和位置。</p>}
         {template && (
           <>
@@ -346,12 +356,14 @@ function BridgeCard({
     <section className={styles.card}>
       <h2 className={styles.title}>Photoshop</h2>
       <p className={styles.hint}>
-        应用只生成任务。插件打开模板副本，替换智能对象后另存。当前备份不包含这些模板、素材和导出文件。
+        生成任务时，如果 Photoshop 没在运行，应用会在后台启动它，不把它拉到最前。任务完成后会退出这次启动的
+        Photoshop；如果你中途在这个进程里继续作图，完成时仍会退出。超过 15
+        分钟还没完成，就不再自动退出。当前备份不包含这些模板、素材和导出文件。
       </p>
       <ol className={styles.steps}>
-        <li>用 UXP Developer Tool 加载插件目录，或在 Photoshop 开发者模式里加载其中的 manifest.json。</li>
-        <li>在「阿卷 PSD」面板授权下面的桥接目录。</li>
-        <li>生成任务后，在面板点「执行队列」，再回到这里同步结果。</li>
+        <li>开发阶段：Photoshop 完全退出后，仍要用 UXP Developer Tools 加载一次插件。同一次没退出就不用再加载。</li>
+        <li>第一次在「阿卷 PSD」面板授权下面的桥接目录。授权会记住。</li>
+        <li>插件加载后会自己处理队列，不必一直打开面板。面板用来看日志，或手动补跑。</li>
       </ol>
       <div className={styles.actions}>
         <Button

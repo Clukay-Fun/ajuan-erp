@@ -6,7 +6,10 @@
   "main": "index.html",
   "host": {
     "app": "PS",
-    "minVersion": "24.0.0"
+    "minVersion": "24.0.0",
+    "data": {
+      "loadEvent": "startup"
+    }
   },
   "entrypoints": [
     {
@@ -17,6 +20,11 @@
       "maximumSize": { "width": 640, "height": 2000 },
       "preferredDockedSize": { "width": 300, "height": 480 },
       "preferredFloatingSize": { "width": 320, "height": 520 }
+    },
+    {
+      "type": "command",
+      "id": "ajuanRunQueue",
+      "label": { "default": "处理队列" }
     }
   ],
   "requiredPermissions": {

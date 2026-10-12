@@ -2,9 +2,10 @@ const { entrypoints } = require('uxp')
 const { app, action, core, constants } = require('photoshop')
 const fs = require('uxp').storage.localFileSystem
 const formats = require('uxp').storage.formats
-const { fitContain } = require('./fit.js')
+const { fitToBounds } = require('./fit.js')
 
 const TOKEN_KEY = 'ajuan.bridgeToken'
+const POLL_INTERVAL_MS = 1000
 const SAVE_OPTIONS = {
   alphaChannels: true,
   annotations: true,
@@ -14,19 +15,63 @@ const SAVE_OPTIONS = {
   maximizeCompatibility: true
 }
 
+const lines = ['首次使用请授权 psd-bridge。之后生成任务会自动执行；“执行队列”仅用于手动补跑。']
+let workerTimer = null
+let panelRoot = null
+let queueRunning = false
+const boundClicks = new WeakSet()
+
+function element(id) {
+  if (panelRoot && typeof panelRoot.querySelector === 'function') {
+    const found = panelRoot.querySelector('#' + id)
+    if (found) return found
+  }
+  if (typeof document !== 'undefined' && document.getElementById) return document.getElementById(id)
+  return null
+}
+
+function renderLog() {
+  const el = element('log')
+  if (el) el.textContent = lines.join('\n')
+}
+
+function log(line) {
+  lines.push(line)
+  if (lines.length > 80) lines.shift()
+  renderLog()
+}
+
 entrypoints.setup({
+  plugin: {
+    create() {
+      startWorker()
+    },
+    destroy() {
+      stopWorker()
+      unmountPanel()
+    }
+  },
   panels: {
     ajuanPsd: {
-      show() {},
+      create(rootNode) {
+        mountPanel(rootNode)
+      },
+      destroy() {
+        unmountPanel()
+      },
+      show(rootNode) {
+        mountPanel(rootNode)
+      },
       hide() {}
+    }
+  },
+  commands: {
+    ajuanRunQueue() {
+      startWorker()
+      runQueue({ silent: false })
     }
   }
 })
-
-function log(line) {
-  const el = document.getElementById('log')
-  el.textContent = `${el.textContent}\n${line}`.trim()
-}
 
 function errorText(err) {
   if (!err) return '未知错误'
@@ -133,15 +178,14 @@ async function replaceContents(fileEntry) {
   ])
 }
 
-async function scaleAroundCenter(layer, scale) {
-  const percent = scale * 100
+async function scaleAroundCenter(layer, scaleX, scaleY) {
   await batch([
     {
       _obj: 'transform',
       _target: [{ _ref: 'layer', _id: layer.id }],
       freeTransformCenterState: { _enum: 'quadCenterState', _value: 'QCSAverage' },
-      width: { _unit: 'percentUnit', _value: percent },
-      height: { _unit: 'percentUnit', _value: percent },
+      width: { _unit: 'percentUnit', _value: scaleX * 100 },
+      height: { _unit: 'percentUnit', _value: scaleY * 100 },
       interfaceIconFrameDimmed: { _enum: 'interpolationType', _value: 'bicubic' },
       _options: { dialogOptions: 'dontDisplay' }
     }
@@ -181,8 +225,10 @@ async function replaceOne(doc, staging, item) {
   await replaceContents(image)
   const current = findLayer(doc, item.layerName)
   if (!current) throw new Error(`图层不存在: ${item.layerName}`)
-  const fit = fitContain(before, boundsOf(current))
-  if (Math.abs(fit.scale - 1) > 0.001) await scaleAroundCenter(current, fit.scale)
+  const fit = fitToBounds(before, boundsOf(current))
+  if (Math.abs(fit.scaleX - 1) > 0.001 || Math.abs(fit.scaleY - 1) > 0.001) {
+    await scaleAroundCenter(current, fit.scaleX, fit.scaleY)
+  }
   if (Math.abs(fit.dx) > 0.5 || Math.abs(fit.dy) > 0.5) await moveLayer(current, fit.dx, fit.dy)
 }
 
@@ -273,8 +319,9 @@ async function getBridge() {
 }
 
 async function showFolder() {
+  const el = element('folder')
+  if (!el) return
   const folder = await getBridge()
-  const el = document.getElementById('folder')
   el.textContent = folder
     ? `已授权：${folder.nativePath || folder.name}`
     : '尚未授权。请选择阿卷 ERP「定制」页里的 psd-bridge 目录。'
@@ -289,47 +336,77 @@ async function authorize() {
   log('桥接目录已授权')
 }
 
-async function processInbox() {
+async function processInbox({ silent = false } = {}) {
   const bridge = await getBridge()
   if (!bridge) {
-    log('请先授权桥接目录')
+    if (!silent) log('请先授权桥接目录')
     return
   }
   const inbox = await child(bridge, 'inbox')
   if (!inbox || !inbox.isFolder) {
-    log('这个目录里没有 inbox。请改选 psd-bridge。')
+    if (!silent) log('这个目录里没有 inbox。请改选 psd-bridge。')
     return
   }
   const entries = await inbox.getEntries()
   const jobs = entries.filter((entry) => entry.isFile && entry.name.endsWith('.json'))
   if (!jobs.length) {
-    log('队列是空的')
+    if (!silent) log('队列是空的')
     return
   }
   for (const file of jobs) await runJob(bridge, file)
 }
 
-function boot() {
-  const auth = document.getElementById('auth')
-  const run = document.getElementById('run')
-  let running = false
-  auth.addEventListener('click', () => {
+function runQueue(options) {
+  if (queueRunning) return
+  queueRunning = true
+  const run = element('run')
+  if (run) run.disabled = true
+  if (!options?.silent) log('开始执行…')
+  processInbox(options)
+    .catch((err) => log(errorText(err)))
+    .finally(() => {
+      queueRunning = false
+      const button = element('run')
+      if (button) button.disabled = false
+    })
+}
+
+function bindClick(el, handler) {
+  if (!el || boundClicks.has(el)) return
+  boundClicks.add(el)
+  el.addEventListener('click', handler)
+}
+
+function mountPanel(rootNode) {
+  if (rootNode && typeof rootNode.querySelector === 'function') panelRoot = rootNode
+  bindClick(element('auth'), () => {
     authorize().catch((err) => log(errorText(err)))
   })
-  run.addEventListener('click', () => {
-    if (running) return
-    running = true
-    run.disabled = true
-    document.getElementById('log').textContent = '开始执行…'
-    processInbox()
-      .catch((err) => log(errorText(err)))
-      .finally(() => {
-        running = false
-        run.disabled = false
-      })
+  bindClick(element('run'), () => {
+    runQueue({ silent: false })
   })
+  renderLog()
   showFolder().catch((err) => log(errorText(err)))
 }
 
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot)
-else boot()
+function unmountPanel() {
+  panelRoot = null
+}
+
+function startWorker() {
+  mountPanel()
+  if (workerTimer) return
+  runQueue({ silent: true })
+  workerTimer = globalThis.setInterval(() => runQueue({ silent: true }), POLL_INTERVAL_MS)
+}
+
+function stopWorker() {
+  if (!workerTimer) return
+  globalThis.clearInterval(workerTimer)
+  workerTimer = null
+}
+
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startWorker)
+  else startWorker()
+}

@@ -7,3 +7,4 @@ dist/
 scope/
 *.tsbuildinfo
 tests/e2e/.artifacts/
+data/
