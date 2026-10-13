@@ -130,6 +130,24 @@ describe('等比例放进原边界', () => {
     expect(fit.dy).toBeCloseTo(200 - 250)
   })
 
+  it('心形名字 JPG 的大画布会缩到目标智能对象范围内', () => {
+    const target = { left: 412, top: 1338, right: 799, bottom: 1546 }
+    const replacedJpg = { left: -957, top: -641, right: 2168, bottom: 3526 }
+    const fit = fitToBounds(target, replacedJpg)
+    const scaledWidth = (replacedJpg.right - replacedJpg.left) * fit.scale
+    const scaledHeight = (replacedJpg.bottom - replacedJpg.top) * fit.scale
+    const centerX = (target.left + target.right) / 2
+    const centerY = (target.top + target.bottom) / 2
+
+    expect(fit.scale).toBeCloseTo(208 / 4167)
+    expect(fit.dx).toBeCloseTo(0)
+    expect(fit.dy).toBeCloseTo(-0.5)
+    expect(scaledWidth).toBeLessThan(target.right - target.left)
+    expect(scaledHeight).toBeCloseTo(target.bottom - target.top)
+    expect((replacedJpg.left + replacedJpg.right) / 2 + fit.dx).toBeCloseTo(centerX)
+    expect((replacedJpg.top + replacedJpg.bottom) / 2 + fit.dy).toBeCloseTo(centerY)
+  })
+
   it('竖向狗图和名字图按更紧的一边缩放，宽图和高图都不拉伸', () => {
     const left = { left: 140, top: 240, right: 960, bottom: 1240 }
     const dog = fitToBounds(left, { left: 0, top: 0, right: 627, bottom: 992 })
@@ -407,7 +425,9 @@ describe('插件约定', () => {
       readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../photoshop-plugin/ajuan-psd/manifest.json'), 'utf8')
     ) as { host: { data?: { loadEvent?: string; apiVersion?: number } } }
     expect(source).toContain('placedLayerReplaceContents')
-    expect(source).toContain('scaleAroundCenter(current, fit.scale, fit.scale)')
+    expect(source).toContain('current.scale(fit.scale * 100, fit.scale * 100, constants.AnchorPosition.MIDDLECENTER)')
+    expect(source).toContain('current.translate(fit.dx, fit.dy)')
+    expect(source).toContain('变换未落入模板范围')
     expect(source).toContain('saveAs.psd')
     expect(source).toContain('DONOTSAVECHANGES')
     expect(source).toContain('图层不存在:')

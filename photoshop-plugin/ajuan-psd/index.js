@@ -156,7 +156,13 @@ async function park(file, folderName, job, bridge) {
 }
 
 async function batch(descriptors) {
-  await action.batchPlay(descriptors, { synchronousExecution: true, modalBehavior: 'execute' })
+  const results = await action.batchPlay(descriptors, { synchronousExecution: true, modalBehavior: 'execute' })
+  for (const result of results) {
+    if (result?._obj === 'error' || (typeof result?.result === 'number' && result.result < 0)) {
+      throw new Error(result.message || `Photoshop 命令失败 (${result.result})`)
+    }
+  }
+  return results
 }
 
 async function selectLayer(layer) {
@@ -181,35 +187,6 @@ async function replaceContents(fileEntry) {
   ])
 }
 
-async function scaleAroundCenter(layer, scaleX, scaleY) {
-  await batch([
-    {
-      _obj: 'transform',
-      _target: [{ _ref: 'layer', _id: layer.id }],
-      freeTransformCenterState: { _enum: 'quadCenterState', _value: 'QCSAverage' },
-      width: { _unit: 'percentUnit', _value: scaleX * 100 },
-      height: { _unit: 'percentUnit', _value: scaleY * 100 },
-      interfaceIconFrameDimmed: { _enum: 'interpolationType', _value: 'bicubic' },
-      _options: { dialogOptions: 'dontDisplay' }
-    }
-  ])
-}
-
-async function moveLayer(layer, dx, dy) {
-  await batch([
-    {
-      _obj: 'move',
-      _target: [{ _ref: 'layer', _id: layer.id }],
-      to: {
-        _obj: 'offset',
-        horizontal: { _unit: 'pixelsUnit', _value: dx },
-        vertical: { _unit: 'pixelsUnit', _value: dy }
-      },
-      _options: { dialogOptions: 'dontDisplay' }
-    }
-  ])
-}
-
 async function ensureOutput(outputs, name) {
   const found = await child(outputs, name)
   if (found) return found
@@ -223,16 +200,45 @@ async function replaceOne(doc, staging, item) {
   if (!isSmartObject(layer)) throw new Error(`图层不是智能对象: ${item.layerName}`)
   const image = await child(staging, item.file)
   if (!image || !image.isFile) throw new Error(`素材文件不存在: ${item.file}`)
+  // Template 2 keeps its empty lower-row targets hidden until the first asset
+  // is assigned. Reveal before reading bounds so Photoshop reports the full
+  // transformed smart-object rectangle consistently.
+  layer.visible = true
   const before = boundsOf(layer)
   await selectLayer(layer)
   await replaceContents(image)
   const current = findLayer(doc, item.layerName)
   if (!current) throw new Error(`图层不存在: ${item.layerName}`)
-  const fit = fitToBounds(before, boundsOf(current))
+  current.visible = true
+  const afterReplace = boundsOf(current)
+  const fit = fitToBounds(before, afterReplace)
   if (Math.abs(fit.scale - 1) > 0.001) {
-    await scaleAroundCenter(current, fit.scale, fit.scale)
+    // Use Photoshop's Layer DOM transform methods instead of a hand-built
+    // Action Manager transform descriptor.
+    await current.scale(fit.scale * 100, fit.scale * 100, constants.AnchorPosition.MIDDLECENTER)
   }
-  if (Math.abs(fit.dx) > 0.5 || Math.abs(fit.dy) > 0.5) await moveLayer(current, fit.dx, fit.dy)
+  if (Math.abs(fit.dx) > 0.5 || Math.abs(fit.dy) > 0.5) await current.translate(fit.dx, fit.dy)
+
+  const fittedLayer = findLayer(doc, item.layerName)
+  if (!fittedLayer) throw new Error(`图层不存在: ${item.layerName}`)
+  const fitted = boundsOf(fittedLayer)
+  const tolerance = 2
+  const targetCenterX = (before.left + before.right) / 2
+  const targetCenterY = (before.top + before.bottom) / 2
+  const fittedCenterX = (fitted.left + fitted.right) / 2
+  const fittedCenterY = (fitted.top + fitted.bottom) / 2
+  if (
+    fitted.left < before.left - tolerance ||
+    fitted.top < before.top - tolerance ||
+    fitted.right > before.right + tolerance ||
+    fitted.bottom > before.bottom + tolerance ||
+    Math.abs(fittedCenterX - targetCenterX) > tolerance ||
+    Math.abs(fittedCenterY - targetCenterY) > tolerance
+  ) {
+    throw new Error(
+      `${item.layerName} 变换未落入模板范围：目标 ${Math.round(before.left)},${Math.round(before.top)},${Math.round(before.right)},${Math.round(before.bottom)}；结果 ${Math.round(fitted.left)},${Math.round(fitted.top)},${Math.round(fitted.right)},${Math.round(fitted.bottom)}`
+    )
+  }
 }
 
 async function runInPhotoshop(bridge, staging, job) {

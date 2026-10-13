@@ -1,8 +1,8 @@
 /**
  * 把替换后的图片等比例放进原来的图层边界，完整显示，不拉伸。
  * scale 取宽、高里更小的那个比例。Photoshop 以中心为锚缩放，再用 dx/dy 把中心移回目标中心。
- * 图层缩放后保持在模板目标区域内；内矩形组蒙版限制图片区域，外圆组蒙版保留圆形边界。测试在
- * tests/psdExport.test.ts。插件用 require 加载本文件。
+ * 图层缩放后保持在模板目标区域内。测试在 tests/psdExport.test.ts；
+ * 插件用 require 加载本文件。
  */
 function fitToBounds(oldBounds, newBounds) {
   const oldW = oldBounds.right - oldBounds.left

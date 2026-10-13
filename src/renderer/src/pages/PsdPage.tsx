@@ -246,7 +246,9 @@ export function PsdPage(): ReactElement {
 
       <section className={styles.card}>
         <h2 className={styles.title}>素材</h2>
-        <p className={styles.hint}>支持 PNG / JPG。狗图和名字图分开存放；导入后使用副本，原文件不会被改。</p>
+        <p className={styles.hint}>
+          支持 PNG / JPG。JPG 白底会保留；心形模板要保持抠图效果，请使用透明 PNG。狗图和名字图分开存放，导入后使用副本。
+        </p>
         <div className={styles.assets}>
           <AssetColumn
             title="狗图"
