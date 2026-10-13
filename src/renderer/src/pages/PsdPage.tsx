@@ -246,7 +246,7 @@ export function PsdPage(): ReactElement {
 
       <section className={styles.card}>
         <h2 className={styles.title}>素材</h2>
-        <p className={styles.hint}>狗图和名字图分开存放。导入后使用副本，原文件不会被改。</p>
+        <p className={styles.hint}>支持 PNG / JPG。狗图和名字图分开存放；导入后使用副本，原文件不会被改。</p>
         <div className={styles.assets}>
           <AssetColumn
             title="狗图"
@@ -268,7 +268,9 @@ export function PsdPage(): ReactElement {
       <section className={styles.card}>
         <h2 className={styles.title}>导出</h2>
         <p className={styles.hint}>勾选要替换的位置。只选一个就是单张替换，选多个会写进同一个 PSD。</p>
-        <p className={styles.hint}>素材会按模板图层的宽、高分别强制缩放；比例不一致时会产生拉伸。</p>
+        <p className={styles.hint}>
+          素材会按圆内矩形区域等比例缩放，完整显示，不拉伸。放不满的一边留白，内矩形限制图片范围，外圆保留圆形边界。
+        </p>
         {!template && <p className={styles.muted}>先添加模板和位置。</p>}
         {template && (
           <>
@@ -356,9 +358,7 @@ function BridgeCard({
     <section className={styles.card}>
       <h2 className={styles.title}>Photoshop</h2>
       <p className={styles.hint}>
-        生成任务时，如果 Photoshop 没在运行，应用会在后台启动它，不把它拉到最前。任务完成后会退出这次启动的
-        Photoshop；如果你中途在这个进程里继续作图，完成时仍会退出。超过 15
-        分钟还没完成，就不再自动退出。当前备份不包含这些模板、素材和导出文件。
+        生成任务时，如果 Photoshop 没在运行，应用会在后台启动它，不把它拉到最前。任务完成后 Photoshop 会保持打开，已加载的插件可以继续处理后续任务。当前备份不包含这些模板、素材和导出文件。
       </p>
       <ol className={styles.steps}>
         <li>开发阶段：Photoshop 完全退出后，仍要用 UXP Developer Tools 加载一次插件。同一次没退出就不用再加载。</li>

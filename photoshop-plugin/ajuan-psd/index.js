@@ -86,7 +86,10 @@ function num(value) {
 }
 
 function boundsOf(layer) {
-  const bounds = layer.boundsNoEffects || layer.bounds
+  // `boundsNoEffects` can keep returning the smart-object mask bounds after
+  // placedLayerReplaceContents. Use the actual layer bounds so the replacement
+  // image is scaled back into the target rectangle.
+  const bounds = layer.bounds
   return {
     left: num(bounds.left),
     top: num(bounds.top),
@@ -226,8 +229,8 @@ async function replaceOne(doc, staging, item) {
   const current = findLayer(doc, item.layerName)
   if (!current) throw new Error(`图层不存在: ${item.layerName}`)
   const fit = fitToBounds(before, boundsOf(current))
-  if (Math.abs(fit.scaleX - 1) > 0.001 || Math.abs(fit.scaleY - 1) > 0.001) {
-    await scaleAroundCenter(current, fit.scaleX, fit.scaleY)
+  if (Math.abs(fit.scale - 1) > 0.001) {
+    await scaleAroundCenter(current, fit.scale, fit.scale)
   }
   if (Math.abs(fit.dx) > 0.5 || Math.abs(fit.dy) > 0.5) await moveLayer(current, fit.dx, fit.dy)
 }

@@ -29,11 +29,6 @@ export function backgroundLaunch(platform: 'darwin' | 'win32', appPath: string):
   }
 }
 
-/** 只退出应用自己启动、且现在仍是同一个进程的 Photoshop。 */
-export function shouldQuitOwned(ownedPid: number | null, currentPids: number[]): boolean {
-  return ownedPid != null && currentPids.includes(ownedPid)
-}
-
 /** 并发的启动请求共用同一次启动，避免连续建任务时打开多个 Photoshop。 */
 export function createLaunchGate<T>(): { run: (start: () => Promise<T>) => Promise<T> } {
   let pending: Promise<T> | null = null

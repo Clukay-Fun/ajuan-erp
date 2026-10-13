@@ -1,6 +1,9 @@
-// Photoshop ExtendScript. Creates templates/slot-template.psd with smart-object slots.
+// Photoshop ExtendScript. Builds the ERP template from the supplied circular
+// frame PSD. Each 868x868 slot keeps its circular frame; an inset rectangle
+// limits the image area, with name on the left and dog on the right.
 // ES3 only.
 
+var BASE_PATH = "/Users/clukay/Program/ajuan-erp/templates/circle-base.psd";
 var OUT_PATH = "/Users/clukay/Program/ajuan-erp/templates/slot-template.psd";
 var LOG_PATH = "/tmp/ajuan-psd-create.log";
 
@@ -40,7 +43,21 @@ function convertToSmartObject() {
   executeAction(stringIDToTypeID("newPlacedLayer"), new ActionDescriptor(), DialogModes.NO);
 }
 
-function addRevealMask(x, y, w, h) {
+function selectEllipse(x, y, w, h) {
+  var desc = new ActionDescriptor();
+  var ref = new ActionReference();
+  ref.putProperty(charIDToTypeID("Chnl"), charIDToTypeID("fsel"));
+  desc.putReference(charIDToTypeID("null"), ref);
+  var ellipse = new ActionDescriptor();
+  ellipse.putUnitDouble(charIDToTypeID("Top "), charIDToTypeID("#Pxl"), y);
+  ellipse.putUnitDouble(charIDToTypeID("Left"), charIDToTypeID("#Pxl"), x);
+  ellipse.putUnitDouble(charIDToTypeID("Btom"), charIDToTypeID("#Pxl"), y + h);
+  ellipse.putUnitDouble(charIDToTypeID("Rght"), charIDToTypeID("#Pxl"), x + w);
+  desc.putObject(charIDToTypeID("T   "), charIDToTypeID("Elps"), ellipse);
+  executeAction(charIDToTypeID("setd"), desc, DialogModes.NO);
+}
+
+function selectRectangle(x, y, w, h) {
   var doc = app.activeDocument;
   doc.selection.select(
     [
@@ -53,6 +70,10 @@ function addRevealMask(x, y, w, h) {
     0,
     false
   );
+}
+
+function addRevealMask() {
+  var doc = app.activeDocument;
   var desc = new ActionDescriptor();
   desc.putClass(charIDToTypeID("Nw  "), charIDToTypeID("Chnl"));
   var ref = new ActionReference();
@@ -63,23 +84,87 @@ function addRevealMask(x, y, w, h) {
   doc.selection.deselect();
 }
 
-function makeSmartSlot(name, x, y, w, h, color, maskInset) {
+function makeSmartSlot(parent, name, x, y, w, h, color) {
   var doc = app.activeDocument;
-  var layer = doc.artLayers.add();
+  var layer = parent.artLayers.add();
   layer.name = name;
   doc.activeLayer = layer;
   fillRect(x, y, w, h, color);
   convertToSmartObject();
   doc.activeLayer.name = name;
-  if (maskInset > 0) {
-    try {
-      addRevealMask(x + maskInset, y + maskInset, w - maskInset * 2, h - maskInset * 2);
-      log("mask " + name);
-    } catch (err) {
-      log("mask skip " + name + " " + err);
+  log("slot " + name);
+}
+
+function makeCircleSlot(parent, key, x, y, cellW, cellH, inset) {
+  var doc = app.activeDocument;
+  var group = parent.layerSets.add();
+  group.name = "slot_" + key + "_circle";
+
+  // The inner rectangle is the real placement boundary. Keeping it in a
+  // nested group gives the plugin a fixed rectangle to fit each image into,
+  // while the outer group continues to provide the circular crop.
+  var rectX = x + inset;
+  var rectY = y + inset;
+  var rectW = cellW - inset * 2;
+  var rectH = cellH - inset * 2;
+  var rectGroup = group.layerSets.add();
+  rectGroup.name = "slot_" + key + "_rect";
+  var halfW = rectW / 2;
+  var placeholder = rgb(246, 246, 246);
+  makeSmartSlot(rectGroup, "slot_" + key + "_name", rectX, rectY, halfW, rectH, placeholder);
+  makeSmartSlot(rectGroup, "slot_" + key + "_dog", rectX + halfW, rectY, halfW, rectH, placeholder);
+
+  // Keep a fixed rectangular mask around the two smart objects. It is
+  // deliberately separate from the circle mask so replacement images never
+  // turn into two colored half-circles or grow outside the inner frame.
+  doc.activeLayer = rectGroup;
+  selectRectangle(rectX, rectY, rectW, rectH);
+  addRevealMask();
+
+  // Keep one fixed circle mask on the outer group. Child smart objects can
+  // scale independently without scaling or moving either boundary.
+  doc.activeLayer = group;
+  selectEllipse(x, y, cellW, cellH);
+  addRevealMask();
+  log("circle " + key + " rect " + rectX + "," + rectY + "," + rectW + "," + rectH);
+}
+
+function drawCircleOverlay(parent, xs, ys, cellW, cellH) {
+  var doc = app.activeDocument;
+  var layer = parent.artLayers.add();
+  layer.name = "circle_frames_overlay";
+  doc.activeLayer = layer;
+  var line = rgb(202, 65, 132);
+  for (var row = 0; row < ys.length; row += 1) {
+    for (var col = 0; col < xs.length; col += 1) {
+      selectEllipse(xs[col], ys[row], cellW, cellH);
+      doc.selection.stroke(line, 4, StrokeLocation.INSIDE);
+      doc.selection.deselect();
     }
   }
-  log("slot " + name);
+}
+
+function drawInnerRectOverlay(parent, xs, ys, cellW, cellH, inset) {
+  var doc = app.activeDocument;
+  var layer = parent.artLayers.add();
+  layer.name = "inner_rect_frames_overlay";
+  doc.activeLayer = layer;
+  var line = rgb(42, 125, 190);
+  var divider = rgb(42, 125, 190);
+  for (var row = 0; row < ys.length; row += 1) {
+    for (var col = 0; col < xs.length; col += 1) {
+      var rectX = xs[col] + inset;
+      var rectY = ys[row] + inset;
+      var rectW = cellW - inset * 2;
+      var rectH = cellH - inset * 2;
+      selectRectangle(rectX, rectY, rectW, rectH);
+      doc.selection.stroke(line, 4, StrokeLocation.INSIDE);
+      doc.selection.deselect();
+      // Make the split between name and dog explicit without filling either
+      // side. The two smart objects remain separate rectangular areas.
+      fillRect(rectX + rectW / 2 - 2, rectY, 4, rectH, divider);
+    }
+  }
 }
 
 function main() {
@@ -87,52 +172,42 @@ function main() {
   app.preferences.rulerUnits = Units.PIXELS;
   app.displayDialogs = DialogModes.NO;
 
-  var doc = app.documents.add(2000, 1400, 72, "ajuan-slot-template", NewDocumentMode.RGB, DocumentFill.WHITE);
+  var base = new File(BASE_PATH);
+  if (!base.exists) throw new Error("找不到圆形基础模板: " + BASE_PATH);
+  var doc = app.open(base);
   try {
-    doc.activeLayer.name = "background";
-  } catch (err) {
-    log("background rename skip " + err);
+    var parent = doc.layerSets[0];
+    var xs = [0, 1099, 2197, 3296, 4394, 5493];
+    var ys = [0, 1253, 2505];
+    var cellW = 868;
+    var cellH = 868;
+    // 128 px makes the 612x612 inner square fit completely inside the
+    // 868 px circle (its corners stay within the circle boundary).
+    var inset = 128;
+    var slot = 1;
+    for (var row = 0; row < ys.length; row += 1) {
+      for (var col = 0; col < xs.length; col += 1) {
+        var key = slot < 10 ? "0" + slot : String(slot);
+        makeCircleSlot(parent, key, xs[col], ys[row], cellW, cellH, inset);
+        slot += 1;
+      }
+    }
+    drawCircleOverlay(parent, xs, ys, cellW, cellH);
+    drawInnerRectOverlay(parent, xs, ys, cellW, cellH, inset);
+
+    var file = new File(OUT_PATH);
+    var options = new PhotoshopSaveOptions();
+    options.layers = true;
+    options.embedColorProfile = true;
+    options.alphaChannels = true;
+    options.annotations = true;
+    options.spotColors = true;
+    options.maximizeCompatibility = true;
+    doc.saveAs(file, options, true, Extension.LOWERCASE);
+    doc.close(SaveOptions.DONOTSAVECHANGES);
+  } finally {
+    app.preferences.rulerUnits = previousUnits;
   }
-  fillRect(0, 0, 2000, 1400, rgb(246, 243, 238));
-
-  var header = doc.artLayers.add();
-  header.name = "decor_header";
-  doc.activeLayer = header;
-  fillRect(0, 0, 2000, 140, rgb(31, 61, 54));
-
-  try {
-    var title = doc.artLayers.add();
-    title.kind = LayerKind.TEXT;
-    title.name = "title";
-    title.textItem.contents = "ajuan template";
-    title.textItem.size = 42;
-    title.textItem.position = [72, 92];
-    var titleColor = rgb(255, 255, 255);
-    title.textItem.color = titleColor;
-    log("title ok");
-  } catch (err) {
-    log("title skip " + err);
-  }
-
-  // 第一组按实际模板排版：左对齐、画布内完整显示，名字图与截图中的 557×195 区域一致。
-  makeSmartSlot("slot_01_dog", 206, 220, 557, 557, rgb(224, 122, 61), 40);
-  makeSmartSlot("slot_01_name", 206, 940, 557, 195, rgb(31, 61, 54), 0);
-  makeSmartSlot("slot_02_dog", 1120, 220, 557, 557, rgb(212, 83, 62), 0);
-  makeSmartSlot("slot_02_name", 1120, 940, 557, 195, rgb(47, 93, 80), 0);
-
-  var folder = new Folder("/Users/clukay/Program/ajuan-erp/templates");
-  if (!folder.exists) folder.create();
-  var file = new File(OUT_PATH);
-  var options = new PhotoshopSaveOptions();
-  options.layers = true;
-  options.embedColorProfile = true;
-  options.alphaChannels = true;
-  options.annotations = true;
-  options.spotColors = true;
-  options.maximizeCompatibility = true;
-  doc.saveAs(file, options, true, Extension.LOWERCASE);
-  doc.close(SaveOptions.DONOTSAVECHANGES);
-  app.preferences.rulerUnits = previousUnits;
   log("OK " + OUT_PATH);
 }
 

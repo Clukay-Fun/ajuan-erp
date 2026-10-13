@@ -25,7 +25,6 @@ import {
   backgroundLaunch,
   createLaunchGate,
   darwinPhotoshopPids,
-  shouldQuitOwned,
   windowsPhotoshopPids
 } from '../src/main/photoshopProcess'
 
@@ -34,7 +33,7 @@ const { fitToBounds } = require('../photoshop-plugin/ajuan-psd/fit.js') as {
   fitToBounds: (
     oldBounds: { left: number; top: number; right: number; bottom: number },
     newBounds: { left: number; top: number; right: number; bottom: number }
-  ) => { scaleX: number; scaleY: number; dx: number; dy: number }
+  ) => { scale: number; dx: number; dy: number }
 }
 
 const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
@@ -49,6 +48,16 @@ function png(width: number, height: number, colorType = 6): Buffer {
   buf[24] = 8
   buf[25] = colorType
   return buf
+}
+
+function jpeg(width: number, height: number): Buffer {
+  return Buffer.from([
+    0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08,
+    (height >> 8) & 0xff, height & 0xff,
+    (width >> 8) & 0xff, width & 0xff,
+    0x03, 0x01, 0x11, 0x00, 0x02, 0x11, 0x00, 0x03, 0x11, 0x00,
+    0xff, 0xd9
+  ])
 }
 
 function fixture() {
@@ -103,45 +112,40 @@ function seed(fx: ReturnType<typeof fixture>, slots = ['slot_01']) {
   return { templateId, slotIds, dogId, nameId }
 }
 
-describe('缩放回原边界', () => {
+describe('等比例放进原边界', () => {
   it('相同边界不缩放也不移动', () => {
     expect(
       fitToBounds({ left: 0, top: 0, right: 100, bottom: 100 }, { left: 0, top: 0, right: 100, bottom: 100 })
     ).toEqual({
-      scaleX: 1,
-      scaleY: 1,
+      scale: 1,
       dx: 0,
       dy: 0
     })
   })
 
-  it('不同宽高的素材分别强制缩放到模板宽高并回到原中心', () => {
-    const slot = { left: 0, top: 0, right: 1000, bottom: 1000 }
-    expect(fitToBounds(slot, { left: 0, top: 0, right: 500, bottom: 500 })).toEqual({
-      scaleX: 2,
-      scaleY: 2,
-      dx: 250,
-      dy: 250
-    })
-    expect(fitToBounds(slot, { left: 0, top: 0, right: 2000, bottom: 2000 })).toEqual({
-      scaleX: 0.5,
-      scaleY: 0.5,
-      dx: -500,
-      dy: -500
-    })
-    expect(fitToBounds(slot, { left: 0, top: 0, right: 2000, bottom: 500 })).toEqual({
-      scaleX: 0.5,
-      scaleY: 2,
-      dx: -500,
-      dy: 250
-    })
-    const nameSlot = { left: 10, top: 20, right: 810, bottom: 220 }
-    const nameImage = { left: 0, top: 0, right: 2172, bottom: 724 }
-    const fit = fitToBounds(nameSlot, nameImage)
-    expect(fit.scaleX).toBeCloseTo(800 / 2172)
-    expect(fit.scaleY).toBeCloseTo(200 / 724)
-    expect(fit.dx).toBeCloseTo(410 - 1086)
-    expect(fit.dy).toBeCloseTo(120 - 362)
+  it('正方形放进横向区域时按高度缩小，中心对齐', () => {
+    const fit = fitToBounds({ left: 0, top: 0, right: 800, bottom: 400 }, { left: 0, top: 0, right: 500, bottom: 500 })
+    expect(fit.scale).toBeCloseTo(400 / 500)
+    expect(fit.dx).toBeCloseTo(400 - 250)
+    expect(fit.dy).toBeCloseTo(200 - 250)
+  })
+
+  it('竖向狗图和名字图按更紧的一边缩放，宽图和高图都不拉伸', () => {
+    const left = { left: 140, top: 240, right: 960, bottom: 1240 }
+    const dog = fitToBounds(left, { left: 0, top: 0, right: 627, bottom: 992 })
+    expect(dog.scale).toBeCloseTo(Math.min(820 / 627, 1000 / 992))
+    expect(dog.dx).toBeCloseTo(550 - 313.5)
+    expect(dog.dy).toBeCloseTo(740 - 496)
+
+    const right = { left: 1040, top: 240, right: 1860, bottom: 1240 }
+    const name = fitToBounds(right, { left: 0, top: 0, right: 750, bottom: 1000 })
+    expect(name.scale).toBeCloseTo(Math.min(820 / 750, 1000 / 1000))
+    expect(name.dx).toBeCloseTo(1450 - 375)
+    expect(name.dy).toBeCloseTo(740 - 500)
+
+    const box = { left: 0, top: 0, right: 1000, bottom: 1000 }
+    expect(fitToBounds(box, { left: 0, top: 0, right: 2000, bottom: 500 }).scale).toBeCloseTo(0.5)
+    expect(fitToBounds(box, { left: 0, top: 0, right: 500, bottom: 2000 }).scale).toBeCloseTo(0.5)
   })
 
   it('边界无效时不能缩放', () => {
@@ -309,7 +313,33 @@ describe('PSD 任务', () => {
       })
     ).toThrow('图层名已经用在别的位置上')
     writeFileSync(join(fx.root, 'note.jpg'), Buffer.from('not a png'))
-    expect(() => importPsdAsset(fx.db, fx.paths, 'dog', join(fx.root, 'note.jpg'))).toThrow('只支持 PNG')
+    expect(() => importPsdAsset(fx.db, fx.paths, 'dog', join(fx.root, 'note.jpg'))).toThrow('只支持 PNG / JPG')
+  })
+
+  it('导入 JPG 并在任务目录中保留 JPG 格式', () => {
+    const fx = useFixture()
+    const seeded = seed(fx)
+    const dogPath = join(fx.root, '测试狗.jpg')
+    const namePath = join(fx.root, '测试名字.jpeg')
+    writeFileSync(dogPath, jpeg(629, 971))
+    writeFileSync(namePath, jpeg(750, 1250))
+    const dogId = importPsdAsset(fx.db, fx.paths, 'dog', dogPath)
+    const nameId = importPsdAsset(fx.db, fx.paths, 'name', namePath)
+    const dog = boardOf(fx).assets.find((asset) => asset.id === dogId)
+    expect(dog).toMatchObject({ label: '测试狗', width: 629, height: 971, hasAlpha: false })
+    expect(dog?.fileUrl).toContain('.jpg')
+
+    const jobId = createPsdJob(fx.db, fx.paths, {
+      templateId: seeded.templateId,
+      title: 'JPG 测试',
+      items: [{ slotId: seeded.slotIds[0], dogAssetId: dogId, nameAssetId: nameId }]
+    })
+    const job = JSON.parse(readFileSync(join(fx.paths.bridgeDir, 'inbox', `${jobId}.json`), 'utf8'))
+    expect(job.replacements).toEqual([
+      { layerName: 'slot_01_dog', file: 'slot_01_dog.jpg' },
+      { layerName: 'slot_01_name', file: 'slot_01_name.jpg' }
+    ])
+    expect(readFileSync(join(fx.paths.bridgeDir, 'staging', String(jobId), 'slot_01_dog.jpg'))).toEqual(jpeg(629, 971))
   })
 
   it('完成后可以删除模板，历史任务仍留着模板名', () => {
@@ -377,6 +407,7 @@ describe('插件约定', () => {
       readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../photoshop-plugin/ajuan-psd/manifest.json'), 'utf8')
     ) as { host: { data?: { loadEvent?: string; apiVersion?: number } } }
     expect(source).toContain('placedLayerReplaceContents')
+    expect(source).toContain('scaleAroundCenter(current, fit.scale, fit.scale)')
     expect(source).toContain('saveAs.psd')
     expect(source).toContain('DONOTSAVECHANGES')
     expect(source).toContain('图层不存在:')
@@ -393,7 +424,7 @@ describe('插件约定', () => {
 })
 
 describe('Photoshop 进程', () => {
-  it('只认主进程，后台启动不激活窗口，并且不退出用户自己打开的进程', () => {
+  it('只认主进程并在后台启动，不打断已运行的宿主', () => {
     const listing = [
       '17829 /Applications/Utilities/AdobeIPCBroker -launchedbyvulcan /Applications/Adobe Photoshop 2026/Adobe Photoshop 2026.app/Contents/MacOS/Adobe Photoshop 2026',
       '19606 /Applications/Adobe Photoshop 2026/Adobe Photoshop 2026.app/Contents/MacOS/Adobe Photoshop 2026'
@@ -404,9 +435,6 @@ describe('Photoshop 进程', () => {
       command: 'open',
       args: ['-g', '-a', '/Applications/Adobe Photoshop 2026/Adobe Photoshop 2026.app']
     })
-    expect(shouldQuitOwned(19606, [19606])).toBe(true)
-    expect(shouldQuitOwned(19606, [30000])).toBe(false)
-    expect(shouldQuitOwned(null, [19606])).toBe(false)
   })
 
   it('并发启动共用同一次，结束后下一次会重新启动', async () => {

@@ -24,7 +24,7 @@ export const psdJobFileSchema = z.object({
     .array(
       z.object({
         layerName: z.string().min(1).max(80),
-        file: baseName.refine((name) => name.toLowerCase().endsWith('.png'), '素材文件必须是 PNG')
+        file: baseName.refine((name) => /\.(png|jpe?g)$/i.test(name), '素材文件必须是 PNG 或 JPG')
       })
     )
     .min(1),

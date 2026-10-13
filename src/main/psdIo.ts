@@ -10,7 +10,6 @@ import {
   backgroundLaunch,
   createLaunchGate,
   darwinPhotoshopPids,
-  shouldQuitOwned,
   windowsPhotoshopPids
 } from './photoshopProcess'
 import { ServiceError } from './services/errors'
@@ -32,10 +31,7 @@ import {
 } from './services/psdExport'
 
 const execFileAsync = promisify(execFile)
-const psdJobWatchers = new Map<number, NodeJS.Timeout>()
-/** 本次由生成任务启动的 Photoshop。任务开始前已经打开的不记录。 */
-let ownedPhotoshopPid: number | null = null
-const photoshopLaunch = createLaunchGate<{ pid: number | null; startedByUs: boolean }>()
+const photoshopLaunch = createLaunchGate<void>()
 
 async function photoshopPids(): Promise<number[]> {
   try {
@@ -61,26 +57,6 @@ async function waitForPhotoshopPid(): Promise<number | null> {
     await new Promise((resolve) => setTimeout(resolve, 400))
   }
   return null
-}
-
-async function quitOwnedPhotoshop(): Promise<void> {
-  const ids = await photoshopPids()
-  if (!shouldQuitOwned(ownedPhotoshopPid, ids)) {
-    ownedPhotoshopPid = null
-    return
-  }
-  const pid = ownedPhotoshopPid
-  ownedPhotoshopPid = null
-  try {
-    if (process.platform === 'darwin') {
-      // macOS 这里退出的是整个 Photoshop，不能按进程号退出。任务开始后如果用户正在用这同一个进程，完成时仍会退出。
-      await execFileAsync('osascript', ['-e', 'tell application id "com.adobe.Photoshop" to quit'])
-    } else if (process.platform === 'win32') {
-      await execFileAsync('taskkill', ['/PID', String(pid), '/T'])
-    }
-  } catch {
-    // Photoshop may already have been closed by the user.
-  }
 }
 
 function owner(): BrowserWindow | undefined {
@@ -144,10 +120,10 @@ export function deletePsdSlotInteractive(slotId: number): PsdBoard {
 }
 
 export async function importPsdAssetInteractive(kind: PsdAssetKind): Promise<PsdBoard | null> {
-  const title = kind === 'dog' ? '选择狗图 PNG' : '选择名字图 PNG'
+  const title = kind === 'dog' ? '选择狗图' : '选择名字图'
   const result = await dialog.showOpenDialog(owner()!, {
     title,
-    filters: [{ name: 'PNG', extensions: ['png'] }],
+    filters: [{ name: '图片', extensions: ['png', 'jpg', 'jpeg'] }],
     properties: ['openFile']
   })
   if (result.canceled || result.filePaths.length === 0) return null
@@ -160,34 +136,6 @@ export function deletePsdAssetInteractive(assetId: number): PsdBoard {
   return board()
 }
 
-function watchPsdJob(jobId: number, closeWhenFinished: boolean): void {
-  if (!closeWhenFinished || psdJobWatchers.has(jobId)) return
-  let checks = 0
-  const timer = setInterval(() => {
-    checks += 1
-    try {
-      const current = board()
-      const active = current.jobs.some((job) => job.status === 'queued' || job.status === 'running')
-      const target = current.jobs.find((job) => job.id === jobId)
-      if (!target || (!active && target.status !== 'queued' && target.status !== 'running')) {
-        clearInterval(timer)
-        psdJobWatchers.delete(jobId)
-        void quitOwnedPhotoshop()
-      } else if (checks >= 900) {
-        // 15 分钟后停止观察，留下 Photoshop，避免任务其实还在跑时把它关掉。
-        clearInterval(timer)
-        psdJobWatchers.delete(jobId)
-      }
-    } catch {
-      if (checks >= 900) {
-        clearInterval(timer)
-        psdJobWatchers.delete(jobId)
-      }
-    }
-  }, 1000)
-  psdJobWatchers.set(jobId, timer)
-}
-
 async function launchPhotoshopInBackground(appPath: string): Promise<void> {
   if (process.platform !== 'darwin' && process.platform !== 'win32') {
     const error = await shell.openPath(appPath)
@@ -198,29 +146,24 @@ async function launchPhotoshopInBackground(appPath: string): Promise<void> {
   await execFileAsync(launch.command, launch.args)
 }
 
-async function startPhotoshopForJob(jobId: number): Promise<void> {
+async function startPhotoshopForJob(): Promise<void> {
   const found = findPhotoshopApp(photoshopSearchRoots())
   if (!found) throw new ServiceError('NOT_FOUND', '没有找到 Photoshop。请先安装 Photoshop 2024 或更新版本。')
-  const alreadyRunning = (await photoshopPids()).length > 0
-  if (alreadyRunning) {
-    watchPsdJob(jobId, false)
-    return
-  }
-  const launched = await photoshopLaunch.run(async () => {
+  if ((await photoshopPids()).length > 0) return
+  await photoshopLaunch.run(async () => {
     const again = await photoshopPids()
-    if (again.length > 0) return { pid: again[0], startedByUs: false }
+    if (again.length > 0) return
     await launchPhotoshopInBackground(found)
-    return { pid: await waitForPhotoshopPid(), startedByUs: true }
+    // 保持启动门闩直到宿主进程出现，避免连续创建任务时重复打开 Photoshop。
+    await waitForPhotoshopPid()
   })
-  if (launched.startedByUs && ownedPhotoshopPid == null) ownedPhotoshopPid = launched.pid
-  watchPsdJob(jobId, launched.startedByUs)
 }
 
 export async function createPsdJobInteractive(input: PsdJobCreateInput): Promise<PsdBoard> {
-  const jobId = createPsdJob(state.db, dirs(), input)
+  createPsdJob(state.db, dirs(), input)
   try {
-    // 只在有导出任务时启动。这次若是应用自己启动的 Photoshop，任务完成后才退出。
-    await startPhotoshopForJob(jobId)
+    // 只在有导出任务时启动。任务完成后保留 Photoshop，让已加载的开发插件继续可用。
+    await startPhotoshopForJob()
   } catch (err) {
     console.error('[psd] 自动启动 Photoshop 失败:', err)
   }
@@ -235,7 +178,7 @@ export function cancelPsdJobInteractive(jobId: number): PsdBoard {
 export async function retryPsdJobInteractive(jobId: number): Promise<PsdBoard> {
   retryPsdJob(state.db, dirs(), jobId)
   try {
-    await startPhotoshopForJob(jobId)
+    await startPhotoshopForJob()
   } catch (err) {
     console.error('[psd] 自动启动 Photoshop 失败:', err)
   }

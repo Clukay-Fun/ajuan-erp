@@ -11,7 +11,7 @@ import {
   unlinkSync,
   writeFileSync
 } from 'node:fs'
-import { basename, join, resolve, sep } from 'node:path'
+import { basename, extname, join, resolve, sep } from 'node:path'
 import type { Db } from '../db/connection'
 import { nowIso, transaction } from '../db/connection'
 import {
@@ -49,9 +49,17 @@ export interface PsdBoardContext {
   pluginDir: string
 }
 
-const MAX_PNG_BYTES = 32 * 1024 * 1024
+const MAX_IMAGE_BYTES = 32 * 1024 * 1024
 const BRIDGE_FOLDERS = ['inbox', 'staging', 'outputs', 'done', 'failed', 'processing'] as const
 const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+const JPEG_SOF_MARKERS = new Set([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf])
+
+interface ImageInfo {
+  width: number
+  height: number
+  hasAlpha: boolean
+  extension: 'png' | 'jpg'
+}
 
 interface TemplateRow {
   id: number
@@ -161,15 +169,55 @@ export function findPhotoshopApp(roots: readonly string[]): string | null {
   return hits.at(-1) ?? null
 }
 
-function readPngInfo(buf: Buffer): { width: number; height: number; hasAlpha: boolean } {
+function assertImageDimensions(width: number, height: number): void {
+  if (!width || !height || width > 20000 || height > 20000) {
+    throw new ServiceError('VALIDATION', '图片尺寸无效')
+  }
+}
+
+function readPngInfo(buf: Buffer): ImageInfo {
   if (buf.length < 26 || !buf.subarray(0, 8).equals(PNG_SIG) || buf.toString('ascii', 12, 16) !== 'IHDR') {
-    throw new ServiceError('VALIDATION', '只支持 PNG')
+    throw new ServiceError('VALIDATION', 'PNG 文件无效')
   }
   const width = buf.readUInt32BE(16)
   const height = buf.readUInt32BE(20)
   const colorType = buf[25]
-  if (!width || !height || width > 20000 || height > 20000) throw new ServiceError('VALIDATION', 'PNG 尺寸无效')
-  return { width, height, hasAlpha: colorType === 4 || colorType === 6 }
+  assertImageDimensions(width, height)
+  return { width, height, hasAlpha: colorType === 4 || colorType === 6, extension: 'png' }
+}
+
+function readJpegInfo(buf: Buffer): ImageInfo {
+  if (buf.length < 4 || buf[0] !== 0xff || buf[1] !== 0xd8) throw new ServiceError('VALIDATION', 'JPG 文件无效')
+  let offset = 2
+  while (offset < buf.length) {
+    if (buf[offset] !== 0xff) {
+      offset += 1
+      continue
+    }
+    while (offset < buf.length && buf[offset] === 0xff) offset += 1
+    const marker = buf[offset]
+    offset += 1
+    if (marker === undefined || marker === 0xd9 || marker === 0xda) break
+    if (marker === 0x00 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue
+    if (offset + 2 > buf.length) break
+    const segmentLength = buf.readUInt16BE(offset)
+    if (segmentLength < 2 || offset + segmentLength > buf.length) break
+    if (JPEG_SOF_MARKERS.has(marker)) {
+      if (segmentLength < 7) break
+      const height = buf.readUInt16BE(offset + 3)
+      const width = buf.readUInt16BE(offset + 5)
+      assertImageDimensions(width, height)
+      return { width, height, hasAlpha: false, extension: 'jpg' }
+    }
+    offset += segmentLength
+  }
+  throw new ServiceError('VALIDATION', 'JPG 文件无效')
+}
+
+function readImageInfo(buf: Buffer): ImageInfo {
+  if (buf.subarray(0, 8).equals(PNG_SIG)) return readPngInfo(buf)
+  if (buf[0] === 0xff && buf[1] === 0xd8) return readJpegInfo(buf)
+  throw new ServiceError('VALIDATION', '只支持 PNG / JPG 图片')
 }
 
 function assertTemplateFile(filePath: string): void {
@@ -289,16 +337,16 @@ export function importPsdAsset(db: Db, paths: PsdPaths, kind: PsdAssetKind, sour
   if (!existsSync(sourcePath)) throw new ServiceError('NOT_FOUND', '素材文件不存在')
   const buf = readFileSync(sourcePath)
   if (buf.length === 0) throw new ServiceError('VALIDATION', '文件为空')
-  if (buf.length > MAX_PNG_BYTES) throw new ServiceError('VALIDATION', '图片超过 32MB')
-  const info = readPngInfo(buf)
-  const rel = `${randomUUID()}.png`
+  if (buf.length > MAX_IMAGE_BYTES) throw new ServiceError('VALIDATION', '图片超过 32MB')
+  const info = readImageInfo(buf)
+  const rel = `${randomUUID()}.${info.extension}`
   mkdirSync(paths.assetsDir, { recursive: true })
   const dest = resolvePsdAssetPath(paths.assetsDir, rel)
   writeFileSync(dest, buf)
   try {
     const label = (
       basename(sourcePath)
-        .replace(/\.png$/i, '')
+        .replace(/\.(png|jpe?g)$/i, '')
         .trim() || '未命名'
     ).slice(0, 64)
     const row = db
@@ -418,14 +466,21 @@ export function createPsdJob(db: Db, paths: PsdPaths, input: PsdJobCreateInput):
       title: data.title,
       templateFile: 'template.psd',
       outputFile,
-      replacements: prepared.flatMap((item) => [
-        { layerName: item.slot.dog_layer, file: `${item.slot.slot_key}_dog.png` },
-        { layerName: item.slot.name_layer, file: `${item.slot.slot_key}_name.png` }
-      ])
+      replacements: prepared.flatMap((item) => {
+        const dogExtension = extname(item.dog.rel_path).toLowerCase()
+        const nameExtension = extname(item.name.rel_path).toLowerCase()
+        if (!['.png', '.jpg', '.jpeg'].includes(dogExtension) || !['.png', '.jpg', '.jpeg'].includes(nameExtension)) {
+          throw new ServiceError('VALIDATION', '素材格式无效')
+        }
+        return [
+          { layerName: item.slot.dog_layer, file: `${item.slot.slot_key}_dog${dogExtension}` },
+          { layerName: item.slot.name_layer, file: `${item.slot.slot_key}_name${nameExtension}` }
+        ]
+      })
     }
     for (const item of prepared) {
-      copyFileSync(item.dogPath, join(staging, `${item.slot.slot_key}_dog.png`))
-      copyFileSync(item.namePath, join(staging, `${item.slot.slot_key}_name.png`))
+      copyFileSync(item.dogPath, join(staging, `${item.slot.slot_key}_dog${extname(item.dog.rel_path).toLowerCase()}`))
+      copyFileSync(item.namePath, join(staging, `${item.slot.slot_key}_name${extname(item.name.rel_path).toLowerCase()}`))
     }
     parseJobFile(spec)
     writeAtomic(inbox, JSON.stringify(spec, null, 2))
