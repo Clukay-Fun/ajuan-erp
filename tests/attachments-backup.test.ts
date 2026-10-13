@@ -110,7 +110,7 @@ describe('备份与恢复', () => {
     expect(m).toMatchObject({
       app: 'ajuan-inventory',
       formatVersion: 1,
-      schemaVersion: 4,
+      schemaVersion: 5,
       counts: { documents: 2, movements: 2, attachments: 1 }
     })
     expect(m.files.map((f) => f.path)).toEqual([

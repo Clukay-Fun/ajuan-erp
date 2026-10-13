@@ -12,6 +12,7 @@ import {
   writeFileSync
 } from 'node:fs'
 import { basename, extname, join, resolve, sep } from 'node:path'
+import { inflateSync } from 'node:zlib'
 import type { Db } from '../db/connection'
 import { nowIso, transaction } from '../db/connection'
 import {
@@ -24,12 +25,17 @@ import {
   type PsdTemplateCreateInput
 } from '@shared/schemas'
 import {
+  PSD_JOB_VERSION,
   allocateOutputName,
   parseJobFile,
+  parseCutoutJobFile,
   safeOutputBase,
   type PsdAsset,
   type PsdAssetKind,
   type PsdBoard,
+  type PsdCutoutJob,
+  type PsdCutoutJobFile,
+  type PsdCutoutStatus,
   type PsdJob,
   type PsdJobFile,
   type PsdJobItem,
@@ -113,6 +119,20 @@ interface ItemRow {
   name_asset_id: number | null
 }
 
+interface CutoutRow {
+  id: number
+  asset_id: number
+  asset_kind: PsdAssetKind
+  asset_label: string
+  status: PsdCutoutStatus
+  output_file: string
+  output_path: string | null
+  confirmed_asset_id: number | null
+  error: string | null
+  created_at: string
+  finished_at: string | null
+}
+
 export function resolvePsdAssetPath(assetsDir: string, relPath: string): string {
   if (
     !relPath ||
@@ -127,6 +147,110 @@ export function resolvePsdAssetPath(assetsDir: string, relPath: string): string 
   const full = resolve(root, relPath)
   if (full !== root && !full.startsWith(root + sep)) throw new ServiceError('VALIDATION', '非法素材路径')
   return full
+}
+
+export function resolvePsdBridgeOutputPath(bridgeDir: string, fileName: string): string {
+  if (!fileName || fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
+    throw new ServiceError('VALIDATION', '非法抠图输出文件名')
+  }
+  const root = resolve(bridgeDir, 'outputs')
+  const full = resolve(root, fileName)
+  if (full !== root && !full.startsWith(root + sep)) throw new ServiceError('VALIDATION', '非法抠图输出路径')
+  return full
+}
+
+interface TransparentPngInfo {
+  width: number
+  height: number
+  alphaBounds: { left: number; top: number; right: number; bottom: number }
+}
+
+/** 解码 Photoshop 生成的 8-bit RGBA PNG，确认存在真实透明像素且图像内容四周留有窄边距。 */
+export function inspectCutoutPng(buf: Buffer): TransparentPngInfo {
+  if (buf.length < 33 || !buf.subarray(0, 8).equals(PNG_SIG))
+    throw new ServiceError('VALIDATION', '抠图结果不是有效 PNG')
+  let offset = 8
+  let width = 0
+  let height = 0
+  let colorType = -1
+  let bitDepth = 0
+  let interlace = 0
+  const imageData: Buffer[] = []
+  while (offset + 12 <= buf.length) {
+    const length = buf.readUInt32BE(offset)
+    const type = buf.toString('ascii', offset + 4, offset + 8)
+    const end = offset + 12 + length
+    if (end > buf.length) throw new ServiceError('VALIDATION', 'PNG 数据块已截断')
+    const data = buf.subarray(offset + 8, offset + 8 + length)
+    if (type === 'IHDR') {
+      width = data.readUInt32BE(0)
+      height = data.readUInt32BE(4)
+      bitDepth = data[8]
+      colorType = data[9]
+      interlace = data[12]
+    } else if (type === 'IDAT') {
+      imageData.push(data)
+    } else if (type === 'IEND') {
+      break
+    }
+    offset = end
+  }
+  assertImageDimensions(width, height)
+  if (bitDepth !== 8 || ![4, 6].includes(colorType) || interlace !== 0 || !imageData.length) {
+    throw new ServiceError('VALIDATION', '抠图 PNG 必须是非隔行 8-bit RGBA 或灰度透明格式')
+  }
+  const channels = colorType === 6 ? 4 : 2
+  const bytesPerLine = width * channels
+  const decoded = inflateSync(Buffer.concat(imageData))
+  const expected = (bytesPerLine + 1) * height
+  if (decoded.length !== expected) throw new ServiceError('VALIDATION', '抠图 PNG 像素数据长度不正确')
+  let previous = Buffer.alloc(bytesPerLine)
+  let left = width
+  let top = height
+  let right = -1
+  let bottom = -1
+  let hasTransparency = false
+  let cursor = 0
+  for (let y = 0; y < height; y++) {
+    const filter = decoded[cursor++]
+    const row = Buffer.from(decoded.subarray(cursor, cursor + bytesPerLine))
+    cursor += bytesPerLine
+    for (let x = 0; x < bytesPerLine; x++) {
+      const raw = row[x]
+      const a = x >= channels ? row[x - channels] : 0
+      const b = previous[x]
+      const c = x >= channels ? previous[x - channels] : 0
+      if (filter === 1) row[x] = (raw + a) & 0xff
+      else if (filter === 2) row[x] = (raw + b) & 0xff
+      else if (filter === 3) row[x] = (raw + Math.floor((a + b) / 2)) & 0xff
+      else if (filter === 4) {
+        const p = a + b - c
+        const pa = Math.abs(p - a)
+        const pb = Math.abs(p - b)
+        const pc = Math.abs(p - c)
+        row[x] = (raw + (pa <= pb && pa <= pc ? a : pb <= pc ? b : c)) & 0xff
+      } else if (filter !== 0) throw new ServiceError('VALIDATION', 'PNG 使用了未知的扫描行过滤器')
+    }
+    const alphaOffset = colorType === 6 ? 3 : 1
+    for (let x = 0; x < width; x++) {
+      const alpha = row[x * channels + alphaOffset]
+      if (alpha < 255) hasTransparency = true
+      if (alpha > 0) {
+        left = Math.min(left, x)
+        right = Math.max(right, x)
+        top = Math.min(top, y)
+        bottom = Math.max(bottom, y)
+      }
+    }
+    previous = row
+  }
+  if (!hasTransparency) throw new ServiceError('VALIDATION', '抠图结果没有真实透明像素')
+  if (right < left || bottom < top) throw new ServiceError('VALIDATION', '抠图结果为空')
+  const margins = [left, top, width - right - 1, height - bottom - 1]
+  if (margins.some((margin) => margin < 1 || margin > 32)) {
+    throw new ServiceError('VALIDATION', '抠图画布没有按要求裁紧并保留统一边距')
+  }
+  return { width, height, alphaBounds: { left, top, right, bottom } }
 }
 
 export function ensureBridge(bridgeDir: string): void {
@@ -332,7 +456,13 @@ export function deletePsdSlot(db: Db, slotId: number): void {
   db.prepare(`DELETE FROM psd_slots WHERE id = ?`).run(slotId)
 }
 
-export function importPsdAsset(db: Db, paths: PsdPaths, kind: PsdAssetKind, sourcePath: string): number {
+export function importPsdAsset(
+  db: Db,
+  paths: PsdPaths,
+  kind: PsdAssetKind,
+  sourcePath: string,
+  labelOverride?: string
+): number {
   const parsedKind = psdAssetKindSchema.parse(kind)
   if (!existsSync(sourcePath)) throw new ServiceError('NOT_FOUND', '素材文件不存在')
   const buf = readFileSync(sourcePath)
@@ -345,9 +475,11 @@ export function importPsdAsset(db: Db, paths: PsdPaths, kind: PsdAssetKind, sour
   writeFileSync(dest, buf)
   try {
     const label = (
+      labelOverride?.trim() ||
       basename(sourcePath)
         .replace(/\.(png|jpe?g)$/i, '')
-        .trim() || '未命名'
+        .trim() ||
+      '未命名'
     ).slice(0, 64)
     const row = db
       .prepare(
@@ -368,6 +500,15 @@ export function deletePsdAsset(db: Db, paths: PsdPaths, assetId: number): void {
   const row = db.prepare(`SELECT rel_path FROM psd_assets WHERE id = ?`).get(assetId) as
     { rel_path: string } | undefined
   if (!row) throw new ServiceError('NOT_FOUND', '素材不存在')
+  if (
+    countOf(
+      db,
+      `SELECT COUNT(*) AS c FROM psd_cutout_jobs WHERE asset_id = ? AND status IN ('queued', 'running', 'ready')`,
+      assetId
+    )
+  ) {
+    throw new ServiceError('VALIDATION', '这个素材的抠图任务尚未确认或取消')
+  }
   if (
     countOf(
       db,
@@ -480,7 +621,10 @@ export function createPsdJob(db: Db, paths: PsdPaths, input: PsdJobCreateInput):
     }
     for (const item of prepared) {
       copyFileSync(item.dogPath, join(staging, `${item.slot.slot_key}_dog${extname(item.dog.rel_path).toLowerCase()}`))
-      copyFileSync(item.namePath, join(staging, `${item.slot.slot_key}_name${extname(item.name.rel_path).toLowerCase()}`))
+      copyFileSync(
+        item.namePath,
+        join(staging, `${item.slot.slot_key}_name${extname(item.name.rel_path).toLowerCase()}`)
+      )
     }
     parseJobFile(spec)
     writeAtomic(inbox, JSON.stringify(spec, null, 2))
@@ -558,6 +702,192 @@ export function syncPsdResults(db: Db, paths: PsdPaths): void {
       applyResult(db, paths, parsed, full, folder)
     }
   }
+}
+
+function cutoutTaskKey(id: number): string {
+  return `cutout-${id}`
+}
+
+export function createPsdCutoutJob(db: Db, paths: PsdPaths, assetId: number): number {
+  const asset = db.prepare(`SELECT * FROM psd_assets WHERE id = ?`).get(assetId) as AssetRow | undefined
+  if (!asset) throw new ServiceError('NOT_FOUND', '素材不存在')
+  const sourcePath = resolvePsdAssetPath(paths.assetsDir, asset.rel_path)
+  if (!existsSync(sourcePath)) throw new ServiceError('NOT_FOUND', '素材文件丢失')
+  if (
+    countOf(
+      db,
+      `SELECT COUNT(*) AS c FROM psd_cutout_jobs WHERE asset_id = ? AND status IN ('queued', 'running', 'ready')`,
+      assetId
+    )
+  ) {
+    throw new ServiceError('VALIDATION', '这个素材已有尚未确认的抠图任务')
+  }
+
+  ensureBridge(paths.bridgeDir)
+  const id = transaction(db, () => {
+    const inserted = db
+      .prepare(
+        `INSERT INTO psd_cutout_jobs
+          (asset_id, asset_kind, asset_label, status, output_file, created_at)
+         VALUES (?, ?, ?, 'queued', 'pending.png', ?) RETURNING id`
+      )
+      .get(asset.id, asset.kind, asset.label, nowIso()) as { id: number }
+    db.prepare(`UPDATE psd_cutout_jobs SET output_file = ? WHERE id = ?`).run(
+      `${cutoutTaskKey(inserted.id)}.png`,
+      inserted.id
+    )
+    return inserted.id
+  })
+  const key = cutoutTaskKey(id)
+  const staging = join(paths.bridgeDir, 'staging', key)
+  const inbox = join(paths.bridgeDir, 'inbox', `${key}.json`)
+  const output = resolvePsdBridgeOutputPath(paths.bridgeDir, `${key}.png`)
+  try {
+    mkdirSync(staging, { recursive: true })
+    copyFileSync(sourcePath, join(staging, `source${extname(asset.rel_path).toLowerCase()}`))
+    if (existsSync(output)) unlinkSync(output)
+    const task: PsdCutoutJobFile = {
+      version: PSD_JOB_VERSION,
+      type: 'cutout',
+      id,
+      kind: asset.kind,
+      sourceFile: `source${extname(asset.rel_path).toLowerCase()}`,
+      outputFile: `${key}.png`
+    }
+    parseCutoutJobFile(task)
+    writeAtomic(inbox, JSON.stringify(task, null, 2))
+  } catch (err) {
+    rmSync(staging, { recursive: true, force: true })
+    if (existsSync(inbox)) unlinkSync(inbox)
+    if (existsSync(output)) unlinkSync(output)
+    const message = err instanceof Error ? err.message : String(err)
+    db.prepare(`UPDATE psd_cutout_jobs SET status = 'failed', error = ?, finished_at = ? WHERE id = ?`).run(
+      message,
+      nowIso(),
+      id
+    )
+    throw err instanceof ServiceError ? err : new ServiceError('INTERNAL', message)
+  }
+  return id
+}
+
+export function syncPsdCutoutResults(db: Db, paths: PsdPaths): void {
+  ensureBridge(paths.bridgeDir)
+  for (const folder of ['processing', 'done', 'failed'] as const) {
+    const dir = join(paths.bridgeDir, folder)
+    for (const name of readdirSync(dir)) {
+      if (!/^cutout-\d+\.json$/.test(name)) continue
+      const filePath = join(dir, name)
+      if (!existsSync(filePath)) continue
+      let task: PsdCutoutJobFile
+      try {
+        task = parseCutoutJobFile(JSON.parse(readFileSync(filePath, 'utf8')))
+      } catch {
+        continue
+      }
+      const row = db.prepare(`SELECT * FROM psd_cutout_jobs WHERE id = ?`).get(task.id) as CutoutRow | undefined
+      if (!row) continue
+      const key = cutoutTaskKey(task.id)
+      const outputPath = resolvePsdBridgeOutputPath(paths.bridgeDir, row.output_file)
+      if (row.status === 'cancelled' || row.status === 'confirmed') {
+        if (existsSync(outputPath)) unlinkSync(outputPath)
+        rmSync(join(paths.bridgeDir, 'staging', key), { recursive: true, force: true })
+        if (existsSync(filePath)) unlinkSync(filePath)
+        continue
+      }
+      if (row.status === 'ready') {
+        if (folder !== 'done') moveFile(filePath, join(paths.bridgeDir, 'done', `${key}.json`))
+        continue
+      }
+      if (row.status === 'failed') {
+        if (folder !== 'failed') moveFile(filePath, join(paths.bridgeDir, 'failed', `${key}.json`))
+        continue
+      }
+      if (!task.result) {
+        if (folder === 'processing' && row.status === 'queued') {
+          db.prepare(`UPDATE psd_cutout_jobs SET status = 'running' WHERE id = ?`).run(task.id)
+        }
+        continue
+      }
+
+      let destination: 'done' | 'failed' = 'failed'
+      if (task.result.ok && task.result.outputFile === row.output_file && existsSync(outputPath)) {
+        try {
+          inspectCutoutPng(readFileSync(outputPath))
+          db.prepare(
+            `UPDATE psd_cutout_jobs SET status = 'ready', output_path = ?, error = NULL, finished_at = ? WHERE id = ?`
+          ).run(outputPath, nowIso(), task.id)
+          destination = 'done'
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err)
+          db.prepare(`UPDATE psd_cutout_jobs SET status = 'failed', error = ?, finished_at = ? WHERE id = ?`).run(
+            message,
+            nowIso(),
+            task.id
+          )
+          if (existsSync(outputPath)) unlinkSync(outputPath)
+        }
+      } else {
+        const message = task.result.error || 'Photoshop 没有生成有效的透明 PNG'
+        db.prepare(`UPDATE psd_cutout_jobs SET status = 'failed', error = ?, finished_at = ? WHERE id = ?`).run(
+          message,
+          nowIso(),
+          task.id
+        )
+        if (existsSync(outputPath)) unlinkSync(outputPath)
+      }
+      rmSync(join(paths.bridgeDir, 'staging', key), { recursive: true, force: true })
+      if (folder !== destination) moveFile(filePath, join(paths.bridgeDir, destination, `${key}.json`))
+    }
+  }
+}
+
+export function cancelPsdCutoutJob(db: Db, paths: PsdPaths, jobId: number): void {
+  const row = db.prepare(`SELECT * FROM psd_cutout_jobs WHERE id = ?`).get(jobId) as CutoutRow | undefined
+  if (!row) throw new ServiceError('NOT_FOUND', '抠图任务不存在')
+  if (row.status !== 'ready') throw new ServiceError('VALIDATION', '只有待确认的抠图结果可以取消')
+  const outputPath = resolvePsdBridgeOutputPath(paths.bridgeDir, row.output_file)
+  if (existsSync(outputPath)) unlinkSync(outputPath)
+  rmSync(join(paths.bridgeDir, 'staging', cutoutTaskKey(jobId)), { recursive: true, force: true })
+  for (const folder of ['inbox', 'processing', 'done', 'failed']) {
+    const file = join(paths.bridgeDir, folder, `${cutoutTaskKey(jobId)}.json`)
+    if (existsSync(file)) unlinkSync(file)
+  }
+  transaction(db, () => {
+    db.prepare(`UPDATE psd_cutout_jobs SET status = 'cancelled', output_path = NULL, finished_at = ? WHERE id = ?`).run(
+      nowIso(),
+      jobId
+    )
+  })
+}
+
+export function confirmPsdCutoutJob(db: Db, paths: PsdPaths, jobId: number): number {
+  const row = db.prepare(`SELECT * FROM psd_cutout_jobs WHERE id = ?`).get(jobId) as CutoutRow | undefined
+  if (!row) throw new ServiceError('NOT_FOUND', '抠图任务不存在')
+  if (row.status !== 'ready' || !row.output_path) throw new ServiceError('VALIDATION', '抠图结果还不能确认')
+  const outputPath = resolvePsdBridgeOutputPath(paths.bridgeDir, row.output_file)
+  if (!existsSync(outputPath) || resolve(outputPath) !== resolve(row.output_path)) {
+    throw new ServiceError('NOT_FOUND', '抠图临时结果已丢失')
+  }
+  inspectCutoutPng(readFileSync(outputPath))
+  const assetId = importPsdAsset(db, paths, row.asset_kind, outputPath, `${row.asset_label}（抠图）`)
+  try {
+    const result = db
+      .prepare(
+        `UPDATE psd_cutout_jobs
+         SET status = 'confirmed', confirmed_asset_id = ?, output_path = NULL, error = NULL, finished_at = ?
+         WHERE id = ? AND status = 'ready'`
+      )
+      .run(assetId, nowIso(), jobId)
+    if (result.changes !== 1) throw new ServiceError('VALIDATION', '抠图任务状态已变化，请刷新后重试')
+  } catch (err) {
+    deletePsdAsset(db, paths, assetId)
+    throw err
+  }
+  if (existsSync(outputPath)) unlinkSync(outputPath)
+  const doneFile = join(paths.bridgeDir, 'done', `${cutoutTaskKey(jobId)}.json`)
+  if (existsSync(doneFile)) unlinkSync(doneFile)
+  return assetId
 }
 
 export function cancelPsdJob(db: Db, paths: PsdPaths, jobId: number): void {
@@ -670,6 +1000,7 @@ export function getPsdBoard(db: Db, paths: PsdPaths, context: PsdBoardContext): 
   ensureBridge(paths.bridgeDir)
   mkdirSync(paths.assetsDir, { recursive: true })
   syncPsdResults(db, paths)
+  syncPsdCutoutResults(db, paths)
   const templates = (
     db
       .prepare(`SELECT id, name, source_path, created_at FROM psd_templates ORDER BY id`)
@@ -709,12 +1040,30 @@ export function getPsdBoard(db: Db, paths: PsdPaths, context: PsdBoardContext): 
       finishedAt: row.finished_at
     })
   )
+  const cutouts = (
+    db.prepare(`SELECT * FROM psd_cutout_jobs ORDER BY id DESC LIMIT 50`).all() as unknown as CutoutRow[]
+  ).map((row): PsdCutoutJob => ({
+    id: row.id,
+    assetId: row.asset_id,
+    kind: row.asset_kind,
+    assetLabel: row.asset_label,
+    status: row.status,
+    resultUrl:
+      row.status === 'ready' && row.output_file
+        ? `ajuan-file://psd-bridge/${encodeURIComponent(row.output_file)}`
+        : null,
+    error: row.error,
+    confirmedAssetId: row.confirmed_asset_id,
+    createdAt: row.created_at,
+    finishedAt: row.finished_at
+  }))
   return {
     bridgeDir: paths.bridgeDir,
     pluginDir: context.pluginDir,
     photoshopPath: context.photoshopPath,
     templates,
     assets,
-    jobs
+    jobs,
+    cutouts
   }
 }

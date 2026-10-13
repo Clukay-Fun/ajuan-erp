@@ -100,6 +100,9 @@ export const IPC = {
   psdAddSlot: 'psd:addSlot',
   psdDeleteSlot: 'psd:deleteSlot',
   psdImportAsset: 'psd:importAsset',
+  psdCreateCutout: 'psd:createCutout',
+  psdConfirmCutout: 'psd:confirmCutout',
+  psdCancelCutout: 'psd:cancelCutout',
   psdDeleteAsset: 'psd:deleteAsset',
   psdCreateJob: 'psd:createJob',
   psdCancelJob: 'psd:cancelJob',
@@ -229,6 +232,9 @@ export interface AjuanApi {
     deleteSlot(id: number): Promise<IpcResult<PsdBoard>>
     /** 取消选择时返回 null */
     importAsset(kind: PsdAssetKind): Promise<IpcResult<PsdBoard | null>>
+    createCutout(assetId: number): Promise<IpcResult<PsdBoard>>
+    confirmCutout(jobId: number): Promise<IpcResult<PsdBoard>>
+    cancelCutout(jobId: number): Promise<IpcResult<PsdBoard>>
     deleteAsset(id: number): Promise<IpcResult<PsdBoard>>
     createJob(input: PsdJobCreateInput): Promise<IpcResult<PsdBoard>>
     cancelJob(id: number): Promise<IpcResult<PsdBoard>>

@@ -157,9 +157,12 @@ async function park(file, folderName, job, bridge) {
 
 async function batch(descriptors) {
   const results = await action.batchPlay(descriptors, { synchronousExecution: true, modalBehavior: 'execute' })
-  for (const result of results) {
+  for (let index = 0; index < results.length; index++) {
+    const result = results[index]
     if (result?._obj === 'error' || (typeof result?.result === 'number' && result.result < 0)) {
-      throw new Error(result.message || `Photoshop 命令失败 (${result.result})`)
+      const command = descriptors[index]?._obj || 'unknown'
+      const detail = result.message ? `：${result.message}` : ''
+      throw new Error(`Photoshop 命令 ${command} 失败 (${result.result})${detail}`)
     }
   }
   return results
@@ -271,6 +274,164 @@ async function runInPhotoshop(bridge, staging, job) {
   }
 }
 
+async function prepareCutoutLayer(doc) {
+  let layer = doc.layers && doc.layers[0]
+  if (!layer) throw new Error('素材文件没有可处理的图层')
+  if (layer.isBackgroundLayer) {
+    // Converting the special Background layer via the `layerFromBackground`
+    // action is unavailable in current Photoshop builds. Setting its layer
+    // descriptor to a regular layer is the same operation Photoshop records
+    // for Layer > New > Layer from Background.
+    await batch([
+      {
+        _obj: 'set',
+        _target: [{ _ref: 'layer', _property: 'background' }],
+        to: {
+          _obj: 'layer',
+          name: 'Layer 0',
+          opacity: { _unit: 'percentUnit', _value: 100 },
+          mode: { _enum: 'blendMode', _value: 'normal' }
+        },
+        _options: { dialogOptions: 'dontDisplay' }
+      }
+    ])
+    layer = doc.layers && doc.layers[0]
+  }
+  if (!layer) throw new Error('无法解锁素材图层')
+  layer.visible = true
+  if (layer.locked) layer.locked = false
+  await selectLayer(layer)
+  return layer
+}
+
+async function createCutoutMask(doc, kind) {
+  if (kind === 'dog') {
+    // Photoshop's Select Subject action produces a soft selection suitable for a non-destructive mask.
+    await batch([{ _obj: 'autoCutout', sampleAllLayers: false, _options: { dialogOptions: 'dontDisplay' } }])
+  } else if (kind === 'name') {
+    // Name artwork is typography and grayscale paw ink. Select white by color, then retain
+    // the inverse selection so antialiased strokes and gray paw details remain.
+    await batch([
+      {
+        _obj: 'colorRange',
+        colorModel: 0,
+        fuzziness: 28,
+        minimum: { _obj: 'labColor', a: 0, b: 0, luminance: 100 },
+        maximum: { _obj: 'labColor', a: 0, b: 0, luminance: 100 },
+        _options: { dialogOptions: 'dontDisplay' }
+      }
+    ])
+    if (!doc.selection.bounds) throw new Error('名字图没有检测到白色背景')
+    await doc.selection.inverse()
+    if (!doc.selection.bounds) throw new Error('名字图没有找到可保留的笔画或爪印')
+  } else {
+    throw new Error('不支持的抠图模式')
+  }
+
+  await batch([
+    {
+      _obj: 'make',
+      at: { _enum: 'channel', _ref: 'channel', _value: 'mask' },
+      new: { _class: 'channel' },
+      using: { _enum: 'userMaskEnabled', _value: 'revealSelection' },
+      _options: { dialogOptions: 'dontDisplay' }
+    }
+  ])
+  await doc.selection.deselect()
+}
+
+async function addCutoutMargin(doc) {
+  await doc.trim(constants.TrimType.TRANSPARENT, true, true, true, true)
+  await doc.resizeCanvas(doc.width + 20, doc.height + 20, constants.AnchorPosition.MIDDLECENTER)
+}
+
+async function runCutoutInPhotoshop(bridge, staging, task) {
+  let doc = null
+  let output = null
+  try {
+    const source = await child(staging, task.sourceFile)
+    if (!source || !source.isFile) throw new Error(`素材文件不存在: ${task.sourceFile}`)
+    await core.executeAsModal(
+      async () => {
+        const opened = await app.open(source)
+        if (!sameFile(opened, source)) throw new Error(`打开了错误素材: ${opened.name}`)
+        doc = opened
+        await prepareCutoutLayer(doc)
+        await createCutoutMask(doc, task.kind)
+        await addCutoutMargin(doc)
+        const outputs = await ensureFolder(bridge, 'outputs')
+        output = await ensureOutput(outputs, task.outputFile)
+        await doc.saveAs.png(output, { interlaced: false }, true)
+        await doc.close(constants.SaveOptions.DONOTSAVECHANGES)
+        doc = null
+      },
+      { commandName: task.kind === 'dog' ? '阿卷抠出狗图主体' : '阿卷移除名字图白底' }
+    )
+    return task.outputFile
+  } catch (err) {
+    if (output) {
+      try {
+        await output.delete()
+      } catch {
+        /* failed job must not keep a partial preview */
+      }
+    }
+    if (doc) {
+      try {
+        await doc.close(constants.SaveOptions.DONOTSAVECHANGES)
+      } catch {
+        /* source file remains untouched */
+      }
+    }
+    throw err
+  }
+}
+
+async function runCutoutJob(bridge, file, task) {
+  if (!task || typeof task !== 'object') task = { id: file.name, outputFile: null }
+  const fail = async (message) => {
+    task.result = { ok: false, error: message, outputFile: null }
+    const outputs = await child(bridge, 'outputs')
+    const output = outputs && task.outputFile ? await child(outputs, task.outputFile) : null
+    if (output) {
+      try {
+        await output.delete()
+      } catch {
+        /* result remains failed even if cleanup is denied by the host */
+      }
+    }
+    await park(file, 'failed', task, bridge)
+    log(`抠图 ${task.id || file.name} 失败：${message}`)
+  }
+  if (
+    !task ||
+    task.version !== 1 ||
+    task.type !== 'cutout' ||
+    !Number.isInteger(task.id) ||
+    task.id < 1 ||
+    !['dog', 'name'].includes(task.kind) ||
+    !/^source\.(png|jpe?g)$/i.test(task.sourceFile || '') ||
+    task.outputFile !== `cutout-${task.id}.png`
+  ) {
+    await fail('抠图任务文件无效')
+    return
+  }
+  const stagingRoot = await child(bridge, 'staging')
+  const staging = stagingRoot ? await child(stagingRoot, `cutout-${task.id}`) : null
+  if (!staging || !staging.isFolder) {
+    await fail('抠图素材目录不存在')
+    return
+  }
+  try {
+    const outputFile = await runCutoutInPhotoshop(bridge, staging, task)
+    task.result = { ok: true, error: null, outputFile }
+    await park(file, 'done', task, bridge)
+    log(`抠图 ${task.id} 已生成 ${outputFile}，等待用户预览确认`)
+  } catch (err) {
+    await fail(errorText(err))
+  }
+}
+
 async function runJob(bridge, inboxFile) {
   const processing = await ensureFolder(bridge, 'processing')
   const clash = await child(processing, inboxFile.name)
@@ -283,6 +444,10 @@ async function runJob(bridge, inboxFile) {
     job = JSON.parse(await readText(file))
   } catch {
     log(`${inboxFile.name} 无法解析，已留在 processing`)
+    return
+  }
+  if (job && job.type === 'cutout') {
+    await runCutoutJob(bridge, file, job)
     return
   }
   const fail = async (message) => {

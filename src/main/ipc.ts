@@ -50,7 +50,10 @@ import {
 import {
   addPsdSlotInteractive,
   cancelPsdJobInteractive,
+  cancelPsdCutoutInteractive,
+  confirmPsdCutoutInteractive,
   createPsdJobInteractive,
+  createPsdCutoutInteractive,
   createPsdTemplateInteractive,
   deletePsdAssetInteractive,
   deletePsdSlotInteractive,
@@ -166,6 +169,9 @@ export function registerIpc(): void {
   handle(IPC.psdAddSlot, (input) => addPsdSlotInteractive(input))
   handle(IPC.psdDeleteSlot, (id: number) => deletePsdSlotInteractive(id))
   handle(IPC.psdImportAsset, (kind) => importPsdAssetInteractive(kind))
+  handle(IPC.psdCreateCutout, (assetId: number) => createPsdCutoutInteractive(assetId))
+  handle(IPC.psdConfirmCutout, (jobId: number) => confirmPsdCutoutInteractive(jobId))
+  handle(IPC.psdCancelCutout, (jobId: number) => cancelPsdCutoutInteractive(jobId))
   handle(IPC.psdDeleteAsset, (id: number) => deletePsdAssetInteractive(id))
   handle(IPC.psdCreateJob, (input) => createPsdJobInteractive(input))
   handle(IPC.psdCancelJob, (id: number) => cancelPsdJobInteractive(id))

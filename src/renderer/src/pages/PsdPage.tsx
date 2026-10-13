@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactElement } from 'react'
-import type { PsdAsset, PsdBoard, PsdJob, PsdJobStatus, PsdSlot } from '@shared/psd'
+import type { PsdAsset, PsdBoard, PsdCutoutJob, PsdJob, PsdJobStatus, PsdSlot } from '@shared/psd'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { Field } from '@/components/Field'
@@ -55,6 +55,8 @@ export function PsdPage(): ReactElement {
   const [title, setTitle] = useState('')
   const [picks, setPicks] = useState<Record<number, SlotPick>>({})
   const [pending, setPending] = useState<{ kind: 'template' | 'asset'; id: number; label: string } | null>(null)
+  const [reviewCutoutId, setReviewCutoutId] = useState<number | null>(null)
+  const [previewDark, setPreviewDark] = useState(false)
 
   const load = useCallback(async () => {
     setBoard(await unwrap(window.ajuan.psd.getBoard()))
@@ -82,6 +84,12 @@ export function PsdPage(): ReactElement {
   }, [board])
 
   useEffect(() => {
+    if (reviewCutoutId !== null) return
+    const ready = board?.cutouts.find((item) => item.status === 'ready')
+    if (ready) setReviewCutoutId(ready.id)
+  }, [board, reviewCutoutId])
+
+  useEffect(() => {
     setPicks({})
   }, [templateId])
 
@@ -101,6 +109,10 @@ export function PsdPage(): ReactElement {
   const template = board?.templates.find((item) => item.id === templateId) ?? null
   const dogs = board?.assets.filter((asset) => asset.kind === 'dog') ?? []
   const names = board?.assets.filter((asset) => asset.kind === 'name') ?? []
+  const pendingCutoutAssetIds = new Set(
+    board?.cutouts.filter((job) => ['queued', 'running', 'ready'].includes(job.status)).map((job) => job.assetId) ?? []
+  )
+  const reviewCutout = board?.cutouts.find((job) => job.id === reviewCutoutId && job.status === 'ready') ?? null
 
   function assetOptions(assets: PsdAsset[]) {
     return assets.map((asset) => ({
@@ -154,6 +166,23 @@ export function PsdPage(): ReactElement {
       await act(() => unwrap(window.ajuan.psd.deleteTemplate(target.id)), '模板已删除')
     } else {
       await act(() => unwrap(window.ajuan.psd.deleteAsset(target.id)), '素材已删除')
+    }
+  }
+
+  async function finishCutout(confirm: boolean): Promise<void> {
+    if (!reviewCutout) return
+    setBusy(true)
+    try {
+      const next = await unwrap(
+        confirm ? window.ajuan.psd.confirmCutout(reviewCutout.id) : window.ajuan.psd.cancelCutout(reviewCutout.id)
+      )
+      setBoard(next)
+      setReviewCutoutId(null)
+      toast(confirm ? '已新增透明素材，原图保留' : '临时抠图结果已删除', 'success')
+    } catch (err) {
+      toast(errorMessage(err), 'error')
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -247,7 +276,7 @@ export function PsdPage(): ReactElement {
       <section className={styles.card}>
         <h2 className={styles.title}>素材</h2>
         <p className={styles.hint}>
-          支持 PNG / JPG。JPG 白底会保留；心形模板要保持抠图效果，请使用透明 PNG。狗图和名字图分开存放，导入后使用副本。
+          支持 PNG / JPG。点击「抠白底」后由 Photoshop 生成临时透明 PNG；检查预览并确认后才会新增素材，原图始终保留。
         </p>
         <div className={styles.assets}>
           <AssetColumn
@@ -255,6 +284,8 @@ export function PsdPage(): ReactElement {
             assets={dogs}
             busy={busy}
             onImport={() => void act(() => unwrap(window.ajuan.psd.importAsset('dog')), '狗图已导入')}
+            pendingCutoutAssetIds={pendingCutoutAssetIds}
+            onCutout={(asset) => void act(() => unwrap(window.ajuan.psd.createCutout(asset.id)), '抠图任务已排队')}
             onDelete={(asset) => setPending({ kind: 'asset', id: asset.id, label: asset.label })}
           />
           <AssetColumn
@@ -262,9 +293,12 @@ export function PsdPage(): ReactElement {
             assets={names}
             busy={busy}
             onImport={() => void act(() => unwrap(window.ajuan.psd.importAsset('name')), '名字图已导入')}
+            pendingCutoutAssetIds={pendingCutoutAssetIds}
+            onCutout={(asset) => void act(() => unwrap(window.ajuan.psd.createCutout(asset.id)), '抠图任务已排队')}
             onDelete={(asset) => setPending({ kind: 'asset', id: asset.id, label: asset.label })}
           />
         </div>
+        <CutoutJobList jobs={board?.cutouts ?? []} onReview={(id) => setReviewCutoutId(id)} />
       </section>
 
       <section className={styles.card}>
@@ -343,6 +377,17 @@ export function PsdPage(): ReactElement {
         onCancel={() => setPending(null)}
         onConfirm={() => void confirmDelete()}
       />
+      {reviewCutout && (
+        <CutoutReview
+          job={reviewCutout}
+          original={board?.assets.find((asset) => asset.id === reviewCutout.assetId) ?? null}
+          previewDark={previewDark}
+          busy={busy}
+          onToggleBackground={() => setPreviewDark((current) => !current)}
+          onConfirm={() => void finishCutout(true)}
+          onCancel={() => void finishCutout(false)}
+        />
+      )}
     </>
   )
 }
@@ -360,7 +405,8 @@ function BridgeCard({
     <section className={styles.card}>
       <h2 className={styles.title}>Photoshop</h2>
       <p className={styles.hint}>
-        生成任务时，如果 Photoshop 没在运行，应用会在后台启动它，不把它拉到最前。任务完成后 Photoshop 会保持打开，已加载的插件可以继续处理后续任务。当前备份不包含这些模板、素材和导出文件。
+        生成任务时，如果 Photoshop 没在运行，应用会在后台启动它，不把它拉到最前。任务完成后 Photoshop
+        会保持打开，已加载的插件可以继续处理后续任务。当前备份不包含这些模板、素材和导出文件。
       </p>
       <ol className={styles.steps}>
         <li>开发阶段：Photoshop 完全退出后，仍要用 UXP Developer Tools 加载一次插件。同一次没退出就不用再加载。</li>
@@ -473,12 +519,16 @@ function AssetColumn({
   assets,
   busy,
   onImport,
+  pendingCutoutAssetIds,
+  onCutout,
   onDelete
 }: {
   title: string
   assets: PsdAsset[]
   busy: boolean
   onImport: () => void
+  pendingCutoutAssetIds: Set<number>
+  onCutout: (asset: PsdAsset) => void
   onDelete: (asset: PsdAsset) => void
 }): ReactElement {
   return (
@@ -501,13 +551,142 @@ function AssetColumn({
                   {asset.hasAlpha ? '' : ' · 无透明通道'}
                 </div>
               </div>
-              <Button variant="ghost" disabled={busy} onClick={() => onDelete(asset)}>
-                删除
-              </Button>
+              <div className={styles.assetActions}>
+                <Button
+                  variant="secondary"
+                  disabled={busy || pendingCutoutAssetIds.has(asset.id)}
+                  onClick={() => onCutout(asset)}
+                >
+                  {pendingCutoutAssetIds.has(asset.id) ? '抠图处理中' : '抠白底'}
+                </Button>
+                <Button
+                  variant="ghost"
+                  disabled={busy || pendingCutoutAssetIds.has(asset.id)}
+                  onClick={() => onDelete(asset)}
+                >
+                  删除
+                </Button>
+              </div>
             </li>
           ))}
         </ul>
       )}
+    </div>
+  )
+}
+
+const CUTOUT_STATUS: Record<PsdCutoutJob['status'], string> = {
+  queued: '等待 Photoshop / 插件',
+  running: 'Photoshop 处理中',
+  ready: '待预览确认',
+  failed: '失败',
+  confirmed: '已加入素材',
+  cancelled: '已取消'
+}
+
+function CutoutJobList({
+  jobs,
+  onReview
+}: {
+  jobs: PsdCutoutJob[]
+  onReview: (id: number) => void
+}): ReactElement | null {
+  if (!jobs.length) return null
+  return (
+    <div className={styles.cutoutJobs}>
+      <h3 className={styles.subTitle}>抠图任务</h3>
+      <ul className={styles.list}>
+        {jobs.map((job) => (
+          <li className={styles.row} key={job.id}>
+            <div className={styles.grow}>
+              <div className={styles.name}>
+                {job.assetLabel} · {job.kind === 'dog' ? '狗图' : '名字图'}
+                <Badge
+                  tone={
+                    job.status === 'failed'
+                      ? 'danger'
+                      : job.status === 'ready'
+                        ? 'warning'
+                        : job.status === 'confirmed'
+                          ? 'success'
+                          : 'info'
+                  }
+                >
+                  {CUTOUT_STATUS[job.status]}
+                </Badge>
+              </div>
+              {job.error && <div className={styles.error}>{job.error}</div>}
+            </div>
+            {job.status === 'ready' && (
+              <Button variant="secondary" onClick={() => onReview(job.id)}>
+                预览并确认
+              </Button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function CutoutReview({
+  job,
+  original,
+  previewDark,
+  busy,
+  onToggleBackground,
+  onConfirm,
+  onCancel
+}: {
+  job: PsdCutoutJob
+  original: PsdAsset | null
+  previewDark: boolean
+  busy: boolean
+  onToggleBackground: () => void
+  onConfirm: () => void
+  onCancel: () => void
+}): ReactElement {
+  return (
+    <div className={styles.reviewBackdrop} role="presentation">
+      <section className={styles.reviewDialog} role="dialog" aria-modal="true" aria-labelledby="cutout-title">
+        <header className={styles.reviewHeader}>
+          <div>
+            <h2 id="cutout-title" className={styles.title}>
+              检查抠图结果
+            </h2>
+            <p className={styles.hint}>
+              {job.kind === 'dog'
+                ? '请检查毛发、脚边和玩具轮廓；自动蒙版可能需要在 Photoshop 手动修边。'
+                : '白底已按颜色移除；请确认字母细线、灰色爪印和上下排版完整。'}
+            </p>
+          </div>
+          <Button variant="secondary" onClick={onToggleBackground}>
+            {previewDark ? '切换到浅色背景' : '切换到深色背景'}
+          </Button>
+        </header>
+        <div className={styles.reviewImages}>
+          <figure className={styles.reviewFigure}>
+            <figcaption>原图 · {job.assetLabel}</figcaption>
+            <div className={`${styles.previewStage} ${previewDark ? styles.previewDark : styles.previewLight}`}>
+              {original && <img src={original.fileUrl} alt="原始素材" />}
+            </div>
+          </figure>
+          <figure className={styles.reviewFigure}>
+            <figcaption>透明 PNG · 待确认</figcaption>
+            <div className={`${styles.previewStage} ${previewDark ? styles.previewDark : styles.previewLight}`}>
+              {job.resultUrl && <img src={job.resultUrl} alt="抠图结果" />}
+            </div>
+          </figure>
+        </div>
+        <footer className={styles.reviewFooter}>
+          <Button variant="ghost" disabled={busy} onClick={onCancel}>
+            取消结果
+          </Button>
+          <Button variant="primary" disabled={busy || !job.resultUrl || !original} onClick={onConfirm}>
+            确认并新增素材
+          </Button>
+        </footer>
+      </section>
     </div>
   )
 }

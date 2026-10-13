@@ -7,6 +7,7 @@ export const SLOT_KEY_PATTERN = /^slot_(0[1-9]|[1-9][0-9])$/
 
 export type PsdAssetKind = 'dog' | 'name'
 export type PsdJobStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled'
+export type PsdCutoutStatus = 'queued' | 'running' | 'ready' | 'failed' | 'confirmed' | 'cancelled'
 
 const baseName = z
   .string()
@@ -38,11 +39,40 @@ export const psdJobFileSchema = z.object({
     .optional()
 })
 
+const safeBridgeName = z
+  .string()
+  .min(1)
+  .max(180)
+  .refine((name) => !name.includes('/') && !name.includes('\\') && !name.includes('..'), '文件名不能包含路径')
+
+export const psdCutoutJobFileSchema = z.object({
+  version: z.literal(PSD_JOB_VERSION),
+  type: z.literal('cutout'),
+  id: z.number().int().positive(),
+  kind: z.enum(['dog', 'name']),
+  sourceFile: safeBridgeName.refine((name) => /\.(png|jpe?g)$/i.test(name), '输入文件必须是 PNG 或 JPG'),
+  outputFile: safeBridgeName.refine((name) => name.toLowerCase().endsWith('.png'), '输出文件必须是 PNG'),
+  result: z
+    .object({
+      ok: z.boolean(),
+      error: z.string().nullable(),
+      outputFile: safeBridgeName.nullable()
+    })
+    .optional()
+})
+
 export type PsdJobFile = z.infer<typeof psdJobFileSchema>
+export type PsdCutoutJobFile = z.infer<typeof psdCutoutJobFileSchema>
 
 export function parseJobFile(raw: unknown): PsdJobFile {
   const parsed = psdJobFileSchema.safeParse(raw)
   if (!parsed.success) throw new Error('任务文件无效')
+  return parsed.data
+}
+
+export function parseCutoutJobFile(raw: unknown): PsdCutoutJobFile {
+  const parsed = psdCutoutJobFileSchema.safeParse(raw)
+  if (!parsed.success) throw new Error('抠图任务文件无效')
   return parsed.data
 }
 
@@ -135,6 +165,19 @@ export interface PsdJob {
   finishedAt: string | null
 }
 
+export interface PsdCutoutJob {
+  id: number
+  assetId: number
+  kind: PsdAssetKind
+  assetLabel: string
+  status: PsdCutoutStatus
+  resultUrl: string | null
+  error: string | null
+  confirmedAssetId: number | null
+  createdAt: string
+  finishedAt: string | null
+}
+
 export interface PsdBoard {
   bridgeDir: string
   pluginDir: string
@@ -142,4 +185,5 @@ export interface PsdBoard {
   templates: PsdTemplate[]
   assets: PsdAsset[]
   jobs: PsdJob[]
+  cutouts: PsdCutoutJob[]
 }

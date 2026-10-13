@@ -3,22 +3,28 @@ import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync, existsSync,
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { deflateSync } from 'node:zlib'
 import { afterEach, describe, expect, it } from 'vitest'
 import { testDb } from './helpers'
-import { allocateOutputName, parseJobFile, safeOutputBase } from '@shared/psd'
+import { allocateOutputName, parseCutoutJobFile, parseJobFile, safeOutputBase } from '@shared/psd'
 import { ServiceError } from '../src/main/services/errors'
 import {
   addPsdSlot,
+  cancelPsdCutoutJob,
   cancelPsdJob,
+  confirmPsdCutoutJob,
+  createPsdCutoutJob,
   createPsdJob,
   createPsdTemplate,
   deletePsdAsset,
   deletePsdTemplate,
   findPhotoshopApp,
   getPsdBoard,
+  inspectCutoutPng,
   importPsdAsset,
   requeueStuckPsdJobs,
   retryPsdJob,
+  syncPsdCutoutResults,
   type PsdPaths
 } from '../src/main/services/psdExport'
 import {
@@ -50,13 +56,79 @@ function png(width: number, height: number, colorType = 6): Buffer {
   return buf
 }
 
+function crc32(buf: Buffer): number {
+  let crc = 0xffffffff
+  for (const byte of buf) {
+    crc ^= byte
+    for (let i = 0; i < 8; i++) crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0)
+  }
+  return (crc ^ 0xffffffff) >>> 0
+}
+
+function rgbaPng(width: number, height: number, alphaAt: (x: number, y: number) => number): Buffer {
+  const chunk = (type: string, data: Buffer): Buffer => {
+    const head = Buffer.alloc(8)
+    head.writeUInt32BE(data.length, 0)
+    head.write(type, 4, 'ascii')
+    const body = Buffer.concat([Buffer.from(type, 'ascii'), data])
+    const tail = Buffer.alloc(4)
+    tail.writeUInt32BE(crc32(body), 0)
+    return Buffer.concat([head, data, tail])
+  }
+  const header = Buffer.alloc(13)
+  header.writeUInt32BE(width, 0)
+  header.writeUInt32BE(height, 4)
+  header[8] = 8
+  header[9] = 6
+  const scanlines = Buffer.alloc((width * 4 + 1) * height)
+  for (let y = 0; y < height; y++) {
+    const row = y * (width * 4 + 1)
+    scanlines[row] = 0
+    for (let x = 0; x < width; x++) {
+      const pixel = row + 1 + x * 4
+      scanlines[pixel] = 0
+      scanlines[pixel + 1] = 0
+      scanlines[pixel + 2] = 0
+      scanlines[pixel + 3] = alphaAt(x, y)
+    }
+  }
+  return Buffer.concat([
+    PNG_SIG,
+    chunk('IHDR', header),
+    chunk('IDAT', deflateSync(scanlines)),
+    chunk('IEND', Buffer.alloc(0))
+  ])
+}
+
+function cutoutPng(): Buffer {
+  return rgbaPng(40, 40, (x, y) => (x >= 10 && x <= 29 && y >= 10 && y <= 29 ? 255 : 0))
+}
+
 function jpeg(width: number, height: number): Buffer {
   return Buffer.from([
-    0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08,
-    (height >> 8) & 0xff, height & 0xff,
-    (width >> 8) & 0xff, width & 0xff,
-    0x03, 0x01, 0x11, 0x00, 0x02, 0x11, 0x00, 0x03, 0x11, 0x00,
-    0xff, 0xd9
+    0xff,
+    0xd8,
+    0xff,
+    0xc0,
+    0x00,
+    0x11,
+    0x08,
+    (height >> 8) & 0xff,
+    height & 0xff,
+    (width >> 8) & 0xff,
+    width & 0xff,
+    0x03,
+    0x01,
+    0x11,
+    0x00,
+    0x02,
+    0x11,
+    0x00,
+    0x03,
+    0x11,
+    0x00,
+    0xff,
+    0xd9
   ])
 }
 
@@ -402,6 +474,134 @@ describe('PSD 任务', () => {
   })
 })
 
+describe('Photoshop 抠白底任务', () => {
+  it('任务独立于 PSD 导出队列，输入副本保留原素材格式', () => {
+    const fx = useFixture()
+    const seeded = seed(fx)
+    const original = readFileSync(fx.dog)
+    const psdJobId = createPsdJob(fx.db, fx.paths, {
+      templateId: seeded.templateId,
+      title: '并行导出',
+      items: [{ slotId: seeded.slotIds[0], dogAssetId: seeded.dogId, nameAssetId: seeded.nameId }]
+    })
+    const cutoutId = createPsdCutoutJob(fx.db, fx.paths, seeded.dogId)
+    const cutout = parseCutoutJobFile(
+      JSON.parse(readFileSync(join(fx.paths.bridgeDir, 'inbox', `cutout-${cutoutId}.json`), 'utf8'))
+    )
+    expect(cutout).toMatchObject({
+      type: 'cutout',
+      kind: 'dog',
+      sourceFile: 'source.png',
+      outputFile: `cutout-${cutoutId}.png`
+    })
+    expect(readFileSync(join(fx.paths.bridgeDir, 'staging', `cutout-${cutoutId}`, 'source.png'))).toEqual(original)
+    expect(boardOf(fx).cutouts.find((job) => job.id === cutoutId)?.status).toBe('queued')
+    expect(boardOf(fx).jobs.find((job) => job.id === psdJobId)?.status).toBe('queued')
+    expect(readFileSync(fx.dog)).toEqual(original)
+  })
+
+  it('识别 processing / ready 状态，并拒绝无透明像素的输出 PNG', () => {
+    const fx = useFixture()
+    const seeded = seed(fx)
+    const id = createPsdCutoutJob(fx.db, fx.paths, seeded.nameId)
+    const inbox = join(fx.paths.bridgeDir, 'inbox', `cutout-${id}.json`)
+    renameSync(inbox, join(fx.paths.bridgeDir, 'processing', `cutout-${id}.json`))
+    expect(boardOf(fx).cutouts.find((job) => job.id === id)?.status).toBe('running')
+    const task = parseCutoutJobFile(
+      JSON.parse(readFileSync(join(fx.paths.bridgeDir, 'processing', `cutout-${id}.json`), 'utf8'))
+    )
+    writeFileSync(
+      join(fx.paths.bridgeDir, 'outputs', task.outputFile),
+      rgbaPng(40, 40, () => 255)
+    )
+    finishCutoutLikePlugin(fx, id, { ok: true, error: null, outputFile: task.outputFile })
+    const ready = boardOf(fx).cutouts.find((job) => job.id === id)
+    expect(ready?.status).toBe('failed')
+    expect(ready?.error).toContain('没有真实透明像素')
+    expect(existsSync(join(fx.paths.bridgeDir, 'outputs', task.outputFile))).toBe(false)
+    expect(existsSync(join(fx.paths.bridgeDir, 'staging', `cutout-${id}`))).toBe(false)
+  })
+
+  it('Photoshop 报告处理失败后清理临时文件，原图和 PSD 导出队列不受影响', () => {
+    const fx = useFixture()
+    const seeded = seed(fx)
+    const original = readFileSync(fx.dog)
+    const id = createPsdCutoutJob(fx.db, fx.paths, seeded.dogId)
+    const spec = parseCutoutJobFile(
+      JSON.parse(readFileSync(join(fx.paths.bridgeDir, 'inbox', `cutout-${id}.json`), 'utf8'))
+    )
+    writeFileSync(join(fx.paths.bridgeDir, 'outputs', spec.outputFile), cutoutPng())
+    finishCutoutLikePlugin(fx, id, { ok: false, error: '主体识别失败', outputFile: null })
+
+    const board = boardOf(fx)
+    expect(board.cutouts.find((job) => job.id === id)).toMatchObject({ status: 'failed', error: '主体识别失败' })
+    expect(existsSync(join(fx.paths.bridgeDir, 'outputs', spec.outputFile))).toBe(false)
+    expect(existsSync(join(fx.paths.bridgeDir, 'staging', `cutout-${id}`))).toBe(false)
+    expect(readFileSync(fx.dog)).toEqual(original)
+    expect(board.assets).toHaveLength(2)
+    expect(() =>
+      createPsdJob(fx.db, fx.paths, {
+        templateId: seeded.templateId,
+        title: '抠图失败后仍可导出',
+        items: [{ slotId: seeded.slotIds[0], dogAssetId: seeded.dogId, nameAssetId: seeded.nameId }]
+      })
+    ).not.toThrow()
+  })
+
+  it('确认会新增透明素材；取消会清理临时 PNG，原图与 PSD 导出仍可用', () => {
+    const fx = useFixture()
+    const seeded = seed(fx)
+    const original = readFileSync(fx.dog)
+
+    const cancelledId = createPsdCutoutJob(fx.db, fx.paths, seeded.dogId)
+    const cancelledSpec = parseCutoutJobFile(
+      JSON.parse(readFileSync(join(fx.paths.bridgeDir, 'inbox', `cutout-${cancelledId}.json`), 'utf8'))
+    )
+    writeFileSync(join(fx.paths.bridgeDir, 'outputs', cancelledSpec.outputFile), cutoutPng())
+    finishCutoutLikePlugin(fx, cancelledId, { ok: true, error: null, outputFile: cancelledSpec.outputFile })
+    syncPsdCutoutResults(fx.db, fx.paths)
+    expect(boardOf(fx).cutouts.find((job) => job.id === cancelledId)).toMatchObject({
+      status: 'ready',
+      resultUrl: `ajuan-file://psd-bridge/${cancelledSpec.outputFile}`
+    })
+    expect(() => inspectCutoutPng(cutoutPng())).not.toThrow()
+    cancelPsdCutoutJob(fx.db, fx.paths, cancelledId)
+    expect(boardOf(fx).cutouts.find((job) => job.id === cancelledId)?.status).toBe('cancelled')
+    expect(existsSync(join(fx.paths.bridgeDir, 'outputs', cancelledSpec.outputFile))).toBe(false)
+    expect(readFileSync(fx.dog)).toEqual(original)
+    expect(boardOf(fx).assets).toHaveLength(2)
+
+    const confirmedId = createPsdCutoutJob(fx.db, fx.paths, seeded.dogId)
+    const confirmedSpec = parseCutoutJobFile(
+      JSON.parse(readFileSync(join(fx.paths.bridgeDir, 'inbox', `cutout-${confirmedId}.json`), 'utf8'))
+    )
+    writeFileSync(join(fx.paths.bridgeDir, 'outputs', confirmedSpec.outputFile), cutoutPng())
+    finishCutoutLikePlugin(fx, confirmedId, { ok: true, error: null, outputFile: confirmedSpec.outputFile })
+    syncPsdCutoutResults(fx.db, fx.paths)
+    const newAssetId = confirmPsdCutoutJob(fx.db, fx.paths, confirmedId)
+    const board = boardOf(fx)
+    const newAsset = board.assets.find((asset) => asset.id === newAssetId)
+    expect(newAsset).toMatchObject({ kind: 'dog', label: 'dog（抠图）', width: 40, height: 40, hasAlpha: true })
+    expect(board.cutouts.find((job) => job.id === confirmedId)).toMatchObject({
+      status: 'confirmed',
+      confirmedAssetId: newAssetId,
+      resultUrl: null
+    })
+    expect(existsSync(join(fx.paths.bridgeDir, 'outputs', confirmedSpec.outputFile))).toBe(false)
+    expect(readFileSync(fx.dog)).toEqual(original)
+
+    const exportJob = createPsdJob(fx.db, fx.paths, {
+      templateId: seeded.templateId,
+      title: '确认后导出',
+      items: [{ slotId: seeded.slotIds[0], dogAssetId: newAssetId, nameAssetId: seeded.nameId }]
+    })
+    expect(
+      parseJobFile(JSON.parse(readFileSync(join(fx.paths.bridgeDir, 'inbox', `${exportJob}.json`), 'utf8')))
+        .replacements[0]?.file
+    ).toBe('slot_01_dog.png')
+  })
+})
+
 describe('Photoshop 安装位置', () => {
   it('找不到时返回空，找得到时取版本名较新的一个', () => {
     const fx = useFixture()
@@ -496,4 +696,19 @@ function finishLikePlugin(
   const folder = result.ok ? 'done' : 'failed'
   writeFileSync(join(fx.paths.bridgeDir, folder, `${jobId}.json`), JSON.stringify({ ...spec, result }, null, 2))
   rmSync(inbox)
+}
+
+function finishCutoutLikePlugin(
+  fx: ReturnType<typeof fixture>,
+  jobId: number,
+  result: { ok: boolean; error: string | null; outputFile: string | null }
+): void {
+  const key = `cutout-${jobId}`
+  const inbox = join(fx.paths.bridgeDir, 'inbox', `${key}.json`)
+  const processing = join(fx.paths.bridgeDir, 'processing', `${key}.json`)
+  const done = join(fx.paths.bridgeDir, result.ok ? 'done' : 'failed', `${key}.json`)
+  if (existsSync(inbox)) renameSync(inbox, processing)
+  const spec = parseCutoutJobFile(JSON.parse(readFileSync(processing, 'utf8')))
+  writeFileSync(processing, JSON.stringify({ ...spec, result }, null, 2))
+  renameSync(processing, done)
 }

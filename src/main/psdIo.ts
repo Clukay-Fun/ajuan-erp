@@ -6,16 +6,14 @@ import { promisify } from 'node:util'
 import type { PsdAssetKind, PsdBoard } from '@shared/psd'
 import type { PsdJobCreateInput, PsdSlotCreateInput, PsdTemplateCreateInput } from '@shared/schemas'
 import { state } from './appState'
-import {
-  backgroundLaunch,
-  createLaunchGate,
-  darwinPhotoshopPids,
-  windowsPhotoshopPids
-} from './photoshopProcess'
+import { backgroundLaunch, createLaunchGate, darwinPhotoshopPids, windowsPhotoshopPids } from './photoshopProcess'
 import { ServiceError } from './services/errors'
 import {
   addPsdSlot,
   cancelPsdJob,
+  cancelPsdCutoutJob,
+  confirmPsdCutoutJob,
+  createPsdCutoutJob,
   createPsdJob,
   createPsdTemplate,
   deletePsdAsset,
@@ -133,6 +131,26 @@ export async function importPsdAssetInteractive(kind: PsdAssetKind): Promise<Psd
 
 export function deletePsdAssetInteractive(assetId: number): PsdBoard {
   deletePsdAsset(state.db, dirs(), assetId)
+  return board()
+}
+
+export async function createPsdCutoutInteractive(assetId: number): Promise<PsdBoard> {
+  createPsdCutoutJob(state.db, dirs(), assetId)
+  try {
+    await startPhotoshopForJob()
+  } catch (err) {
+    console.error('[psd] 自动启动 Photoshop 失败（抠图任务仍在队列）:', err)
+  }
+  return board()
+}
+
+export function confirmPsdCutoutInteractive(jobId: number): PsdBoard {
+  confirmPsdCutoutJob(state.db, dirs(), jobId)
+  return board()
+}
+
+export function cancelPsdCutoutInteractive(jobId: number): PsdBoard {
+  cancelPsdCutoutJob(state.db, dirs(), jobId)
   return board()
 }
 

@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url'
 import { state } from './appState'
 import { registerIpc } from './ipc'
 import { resolveAttachmentPath } from './services/attachments'
-import { resolvePsdAssetPath } from './services/psdExport'
+import { resolvePsdAssetPath, resolvePsdBridgeOutputPath } from './services/psdExport'
 import { loadWindowState, trackWindowState } from './windowState'
 import { initUpdater } from './updater'
 import { IPC } from '@shared/ipc'
@@ -64,7 +64,7 @@ function createWindow(): BrowserWindow {
   return win
 }
 
-// 本地图片：ajuan-file://attachments/<rel> 与 ajuan-file://psd-assets/<rel>，都限制在对应目录内。
+// 本地图片：只允许读取附件、已导入素材和桥接 outputs 中的抠图预览。
 if (!app.isReady()) {
   protocol.registerSchemesAsPrivileged([
     { scheme: 'ajuan-file', privileges: { standard: true, secure: true, supportFetchAPI: false } }
@@ -81,7 +81,9 @@ function registerAttachmentProtocol(): void {
           ? resolveAttachmentPath(state.attachmentsDir, rel)
           : url.host === 'psd-assets'
             ? resolvePsdAssetPath(state.psdAssetsDir, rel)
-            : null
+            : url.host === 'psd-bridge'
+              ? resolvePsdBridgeOutputPath(state.psdBridgeDir, rel)
+              : null
       if (!full) return new Response('Not found', { status: 404 })
       return net.fetch(pathToFileURL(full).toString())
     } catch {

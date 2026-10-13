@@ -96,7 +96,7 @@ describe('migration 002', () => {
     ).run(now)
     db.prepare(`UPDATE sku_stock SET quantity = 3, cost_value_e4 = 3000000 WHERE sku_id = 1`).run()
 
-    expect(runMigrations(db)).toEqual([2, 3, 4])
+    expect(runMigrations(db)).toEqual([2, 3, 4, 5])
     expect(db.prepare('PRAGMA foreign_key_check').all()).toEqual([])
     expect(db.prepare('PRAGMA foreign_keys').get()).toEqual({ foreign_keys: 1 })
     expect(listDocuments(db)).toHaveLength(1)

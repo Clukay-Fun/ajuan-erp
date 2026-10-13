@@ -4,6 +4,7 @@ import { m001Init } from './migrations/001_init'
 import { m002Adjustment } from './migrations/002_adjustment'
 import { m003ProductsActive } from './migrations/003_products_active'
 import { m004Psd } from './migrations/004_psd'
+import { m005PsdCutout } from './migrations/005_psd_cutout'
 
 export interface Migration {
   version: number
@@ -11,7 +12,7 @@ export interface Migration {
   up(db: Db): void
 }
 
-export const MIGRATIONS: Migration[] = [m001Init, m002Adjustment, m003ProductsActive, m004Psd]
+export const MIGRATIONS: Migration[] = [m001Init, m002Adjustment, m003ProductsActive, m004Psd, m005PsdCutout]
 
 /** 应用所有未执行的 migration。每个版本在独立事务内执行；重复调用无副作用。 */
 export function runMigrations(db: Db, migrations: Migration[] = MIGRATIONS): number[] {
