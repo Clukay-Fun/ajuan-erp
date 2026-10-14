@@ -12,9 +12,17 @@
 
 ### Added
 
+- PSD 定制页新增 Photoshop 插件准备入口（按 macOS / Windows 启动 UXP Developer Tools）、桥接 / 导出目录修改；导出默认写入下载目录下的「阿卷 ERP」，配置跨重启保存。
+
 ### Changed
 
+- 模板位置、素材、抠图任务和导出任务列表设置固定可视高度，超出后在列表内部滚动。
+- 心形模板默认隐藏第一排六组示例图，保留心形框和下排可替换位置。
+- macOS 插件安装后，阿卷 ERP 启动时会在 Photoshop 未运行的情况下打开 UXP Developer Tool 和 Photoshop；首次仍需在 UDT 中手动 Load 插件。
+
 ### Fixed
+
+- 抠图预览弹窗与其他弹层一致：焦点锁在弹窗内，Esc / 点遮罩 /「关闭预览」只收起预览，不删除 Photoshop 生成的临时透明图；可稍后从抠图任务再打开。弹窗打开时 ⌘/Ctrl 快捷键不再切页或新建单据。
 
 ### Removed
 

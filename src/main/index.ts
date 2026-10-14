@@ -5,7 +5,8 @@ import { pathToFileURL } from 'node:url'
 import { state } from './appState'
 import { registerIpc } from './ipc'
 import { resolveAttachmentPath } from './services/attachments'
-import { resolvePsdAssetPath, resolvePsdBridgeOutputPath } from './services/psdExport'
+import { resolvePsdAssetPath, resolvePsdBridgeOutputPath, resolvePsdCutoutResultPath } from './services/psdExport'
+import { preparePhotoshopAtAppStartup } from './psdIo'
 import { loadWindowState, trackWindowState } from './windowState'
 import { initUpdater } from './updater'
 import { IPC } from '@shared/ipc'
@@ -83,7 +84,9 @@ function registerAttachmentProtocol(): void {
             ? resolvePsdAssetPath(state.psdAssetsDir, rel)
             : url.host === 'psd-bridge'
               ? resolvePsdBridgeOutputPath(state.psdBridgeDir, rel)
-              : null
+              : url.host === 'psd-cutout'
+                ? resolvePsdCutoutResultPath(state.db, Number(rel))
+                : null
       if (!full) return new Response('Not found', { status: 404 })
       return net.fetch(pathToFileURL(full).toString())
     } catch {
@@ -116,6 +119,7 @@ app.whenReady().then(() => {
   state.open()
   registerAttachmentProtocol()
   registerIpc()
+  void preparePhotoshopAtAppStartup().catch((err) => console.error('[psd] 应用启动时准备 Photoshop 失败:', err))
   const mainWindow = createWindow()
   initUpdater(mainWindow)
   app.on('activate', () => {

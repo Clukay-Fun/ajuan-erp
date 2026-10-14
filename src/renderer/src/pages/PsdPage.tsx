@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactElement } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 import type { PsdAsset, PsdBoard, PsdCutoutJob, PsdJob, PsdJobStatus, PsdSlot } from '@shared/psd'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
@@ -8,6 +8,8 @@ import { Badge } from '@/components/Badge'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useToast } from '@/components/Toast'
 import { unwrap, errorMessage } from '@/lib/api'
+import { useFocusTrap } from '@/lib/useFocusTrap'
+import { usePresence } from '@/lib/usePresence'
 import styles from './PsdPage.module.css'
 
 const STATUS_LABEL: Record<PsdJobStatus, string> = {
@@ -56,6 +58,7 @@ export function PsdPage(): ReactElement {
   const [picks, setPicks] = useState<Record<number, SlotPick>>({})
   const [pending, setPending] = useState<{ kind: 'template' | 'asset'; id: number; label: string } | null>(null)
   const [reviewCutoutId, setReviewCutoutId] = useState<number | null>(null)
+  const [dismissedCutoutIds, setDismissedCutoutIds] = useState<Set<number>>(() => new Set())
   const [previewDark, setPreviewDark] = useState(false)
 
   const load = useCallback(async () => {
@@ -85,9 +88,9 @@ export function PsdPage(): ReactElement {
 
   useEffect(() => {
     if (reviewCutoutId !== null) return
-    const ready = board?.cutouts.find((item) => item.status === 'ready')
+    const ready = board?.cutouts.find((item) => item.status === 'ready' && !dismissedCutoutIds.has(item.id))
     if (ready) setReviewCutoutId(ready.id)
-  }, [board, reviewCutoutId])
+  }, [board, dismissedCutoutIds, reviewCutoutId])
 
   useEffect(() => {
     setPicks({})
@@ -169,6 +172,12 @@ export function PsdPage(): ReactElement {
     }
   }
 
+  function dismissReview(): void {
+    if (!reviewCutout || busy) return
+    setDismissedCutoutIds((current) => new Set(current).add(reviewCutout.id))
+    setReviewCutoutId(null)
+  }
+
   async function finishCutout(confirm: boolean): Promise<void> {
     if (!reviewCutout) return
     setBusy(true)
@@ -177,6 +186,12 @@ export function PsdPage(): ReactElement {
         confirm ? window.ajuan.psd.confirmCutout(reviewCutout.id) : window.ajuan.psd.cancelCutout(reviewCutout.id)
       )
       setBoard(next)
+      setDismissedCutoutIds((current) => {
+        if (!current.has(reviewCutout.id)) return current
+        const nextIds = new Set(current)
+        nextIds.delete(reviewCutout.id)
+        return nextIds
+      })
       setReviewCutoutId(null)
       toast(confirm ? '已新增透明素材，原图保留' : '临时抠图结果已删除', 'success')
     } catch (err) {
@@ -238,14 +253,20 @@ export function PsdPage(): ReactElement {
                 删除
               </Button>
             </div>
-            {item.slots.map((slot) => (
-              <SlotRow
-                key={slot.id}
-                slot={slot}
-                busy={busy}
-                onDelete={() => void act(() => unwrap(window.ajuan.psd.deleteSlot(slot.id)), '位置已删除')}
-              />
-            ))}
+            <div className={styles.slotList} aria-label={`${item.name}的位置列表`}>
+              {!item.slots.length ? (
+                <div className={styles.emptyList}>还没有位置，添加后会显示在这里。</div>
+              ) : (
+                item.slots.map((slot) => (
+                  <SlotRow
+                    key={slot.id}
+                    slot={slot}
+                    busy={busy}
+                    onDelete={() => void act(() => unwrap(window.ajuan.psd.deleteSlot(slot.id)), '位置已删除')}
+                  />
+                ))
+              )}
+            </div>
             <SlotForm
               draft={slotDraft}
               busy={busy}
@@ -326,37 +347,44 @@ export function PsdPage(): ReactElement {
               />
             </div>
             {!template.slots.length && <p className={styles.muted}>这个模板还没有位置。</p>}
-            {template.slots.map((slot) => {
-              const pick = picks[slot.id] ?? { enabled: false, dogId: 0, nameId: 0 }
-              return (
-                <div key={slot.id} className={styles.jobGrid}>
-                  <label className={styles.check}>
-                    <input
-                      type="checkbox"
-                      checked={pick.enabled}
-                      onChange={(event) =>
-                        setPicks((current) => ({ ...current, [slot.id]: { ...pick, enabled: event.target.checked } }))
-                      }
-                    />
-                    {slot.slotKey}
-                  </label>
-                  <Select
-                    label="狗图"
-                    value={pick.dogId}
-                    placeholder="选择狗图"
-                    options={assetOptions(dogs)}
-                    onChange={(dogId) => setPicks((current) => ({ ...current, [slot.id]: { ...pick, dogId } }))}
-                  />
-                  <Select
-                    label="名字图"
-                    value={pick.nameId}
-                    placeholder="选择名字图"
-                    options={assetOptions(names)}
-                    onChange={(nameId) => setPicks((current) => ({ ...current, [slot.id]: { ...pick, nameId } }))}
-                  />
-                </div>
-              )
-            })}
+            {!!template.slots.length && (
+              <div className={styles.exportSlots} aria-label="选择导出位置">
+                {template.slots.map((slot) => {
+                  const pick = picks[slot.id] ?? { enabled: false, dogId: 0, nameId: 0 }
+                  return (
+                    <div key={slot.id} className={styles.jobGrid}>
+                      <label className={styles.check}>
+                        <input
+                          type="checkbox"
+                          checked={pick.enabled}
+                          onChange={(event) =>
+                            setPicks((current) => ({
+                              ...current,
+                              [slot.id]: { ...pick, enabled: event.target.checked }
+                            }))
+                          }
+                        />
+                        {slot.slotKey}
+                      </label>
+                      <Select
+                        label="狗图"
+                        value={pick.dogId}
+                        placeholder="选择狗图"
+                        options={assetOptions(dogs)}
+                        onChange={(dogId) => setPicks((current) => ({ ...current, [slot.id]: { ...pick, dogId } }))}
+                      />
+                      <Select
+                        label="名字图"
+                        value={pick.nameId}
+                        placeholder="选择名字图"
+                        options={assetOptions(names)}
+                        onChange={(nameId) => setPicks((current) => ({ ...current, [slot.id]: { ...pick, nameId } }))}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+            )}
             <div className={styles.actions}>
               <Button variant="primary" disabled={busy || !template.slots.length} onClick={submitJob}>
                 生成任务
@@ -377,17 +405,17 @@ export function PsdPage(): ReactElement {
         onCancel={() => setPending(null)}
         onConfirm={() => void confirmDelete()}
       />
-      {reviewCutout && (
-        <CutoutReview
-          job={reviewCutout}
-          original={board?.assets.find((asset) => asset.id === reviewCutout.assetId) ?? null}
-          previewDark={previewDark}
-          busy={busy}
-          onToggleBackground={() => setPreviewDark((current) => !current)}
-          onConfirm={() => void finishCutout(true)}
-          onCancel={() => void finishCutout(false)}
-        />
-      )}
+      <CutoutReview
+        open={reviewCutout !== null}
+        job={reviewCutout}
+        original={board?.assets.find((asset) => asset.id === reviewCutout?.assetId) ?? null}
+        previewDark={previewDark}
+        busy={busy}
+        onToggleBackground={() => setPreviewDark((current) => !current)}
+        onDismiss={dismissReview}
+        onConfirm={() => void finishCutout(true)}
+        onCancel={() => void finishCutout(false)}
+      />
     </>
   )
 }
@@ -405,21 +433,57 @@ function BridgeCard({
     <section className={styles.card}>
       <h2 className={styles.title}>Photoshop</h2>
       <p className={styles.hint}>
-        生成任务时，如果 Photoshop 没在运行，应用会在后台启动它，不把它拉到最前。任务完成后 Photoshop
-        会保持打开，已加载的插件可以继续处理后续任务。当前备份不包含这些模板、素材和导出文件。
+        macOS 上插件安装后，启动阿卷 ERP 时会先打开 UXP Developer Tool，再打开 Photoshop。生成任务时，若 Photoshop
+        没在运行，应用也会按需启动它。任务完成后 Photoshop 会保持打开，已加载的插件可以继续处理后续任务。
       </p>
       <ol className={styles.steps}>
-        <li>开发阶段：Photoshop 完全退出后，仍要用 UXP Developer Tools 加载一次插件。同一次没退出就不用再加载。</li>
-        <li>第一次在「阿卷 PSD」面板授权下面的桥接目录。授权会记住。</li>
+        <li>
+          点“安装插件”会复制插件文件并打开 UXP Developer Tools；macOS 会同时打开 Photoshop。首次需等 Photoshop 出现在工具里，再添加复制后的
+          manifest.json 并点击 Load 一次；以后 Photoshop 启动时，已加载插件会自动启动。
+        </li>
+        <li>第一次使用时，在「阿卷 PSD」面板授权桥接目录；首次导出时再授权导出目录。授权会记住。</li>
         <li>插件加载后会自己处理队列，不必一直打开面板。面板用来看日志，或手动补跑。</li>
       </ol>
       <div className={styles.actions}>
+        <Button
+          variant="primary"
+          disabled={busy}
+          onClick={() =>
+            void onAct(
+              () => unwrap(window.ajuan.psd.installPlugin()),
+              '插件已复制，UXP Developer Tool 已打开；macOS 同时打开 Photoshop'
+            )
+          }
+        >
+          安装插件
+        </Button>
+        <Button
+          variant="secondary"
+          disabled={busy}
+          onClick={() => void onAct(() => unwrap(window.ajuan.psd.pickBridgeDir()), '桥接目录已更新')}
+        >
+          修改桥接目录
+        </Button>
+        <Button
+          variant="secondary"
+          disabled={busy}
+          onClick={() => void onAct(() => unwrap(window.ajuan.psd.pickOutputDir()), '导出目录已更新')}
+        >
+          修改导出目录
+        </Button>
         <Button
           variant="secondary"
           disabled={busy}
           onClick={() => void onAct(() => unwrap(window.ajuan.psd.openBridge()).then(() => null))}
         >
           打开桥接目录
+        </Button>
+        <Button
+          variant="secondary"
+          disabled={busy}
+          onClick={() => void onAct(() => unwrap(window.ajuan.psd.openOutputDir()).then(() => null))}
+        >
+          打开导出目录
         </Button>
         <Button
           variant="secondary"
@@ -455,8 +519,15 @@ function BridgeCard({
           放回中断任务
         </Button>
       </div>
+      <p className={styles.muted}>桥接目录（授权给 Photoshop 插件）：</p>
       <p className={styles.mono}>{board?.bridgeDir ?? '加载中…'}</p>
-      <p className={styles.muted}>在访达的「文稿」里打开「阿卷 ERP」，授权时选择 psd-bridge。</p>
+      <p className={styles.muted}>PSD 和透明 PNG 导出目录：</p>
+      <p className={styles.mono}>{board?.outputDir ?? '加载中…'}</p>
+      <p className={styles.muted}>UXP Developer Tools 添加这个 manifest.json：</p>
+      <p className={styles.mono}>{board?.pluginDir ?? '加载中…'}/manifest.json</p>
+      <p className={styles.muted}>
+        修改桥接目录后，请在 Photoshop 面板重新授权新目录；修改导出目录后，首次处理时会重新授权。
+      </p>
       <p className={styles.muted}>
         {board?.photoshopPath ? `找到 Photoshop：${fileName(board.photoshopPath)}` : '未找到 Photoshop'}
       </p>
@@ -538,10 +609,10 @@ function AssetColumn({
           导入{title}
         </Button>
       </div>
-      {!assets.length && <p className={styles.muted}>还没有{title}。</p>}
-      {!!assets.length && (
-        <ul className={styles.list}>
-          {assets.map((asset) => (
+      <ul className={`${styles.list} ${styles.assetList}`}>
+        {!assets.length && <li className={`${styles.row} ${styles.emptyAsset}`}>还没有{title}。</li>}
+        {!!assets.length &&
+          assets.map((asset) => (
             <li key={asset.id} className={styles.row}>
               <img className={styles.thumb} src={asset.fileUrl} alt="" />
               <div className={styles.grow}>
@@ -569,8 +640,7 @@ function AssetColumn({
               </div>
             </li>
           ))}
-        </ul>
-      )}
+      </ul>
     </div>
   )
 }
@@ -595,7 +665,7 @@ function CutoutJobList({
   return (
     <div className={styles.cutoutJobs}>
       <h3 className={styles.subTitle}>抠图任务</h3>
-      <ul className={styles.list}>
+      <ul className={`${styles.list} ${styles.cutoutList}`}>
         {jobs.map((job) => (
           <li className={styles.row} key={job.id}>
             <div className={styles.grow}>
@@ -630,35 +700,74 @@ function CutoutJobList({
 }
 
 function CutoutReview({
+  open,
   job,
   original,
   previewDark,
   busy,
   onToggleBackground,
+  onDismiss,
   onConfirm,
   onCancel
 }: {
-  job: PsdCutoutJob
+  open: boolean
+  job: PsdCutoutJob | null
   original: PsdAsset | null
   previewDark: boolean
   busy: boolean
   onToggleBackground: () => void
+  onDismiss: () => void
   onConfirm: () => void
   onCancel: () => void
-}): ReactElement {
+}): ReactElement | null {
+  const ref = useRef<HTMLElement>(null)
+  const { mounted, closing } = usePresence(open)
+  useFocusTrap(ref, open)
+  const [held, setHeld] = useState<PsdCutoutJob | null>(null)
+  useEffect(() => {
+    if (job) setHeld(job)
+  }, [job])
+  const shown = job ?? held
+
+  useEffect(() => {
+    if (!open || busy) return
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') onDismiss()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, busy, onDismiss])
+
+  if (!mounted || !shown) return null
   return (
-    <div className={styles.reviewBackdrop} role="presentation">
-      <section className={styles.reviewDialog} role="dialog" aria-modal="true" aria-labelledby="cutout-title">
+    <div
+      className={styles.reviewBackdrop}
+      data-closing={closing || undefined}
+      role="presentation"
+      onClick={() => {
+        if (!busy) onDismiss()
+      }}
+    >
+      <section
+        ref={ref}
+        className={styles.reviewDialog}
+        data-closing={closing || undefined}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cutout-title"
+        onClick={(event) => event.stopPropagation()}
+      >
         <header className={styles.reviewHeader}>
           <div>
             <h2 id="cutout-title" className={styles.title}>
               检查抠图结果
             </h2>
             <p className={styles.hint}>
-              {job.kind === 'dog'
+              {shown.kind === 'dog'
                 ? '请检查毛发、脚边和玩具轮廓；自动蒙版可能需要在 Photoshop 手动修边。'
                 : '白底已按颜色移除；请确认字母细线、灰色爪印和上下排版完整。'}
             </p>
+            <p className={styles.hint}>关闭预览不会删除临时透明图，可稍后在抠图任务里再打开。</p>
           </div>
           <Button variant="secondary" onClick={onToggleBackground}>
             {previewDark ? '切换到浅色背景' : '切换到深色背景'}
@@ -666,7 +775,7 @@ function CutoutReview({
         </header>
         <div className={styles.reviewImages}>
           <figure className={styles.reviewFigure}>
-            <figcaption>原图 · {job.assetLabel}</figcaption>
+            <figcaption>原图 · {shown.assetLabel}</figcaption>
             <div className={`${styles.previewStage} ${previewDark ? styles.previewDark : styles.previewLight}`}>
               {original && <img src={original.fileUrl} alt="原始素材" />}
             </div>
@@ -674,15 +783,18 @@ function CutoutReview({
           <figure className={styles.reviewFigure}>
             <figcaption>透明 PNG · 待确认</figcaption>
             <div className={`${styles.previewStage} ${previewDark ? styles.previewDark : styles.previewLight}`}>
-              {job.resultUrl && <img src={job.resultUrl} alt="抠图结果" />}
+              {shown.resultUrl && <img src={shown.resultUrl} alt="抠图结果" />}
             </div>
           </figure>
         </div>
         <footer className={styles.reviewFooter}>
+          <Button variant="ghost" disabled={busy} onClick={onDismiss}>
+            关闭预览
+          </Button>
           <Button variant="ghost" disabled={busy} onClick={onCancel}>
             取消结果
           </Button>
-          <Button variant="primary" disabled={busy || !job.resultUrl || !original} onClick={onConfirm}>
+          <Button variant="primary" disabled={busy || !shown.resultUrl || !original} onClick={onConfirm}>
             确认并新增素材
           </Button>
         </footer>
@@ -702,7 +814,7 @@ function JobList({
 }): ReactElement {
   if (!board?.jobs.length) return <p className={styles.muted}>还没有导出任务。</p>
   return (
-    <ul className={styles.list}>
+    <ul className={`${styles.list} ${styles.exportList}`}>
       {board.jobs.map((job) => (
         <JobRow key={job.id} job={job} busy={busy} onAct={onAct} />
       ))}

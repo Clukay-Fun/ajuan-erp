@@ -1,6 +1,6 @@
 // Photoshop ExtendScript. Creates the second ERP template from the supplied
-// heart-layout PSD. The top six examples stay visible; six hidden smart-object
-// pairs below them become replaceable slots.
+// heart-layout PSD. The top six example pairs are hidden; six hidden
+// smart-object pairs below them become replaceable slots.
 // ES3 only.
 
 var BASE_PATH = "/Users/clukay/Program/ajuan-erp/templates/heart-base.psd";
@@ -97,6 +97,8 @@ function main() {
       names[index].name = "example_" + key + "_name";
       createBottomSlot(exampleDog, "slot_" + key + "_dog");
       createBottomSlot(names[index], "slot_" + key + "_name");
+      exampleDog.visible = false;
+      names[index].visible = false;
       log("example " + key + " dog=" + layerBounds(exampleDog).left + "," + layerBounds(exampleDog).top + " name=" + layerBounds(names[index]).left + "," + layerBounds(names[index]).top);
     }
 

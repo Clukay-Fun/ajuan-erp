@@ -60,9 +60,13 @@ import {
   deletePsdTemplateInteractive,
   getPsdBoardInteractive,
   importPsdAssetInteractive,
+  installPsdPlugin,
   openPhotoshopApp,
   openPsdBridge,
+  openPsdOutputDir,
   openPsdPlugin,
+  pickPsdBridgeDirectory,
+  pickPsdOutputDirectory,
   pickPsdTemplate,
   requeuePsdInteractive,
   revealPsdJob,
@@ -179,6 +183,10 @@ export function registerIpc(): void {
   handle(IPC.psdSync, () => syncPsdInteractive())
   handle(IPC.psdRequeueStuck, () => requeuePsdInteractive())
   handle(IPC.psdOpenBridge, () => openPsdBridge())
+  handle(IPC.psdOpenOutputDir, () => openPsdOutputDir())
+  handle(IPC.psdPickBridgeDir, () => pickPsdBridgeDirectory())
+  handle(IPC.psdPickOutputDir, () => pickPsdOutputDirectory())
+  handle(IPC.psdInstallPlugin, () => installPsdPlugin())
   handle(IPC.psdOpenPlugin, () => openPsdPlugin())
   handle(IPC.psdOpenPhotoshop, () => openPhotoshopApp())
   handle(IPC.psdRevealJob, (id: number) => revealPsdJob(id))

@@ -48,6 +48,7 @@ import { ServiceError } from './errors'
 export interface PsdPaths {
   assetsDir: string
   bridgeDir: string
+  outputDir?: string
 }
 
 export interface PsdBoardContext {
@@ -150,13 +151,39 @@ export function resolvePsdAssetPath(assetsDir: string, relPath: string): string 
 }
 
 export function resolvePsdBridgeOutputPath(bridgeDir: string, fileName: string): string {
+  return resolvePsdOutputPath(join(bridgeDir, 'outputs'), fileName)
+}
+
+export function resolvePsdOutputPath(outputDir: string, fileName: string): string {
   if (!fileName || fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
     throw new ServiceError('VALIDATION', '非法抠图输出文件名')
   }
-  const root = resolve(bridgeDir, 'outputs')
+  const root = resolve(outputDir)
   const full = resolve(root, fileName)
   if (full !== root && !full.startsWith(root + sep)) throw new ServiceError('VALIDATION', '非法抠图输出路径')
   return full
+}
+
+export function resolvePsdCutoutResultPath(db: Db, jobId: number): string | null {
+  if (!Number.isSafeInteger(jobId) || jobId < 1) return null
+  const row = db.prepare(`SELECT status, output_path FROM psd_cutout_jobs WHERE id = ?`).get(jobId) as
+    { status: PsdCutoutStatus; output_path: string | null } | undefined
+  if (row?.status !== 'ready' || !row.output_path || !existsSync(row.output_path)) return null
+  return row.output_path
+}
+
+function outputDir(paths: PsdPaths): string {
+  return paths.outputDir ?? join(paths.bridgeDir, 'outputs')
+}
+
+function outputDirForTask(paths: PsdPaths, taskOutputDir: string | undefined): string {
+  const legacy = resolve(paths.bridgeDir, 'outputs')
+  const configured = resolve(outputDir(paths))
+  const candidate = taskOutputDir ? resolve(taskOutputDir) : legacy
+  if (candidate !== configured && candidate !== legacy) {
+    throw new ServiceError('VALIDATION', '任务导出目录与当前设置不符，请重新创建任务')
+  }
+  return candidate
 }
 
 interface TransparentPngInfo {
@@ -255,6 +282,10 @@ export function inspectCutoutPng(buf: Buffer): TransparentPngInfo {
 
 export function ensureBridge(bridgeDir: string): void {
   for (const name of BRIDGE_FOLDERS) mkdirSync(join(bridgeDir, name), { recursive: true })
+}
+
+function ensurePsdOutputDir(paths: PsdPaths): void {
+  mkdirSync(outputDir(paths), { recursive: true })
 }
 
 export function photoshopSearchRoots(platform = process.platform): string[] {
@@ -371,9 +402,9 @@ function moveFile(from: string, to: string): void {
   renameSync(from, to)
 }
 
-function outputPathFor(bridgeDir: string, fileName: string | null): string | null {
+function outputPathFor(rootPath: string, fileName: string | null): string | null {
   if (!fileName || fileName.includes('/') || fileName.includes('\\') || fileName.includes('..')) return null
-  const root = resolve(bridgeDir, 'outputs')
+  const root = resolve(rootPath)
   const full = resolve(root, fileName)
   if (full !== root && !full.startsWith(root + sep)) return null
   return full
@@ -527,7 +558,7 @@ export function deletePsdAsset(db: Db, paths: PsdPaths, assetId: number): void {
 
 function takenOutputNames(db: Db, paths: PsdPaths): Set<string> {
   const taken = new Set<string>()
-  const outputs = join(paths.bridgeDir, 'outputs')
+  const outputs = outputDir(paths)
   if (existsSync(outputs)) {
     for (const name of readdirSync(outputs)) taken.add(name)
   }
@@ -567,6 +598,7 @@ export function createPsdJob(db: Db, paths: PsdPaths, input: PsdJobCreateInput):
   prepared.sort((a, b) => a.slot.sort_order - b.slot.sort_order || a.slot.id - b.slot.id)
 
   ensureBridge(paths.bridgeDir)
+  ensurePsdOutputDir(paths)
   const outputFile = allocateOutputName(safeOutputBase(data.title), takenOutputNames(db, paths))
   const createdAt = nowIso()
   const id = transaction(db, () => {
@@ -606,6 +638,7 @@ export function createPsdJob(db: Db, paths: PsdPaths, input: PsdJobCreateInput):
       id,
       title: data.title,
       templateFile: 'template.psd',
+      outputDir: outputDir(paths),
       outputFile,
       replacements: prepared.flatMap((item) => {
         const dogExtension = extname(item.dog.rel_path).toLowerCase()
@@ -661,7 +694,7 @@ function applyResult(db: Db, paths: PsdPaths, parsed: PsdJobFile, filePath: stri
 
   let dest: 'done' | 'failed' = 'failed'
   if (parsed.result.ok) {
-    const outputPath = outputPathFor(paths.bridgeDir, parsed.result.outputFile)
+    const outputPath = outputPathFor(outputDirForTask(paths, parsed.outputDir), parsed.result.outputFile)
     if (!outputPath || !existsSync(outputPath)) {
       db.prepare(`UPDATE psd_jobs SET status = 'failed', error = ?, finished_at = ? WHERE id = ?`).run(
         '插件报告成功，但输出文件不存在',
@@ -741,7 +774,8 @@ export function createPsdCutoutJob(db: Db, paths: PsdPaths, assetId: number): nu
   const key = cutoutTaskKey(id)
   const staging = join(paths.bridgeDir, 'staging', key)
   const inbox = join(paths.bridgeDir, 'inbox', `${key}.json`)
-  const output = resolvePsdBridgeOutputPath(paths.bridgeDir, `${key}.png`)
+  ensurePsdOutputDir(paths)
+  const output = resolvePsdOutputPath(outputDir(paths), `${key}.png`)
   try {
     mkdirSync(staging, { recursive: true })
     copyFileSync(sourcePath, join(staging, `source${extname(asset.rel_path).toLowerCase()}`))
@@ -751,6 +785,7 @@ export function createPsdCutoutJob(db: Db, paths: PsdPaths, assetId: number): nu
       type: 'cutout',
       id,
       kind: asset.kind,
+      outputDir: outputDir(paths),
       sourceFile: `source${extname(asset.rel_path).toLowerCase()}`,
       outputFile: `${key}.png`
     }
@@ -788,9 +823,7 @@ export function syncPsdCutoutResults(db: Db, paths: PsdPaths): void {
       const row = db.prepare(`SELECT * FROM psd_cutout_jobs WHERE id = ?`).get(task.id) as CutoutRow | undefined
       if (!row) continue
       const key = cutoutTaskKey(task.id)
-      const outputPath = resolvePsdBridgeOutputPath(paths.bridgeDir, row.output_file)
       if (row.status === 'cancelled' || row.status === 'confirmed') {
-        if (existsSync(outputPath)) unlinkSync(outputPath)
         rmSync(join(paths.bridgeDir, 'staging', key), { recursive: true, force: true })
         if (existsSync(filePath)) unlinkSync(filePath)
         continue
@@ -803,6 +836,7 @@ export function syncPsdCutoutResults(db: Db, paths: PsdPaths): void {
         if (folder !== 'failed') moveFile(filePath, join(paths.bridgeDir, 'failed', `${key}.json`))
         continue
       }
+      const outputPath = resolvePsdOutputPath(outputDirForTask(paths, task.outputDir), row.output_file)
       if (!task.result) {
         if (folder === 'processing' && row.status === 'queued') {
           db.prepare(`UPDATE psd_cutout_jobs SET status = 'running' WHERE id = ?`).run(task.id)
@@ -846,7 +880,7 @@ export function cancelPsdCutoutJob(db: Db, paths: PsdPaths, jobId: number): void
   const row = db.prepare(`SELECT * FROM psd_cutout_jobs WHERE id = ?`).get(jobId) as CutoutRow | undefined
   if (!row) throw new ServiceError('NOT_FOUND', '抠图任务不存在')
   if (row.status !== 'ready') throw new ServiceError('VALIDATION', '只有待确认的抠图结果可以取消')
-  const outputPath = resolvePsdBridgeOutputPath(paths.bridgeDir, row.output_file)
+  const outputPath = row.output_path || resolvePsdBridgeOutputPath(paths.bridgeDir, row.output_file)
   if (existsSync(outputPath)) unlinkSync(outputPath)
   rmSync(join(paths.bridgeDir, 'staging', cutoutTaskKey(jobId)), { recursive: true, force: true })
   for (const folder of ['inbox', 'processing', 'done', 'failed']) {
@@ -865,7 +899,7 @@ export function confirmPsdCutoutJob(db: Db, paths: PsdPaths, jobId: number): num
   const row = db.prepare(`SELECT * FROM psd_cutout_jobs WHERE id = ?`).get(jobId) as CutoutRow | undefined
   if (!row) throw new ServiceError('NOT_FOUND', '抠图任务不存在')
   if (row.status !== 'ready' || !row.output_path) throw new ServiceError('VALIDATION', '抠图结果还不能确认')
-  const outputPath = resolvePsdBridgeOutputPath(paths.bridgeDir, row.output_file)
+  const outputPath = row.output_path || resolvePsdBridgeOutputPath(paths.bridgeDir, row.output_file)
   if (!existsSync(outputPath) || resolve(outputPath) !== resolve(row.output_path)) {
     throw new ServiceError('NOT_FOUND', '抠图临时结果已丢失')
   }
@@ -925,6 +959,7 @@ export function retryPsdJob(db: Db, paths: PsdPaths, jobId: number): void {
     id: parsed.id,
     title: parsed.title,
     templateFile: parsed.templateFile,
+    outputDir: outputDir(paths),
     outputFile: parsed.outputFile,
     replacements: parsed.replacements
   }
@@ -1048,10 +1083,7 @@ export function getPsdBoard(db: Db, paths: PsdPaths, context: PsdBoardContext): 
     kind: row.asset_kind,
     assetLabel: row.asset_label,
     status: row.status,
-    resultUrl:
-      row.status === 'ready' && row.output_file
-        ? `ajuan-file://psd-bridge/${encodeURIComponent(row.output_file)}`
-        : null,
+    resultUrl: row.status === 'ready' && row.output_file ? `ajuan-file://psd-cutout/${row.id}` : null,
     error: row.error,
     confirmedAssetId: row.confirmed_asset_id,
     createdAt: row.created_at,
@@ -1059,6 +1091,7 @@ export function getPsdBoard(db: Db, paths: PsdPaths, context: PsdBoardContext): 
   }))
   return {
     bridgeDir: paths.bridgeDir,
+    outputDir: outputDir(paths),
     pluginDir: context.pluginDir,
     photoshopPath: context.photoshopPath,
     templates,

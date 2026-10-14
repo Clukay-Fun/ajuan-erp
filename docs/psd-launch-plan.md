@@ -6,6 +6,7 @@
 
 - 同一次 Photoshop 进程里，插件加载过就不用再打开 UXP Developer Tools。
 - 开发版插件没有安装进 Photoshop。Photoshop 完全退出后，仍要在 UXP Developer Tools 里 Load 一次。`loadEvent: startup` 不能代替这次 Load。
+- macOS 安装插件后，如果启动阿卷 ERP 时 Photoshop 未运行，应用会先打开 UXP Developer Tool，再启动 Photoshop；首次加载仍需等 Photoshop 出现在 UDT 后手动 Load。
 - 插件一旦加载，轮询不依赖面板是否打开。面板只负责授权、日志和手动补跑。
 - 应用生成任务时，若 Photoshop 没在运行，就在后台启动它，不把它拉到前台。连续创建任务共用同一次启动。
 - 任务结束后保留 Photoshop 进程。开发版插件随宿主常驻，后续任务继续使用同一进程，不需要重新加载。
@@ -35,3 +36,5 @@
 3. 已经在运行就不记录、结束后也不退出。启动过程中若发现进程已经出现，也不算应用启动的。
 4. 队列里没有等待或处理中的任务后，只有进程号仍是当时启动的那个才退出。macOS 实际退出的是整个应用。
 5. 「打开 Photoshop」按钮仍把窗口带到前台，并且不把这次记成应用启动的。
+
+macOS 插件安装时会同时打开 UXP Developer Tool 和 Photoshop。首次在 UDT 添加复制后的 `manifest.json` 并 Load 后，插件会随 Photoshop 启动；之后仅启动 ERP 且 Photoshop 未运行时，ERP 会再次打开 UDT 和 Photoshop。

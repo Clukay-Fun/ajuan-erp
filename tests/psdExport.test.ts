@@ -24,14 +24,18 @@ import {
   importPsdAsset,
   requeueStuckPsdJobs,
   retryPsdJob,
+  resolvePsdCutoutResultPath,
+  resolvePsdOutputPath,
   syncPsdCutoutResults,
+  syncPsdResults,
   type PsdPaths
 } from '../src/main/services/psdExport'
 import {
   backgroundLaunch,
   createLaunchGate,
   darwinPhotoshopPids,
-  windowsPhotoshopPids
+  windowsPhotoshopPids,
+  windowsUxpDeveloperToolCandidates
 } from '../src/main/photoshopProcess'
 
 const require = createRequire(import.meta.url)
@@ -267,6 +271,28 @@ describe('任务文件名', () => {
 })
 
 describe('PSD 任务', () => {
+  it('PSD 导出任务记录独立导出目录并将完成路径同步到列表', () => {
+    const fx = useFixture()
+    fx.paths.outputDir = join(fx.root, 'downloads', '阿卷 ERP')
+    const seeded = seed(fx)
+    const id = createPsdJob(fx.db, fx.paths, {
+      templateId: seeded.templateId,
+      title: '独立目录',
+      items: [{ slotId: seeded.slotIds[0], dogAssetId: seeded.dogId, nameAssetId: seeded.nameId }]
+    })
+    const spec = parseJobFile(JSON.parse(readFileSync(join(fx.paths.bridgeDir, 'inbox', `${id}.json`), 'utf8')))
+    expect(spec.outputDir).toBe(fx.paths.outputDir)
+    writeFileSync(join(fx.paths.outputDir, spec.outputFile), Buffer.from('8BPS-output'))
+    finishLikePlugin(fx, id, { ok: true, replaced: ['slot_01_dog'], error: null, outputFile: spec.outputFile })
+
+    syncPsdResults(fx.db, fx.paths)
+
+    expect(boardOf(fx).jobs.find((job) => job.id === id)).toMatchObject({
+      status: 'done',
+      outputPath: join(fx.paths.outputDir, spec.outputFile)
+    })
+  })
+
   it('生成任务不改原始 PSD，也不把原始路径写进任务', () => {
     const fx = useFixture()
     const before = readFileSync(fx.psd)
@@ -475,6 +501,39 @@ describe('PSD 任务', () => {
 })
 
 describe('Photoshop 抠白底任务', () => {
+  it('抠图结果写到可配置的导出目录，并通过任务编号提供预览', () => {
+    const fx = useFixture()
+    fx.paths.outputDir = join(fx.root, 'downloads', '阿卷 ERP')
+    const seeded = seed(fx)
+    const id = createPsdCutoutJob(fx.db, fx.paths, seeded.dogId)
+    const inbox = join(fx.paths.bridgeDir, 'inbox', `cutout-${id}.json`)
+    const processing = join(fx.paths.bridgeDir, 'processing', `cutout-${id}.json`)
+    const done = join(fx.paths.bridgeDir, 'done', `cutout-${id}.json`)
+    const task = parseCutoutJobFile(JSON.parse(readFileSync(inbox, 'utf8')))
+    expect(task.outputDir).toBe(fx.paths.outputDir)
+    const resultPath = resolvePsdOutputPath(fx.paths.outputDir, task.outputFile)
+    expect(resultPath).toBe(join(fx.paths.outputDir, task.outputFile))
+    writeFileSync(resultPath, cutoutPng())
+    renameSync(inbox, processing)
+    writeFileSync(
+      processing,
+      JSON.stringify({ ...task, result: { ok: true, error: null, outputFile: task.outputFile } })
+    )
+
+    syncPsdCutoutResults(fx.db, fx.paths)
+
+    expect(boardOf(fx).cutouts.find((job) => job.id === id)).toMatchObject({
+      status: 'ready',
+      resultUrl: `ajuan-file://psd-cutout/${id}`
+    })
+    expect(resolvePsdCutoutResultPath(fx.db, id)).toBe(resultPath)
+    expect(existsSync(done)).toBe(true)
+
+    fx.paths.outputDir = join(fx.root, 'another-export-folder')
+    expect(() => syncPsdCutoutResults(fx.db, fx.paths)).not.toThrow()
+    expect(resolvePsdCutoutResultPath(fx.db, id)).toBe(resultPath)
+  })
+
   it('任务独立于 PSD 导出队列，输入副本保留原素材格式', () => {
     const fx = useFixture()
     const seeded = seed(fx)
@@ -562,7 +621,7 @@ describe('Photoshop 抠白底任务', () => {
     syncPsdCutoutResults(fx.db, fx.paths)
     expect(boardOf(fx).cutouts.find((job) => job.id === cancelledId)).toMatchObject({
       status: 'ready',
-      resultUrl: `ajuan-file://psd-bridge/${cancelledSpec.outputFile}`
+      resultUrl: `ajuan-file://psd-cutout/${cancelledId}`
     })
     expect(() => inspectCutoutPng(cutoutPng())).not.toThrow()
     cancelPsdCutoutJob(fx.db, fx.paths, cancelledId)
@@ -644,6 +703,15 @@ describe('插件约定', () => {
 })
 
 describe('Photoshop 进程', () => {
+  it('按 Windows 常见安装位置查找 UXP Developer Tool', () => {
+    expect(windowsUxpDeveloperToolCandidates({ ProgramFiles: 'C:\\Program Files' })).toContain(
+      'C:\\Program Files\\Adobe\\Adobe UXP Developer Tool\\Adobe UXP Developer Tool.exe'
+    )
+    expect(windowsUxpDeveloperToolCandidates({ LOCALAPPDATA: 'C:\\Users\\user\\AppData\\Local' })).toContain(
+      'C:\\Users\\user\\AppData\\Local\\Adobe\\UXP Developer Tool\\UXP Developer Tool.exe'
+    )
+  })
+
   it('只认主进程并在后台启动，不打断已运行的宿主', () => {
     const listing = [
       '17829 /Applications/Utilities/AdobeIPCBroker -launchedbyvulcan /Applications/Adobe Photoshop 2026/Adobe Photoshop 2026.app/Contents/MacOS/Adobe Photoshop 2026',

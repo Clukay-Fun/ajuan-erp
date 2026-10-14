@@ -43,7 +43,7 @@ psd-bridge/
 
 当前使用的 `templates/slot-template.psd` 保留 6×3 网格，共 18 个 868×868 正方形位置。每格的 868×868 外圆组保留圆形边界，内缩 128 px 的 612×612 正方形区域由 `slot_XX_rect` 组蒙版限制，名字图和狗图各占一半（306×612），中间有分界线；内矩形的四角完整位于圆内。`templates/circle-base.psd` 是用户提供的圆形边框基础文件。`框.tif` 和 `图.tif` 只作排版参考，不导入 ERP。
 
-第二款为 `templates/slot-template-2.psd`，由 `templates/heart-base.psd` 和 `templates/create-heart-template.jsx` 生成，画布 6369×1841，包含 6×2 个心形位置。上排保留 PSD 中的六组示例；下排是六个可替换位置，图层名为 `slot_01_dog` / `slot_01_name` 至 `slot_06_dog` / `slot_06_name`。下排通过 Photoshop 的「通过拷贝新建智能对象」创建独立内容，避免替换时连带修改上排示例；初始隐藏，插件替换内容时会显示。示例里的狗图、名字和爪印为透明背景；白底 JPG 会保留白色矩形，若要保持抠图效果请使用透明 PNG。
+第二款为 `templates/slot-template-2.psd`，由 `templates/heart-base.psd` 和 `templates/create-heart-template.jsx` 生成，画布 6369×1841，包含 6×2 个心形位置。上排的六组示例图层保留在 PSD 中但默认隐藏，因此模板打开时第一排为空；下排是六个可替换位置，图层名为 `slot_01_dog` / `slot_01_name` 至 `slot_06_dog` / `slot_06_name`。下排通过 Photoshop 的「通过拷贝新建智能对象」创建独立内容，初始隐藏，插件替换内容时会显示。
 
 ## 插件
 

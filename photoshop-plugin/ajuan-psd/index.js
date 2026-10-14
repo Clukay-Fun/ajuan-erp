@@ -5,6 +5,7 @@ const formats = require('uxp').storage.formats
 const { fitToBounds } = require('./fit.js')
 
 const TOKEN_KEY = 'ajuan.bridgeToken'
+const OUTPUT_TOKENS_KEY = 'ajuan.outputTokens'
 const POLL_INTERVAL_MS = 1000
 const SAVE_OPTIONS = {
   alphaChannels: true,
@@ -196,6 +197,49 @@ async function ensureOutput(outputs, name) {
   return outputs.createFile(name)
 }
 
+function normalizeNativePath(value) {
+  let normalized = String(value || '')
+    .replace(/\\/g, '/')
+    .replace(/\/$/, '')
+  if (/^[A-Za-z]:\//.test(normalized) || normalized.startsWith('//')) normalized = normalized.toLowerCase()
+  return normalized
+}
+
+function isAbsoluteNativePath(value) {
+  return (
+    typeof value === 'string' && (value.startsWith('/') || /^[A-Za-z]:[\\/]/.test(value) || value.startsWith('\\\\'))
+  )
+}
+
+async function outputFolderFor(bridge, nativePath) {
+  if (!nativePath) return ensureFolder(bridge, 'outputs')
+  let tokens
+  try {
+    tokens = JSON.parse(localStorage.getItem(OUTPUT_TOKENS_KEY) || '{}')
+  } catch {
+    // Invalid saved token data is treated as an empty authorization list.
+  }
+  if (!tokens || typeof tokens !== 'object' || Array.isArray(tokens)) tokens = {}
+  const key = normalizeNativePath(nativePath)
+  if (tokens[key]) {
+    try {
+      const saved = await fs.getEntryForPersistentToken(tokens[key])
+      if (saved.isFolder && normalizeNativePath(saved.nativePath) === key) return saved
+    } catch {
+      /* folder was moved, removed or its permission expired */
+    }
+    delete tokens[key]
+  }
+  const folder = await fs.getFolder()
+  if (!folder) throw new Error('已取消选择导出目录')
+  if (normalizeNativePath(folder.nativePath) !== key) {
+    throw new Error(`请选择应用设置的导出目录：${nativePath}`)
+  }
+  tokens[key] = await fs.createPersistentToken(folder)
+  localStorage.setItem(OUTPUT_TOKENS_KEY, JSON.stringify(tokens))
+  return folder
+}
+
 async function replaceOne(doc, staging, item) {
   const layer = findLayer(doc, item.layerName)
   if (!layer) throw new Error(`图层不存在: ${item.layerName}`)
@@ -257,7 +301,7 @@ async function runInPhotoshop(bridge, staging, job) {
       await replaceOne(doc, staging, item)
       replaced.push(item.layerName)
     }
-    const outputs = await ensureFolder(bridge, 'outputs')
+    const outputs = await outputFolderFor(bridge, job.outputDir)
     const output = await ensureOutput(outputs, job.outputFile)
     await doc.saveAs.psd(output, SAVE_OPTIONS, true)
     await doc.close(constants.SaveOptions.DONOTSAVECHANGES)
@@ -359,7 +403,7 @@ async function runCutoutInPhotoshop(bridge, staging, task) {
         await prepareCutoutLayer(doc)
         await createCutoutMask(doc, task.kind)
         await addCutoutMargin(doc)
-        const outputs = await ensureFolder(bridge, 'outputs')
+        const outputs = await outputFolderFor(bridge, task.outputDir)
         output = await ensureOutput(outputs, task.outputFile)
         await doc.saveAs.png(output, { interlaced: false }, true)
         await doc.close(constants.SaveOptions.DONOTSAVECHANGES)
@@ -391,7 +435,14 @@ async function runCutoutJob(bridge, file, task) {
   if (!task || typeof task !== 'object') task = { id: file.name, outputFile: null }
   const fail = async (message) => {
     task.result = { ok: false, error: message, outputFile: null }
-    const outputs = await child(bridge, 'outputs')
+    let outputs = null
+    if (!task.outputDir || isAbsoluteNativePath(task.outputDir)) {
+      try {
+        outputs = await outputFolderFor(bridge, task.outputDir)
+      } catch {
+        /* if the output folder was not authorized, the failed task has no output to clean */
+      }
+    }
     const output = outputs && task.outputFile ? await child(outputs, task.outputFile) : null
     if (output) {
       try {
@@ -410,6 +461,7 @@ async function runCutoutJob(bridge, file, task) {
     !Number.isInteger(task.id) ||
     task.id < 1 ||
     !['dog', 'name'].includes(task.kind) ||
+    (task.outputDir !== undefined && !isAbsoluteNativePath(task.outputDir)) ||
     !/^source\.(png|jpe?g)$/i.test(task.sourceFile || '') ||
     task.outputFile !== `cutout-${task.id}.png`
   ) {
@@ -455,7 +507,13 @@ async function runJob(bridge, inboxFile) {
     await park(file, 'failed', job, bridge)
     log(`${job.id || inboxFile.name} 失败：${message}`)
   }
-  if (!job || job.version !== 1 || !Array.isArray(job.replacements) || !job.replacements.length) {
+  if (
+    !job ||
+    job.version !== 1 ||
+    (job.outputDir !== undefined && !isAbsoluteNativePath(job.outputDir)) ||
+    !Array.isArray(job.replacements) ||
+    !job.replacements.length
+  ) {
     job = job && typeof job === 'object' ? job : { id: inboxFile.name }
     await fail('任务文件无效')
     return

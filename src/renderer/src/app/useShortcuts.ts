@@ -15,6 +15,7 @@ export function useShortcuts(): void {
     const onKey = (e: KeyboardEvent): void => {
       const mod = isMac ? e.metaKey : e.ctrlKey
       if (!mod || e.altKey) return
+      if (document.querySelector('[aria-modal="true"]')) return
       const key = e.key.toLowerCase()
       if (key === 'n') {
         e.preventDefault()

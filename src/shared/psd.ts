@@ -15,11 +15,21 @@ const baseName = z
   .max(180)
   .refine((name) => !name.includes('/') && !name.includes('\\') && !name.includes('..'), '文件名不能包含路径')
 
+const absoluteDirectory = z
+  .string()
+  .min(1)
+  .max(1024)
+  .refine(
+    (path) => path.startsWith('/') || /^[A-Za-z]:[\\/]/.test(path) || path.startsWith('\\\\'),
+    '导出目录必须是绝对路径'
+  )
+
 export const psdJobFileSchema = z.object({
   version: z.literal(PSD_JOB_VERSION),
   id: z.number().int().positive(),
   title: z.string().min(1).max(60),
   templateFile: z.literal('template.psd'),
+  outputDir: absoluteDirectory.optional(),
   outputFile: baseName.refine((name) => name.toLowerCase().endsWith('.psd'), '输出文件必须是 PSD'),
   replacements: z
     .array(
@@ -50,6 +60,7 @@ export const psdCutoutJobFileSchema = z.object({
   type: z.literal('cutout'),
   id: z.number().int().positive(),
   kind: z.enum(['dog', 'name']),
+  outputDir: absoluteDirectory.optional(),
   sourceFile: safeBridgeName.refine((name) => /\.(png|jpe?g)$/i.test(name), '输入文件必须是 PNG 或 JPG'),
   outputFile: safeBridgeName.refine((name) => name.toLowerCase().endsWith('.png'), '输出文件必须是 PNG'),
   result: z
@@ -180,6 +191,7 @@ export interface PsdCutoutJob {
 
 export interface PsdBoard {
   bridgeDir: string
+  outputDir: string
   pluginDir: string
   photoshopPath: string | null
   templates: PsdTemplate[]

@@ -110,6 +110,10 @@ export const IPC = {
   psdSync: 'psd:sync',
   psdRequeueStuck: 'psd:requeueStuck',
   psdOpenBridge: 'psd:openBridge',
+  psdOpenOutputDir: 'psd:openOutputDir',
+  psdPickBridgeDir: 'psd:pickBridgeDir',
+  psdPickOutputDir: 'psd:pickOutputDir',
+  psdInstallPlugin: 'psd:installPlugin',
   psdOpenPlugin: 'psd:openPlugin',
   psdOpenPhotoshop: 'psd:openPhotoshop',
   psdRevealJob: 'psd:revealJob'
@@ -242,6 +246,10 @@ export interface AjuanApi {
     sync(): Promise<IpcResult<PsdBoard>>
     requeueStuck(): Promise<IpcResult<{ board: PsdBoard; count: number }>>
     openBridge(): Promise<IpcResult<void>>
+    openOutputDir(): Promise<IpcResult<void>>
+    pickBridgeDir(): Promise<IpcResult<PsdBoard | null>>
+    pickOutputDir(): Promise<IpcResult<PsdBoard | null>>
+    installPlugin(): Promise<IpcResult<PsdBoard>>
     openPlugin(): Promise<IpcResult<void>>
     openPhotoshop(): Promise<IpcResult<void>>
     revealJob(id: number): Promise<IpcResult<void>>

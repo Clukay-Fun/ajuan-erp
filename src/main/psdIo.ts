@@ -1,12 +1,18 @@
 import { app, BrowserWindow, dialog, shell } from 'electron'
-import { execFile } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { execFile, spawn } from 'node:child_process'
+import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import type { PsdAssetKind, PsdBoard } from '@shared/psd'
 import type { PsdJobCreateInput, PsdSlotCreateInput, PsdTemplateCreateInput } from '@shared/schemas'
 import { state } from './appState'
-import { backgroundLaunch, createLaunchGate, darwinPhotoshopPids, windowsPhotoshopPids } from './photoshopProcess'
+import {
+  backgroundLaunch,
+  createLaunchGate,
+  darwinPhotoshopPids,
+  windowsPhotoshopPids,
+  windowsUxpDeveloperToolCandidates
+} from './photoshopProcess'
 import { ServiceError } from './services/errors'
 import {
   addPsdSlot,
@@ -62,14 +68,23 @@ function owner(): BrowserWindow | undefined {
 }
 
 function dirs(): PsdPaths {
-  return { assetsDir: state.psdAssetsDir, bridgeDir: state.psdBridgeDir }
+  return { assetsDir: state.psdAssetsDir, bridgeDir: state.psdBridgeDir, outputDir: state.psdOutputDir }
 }
 
-function pluginDirectory(): string {
+function bundledPluginDirectory(): string {
   const root = app.isPackaged
     ? join(process.resourcesPath, 'photoshop-plugin')
     : join(app.getAppPath(), 'photoshop-plugin')
   return join(root, 'ajuan-psd')
+}
+
+function installedPluginDirectory(): string {
+  return join(app.getPath('userData'), 'photoshop-plugin', 'ajuan-psd')
+}
+
+function pluginDirectory(): string {
+  const installed = installedPluginDirectory()
+  return existsSync(join(installed, 'manifest.json')) ? installed : bundledPluginDirectory()
 }
 
 function board(): PsdBoard {
@@ -213,7 +228,99 @@ export function requeuePsdInteractive(): { board: PsdBoard; count: number } {
 }
 
 export async function openPsdBridge(): Promise<void> {
+  mkdirSync(dirs().bridgeDir, { recursive: true })
   await openFolder(dirs().bridgeDir)
+}
+
+export async function openPsdOutputDir(): Promise<void> {
+  mkdirSync(dirs().outputDir!, { recursive: true })
+  await openFolder(dirs().outputDir!)
+}
+
+function assertNoActivePsdTasks(): void {
+  const jobs = state.db
+    .prepare(
+      `SELECT
+      (SELECT COUNT(*) FROM psd_jobs WHERE status IN ('queued', 'running')) +
+      (SELECT COUNT(*) FROM psd_cutout_jobs WHERE status IN ('queued', 'running')) AS count`
+    )
+    .get() as { count: number }
+  if (jobs.count > 0) throw new ServiceError('VALIDATION', '先等待 Photoshop 队列完成，再修改目录')
+}
+
+async function pickPsdDirectory(kind: 'bridgeDir' | 'outputDir'): Promise<PsdBoard | null> {
+  const result = await dialog.showOpenDialog(owner()!, {
+    title: kind === 'bridgeDir' ? '选择 Photoshop 桥接目录' : '选择 PSD 导出目录',
+    defaultPath: kind === 'bridgeDir' ? state.psdBridgeDir : state.psdOutputDir,
+    properties: ['openDirectory', 'createDirectory']
+  })
+  if (result.canceled || result.filePaths.length === 0) return null
+  assertNoActivePsdTasks()
+  state.setPsdDirectory(kind, result.filePaths[0])
+  return board()
+}
+
+export function pickPsdBridgeDirectory(): Promise<PsdBoard | null> {
+  return pickPsdDirectory('bridgeDir')
+}
+
+export function pickPsdOutputDirectory(): Promise<PsdBoard | null> {
+  return pickPsdDirectory('outputDir')
+}
+
+async function launchUxpDeveloperTool(): Promise<void> {
+  if (process.platform === 'darwin') {
+    try {
+      await execFileAsync('open', ['-a', 'Adobe UXP Developer Tool'])
+      return
+    } catch {
+      throw new ServiceError('NOT_FOUND', '未找到 Adobe UXP Developer Tool，请先通过 Creative Cloud 安装它')
+    }
+  }
+  if (process.platform === 'win32') {
+    const executable = windowsUxpDeveloperToolCandidates(process.env).find((path) => existsSync(path))
+    if (executable) {
+      await new Promise<void>((resolve, reject) => {
+        const child = spawn(executable, [], { detached: true, stdio: 'ignore', windowsHide: false })
+        child.once('error', reject)
+        child.once('spawn', () => {
+          child.unref()
+          resolve()
+        })
+      })
+      return
+    }
+    throw new ServiceError('NOT_FOUND', '未找到 Adobe UXP Developer Tool，请先通过 Creative Cloud 安装它')
+  }
+  throw new ServiceError('VALIDATION', '插件开发工具目前只支持 macOS 和 Windows')
+}
+
+export async function installPsdPlugin(): Promise<PsdBoard> {
+  const source = bundledPluginDirectory()
+  const target = installedPluginDirectory()
+  if (!existsSync(join(source, 'manifest.json')))
+    throw new ServiceError('NOT_FOUND', '应用内没有找到 Photoshop 插件文件')
+  mkdirSync(join(target, '..'), { recursive: true })
+  rmSync(target, { recursive: true, force: true })
+  cpSync(source, target, { recursive: true, force: true })
+  await launchUxpDeveloperTool()
+  if (process.platform === 'darwin' && (await photoshopPids()).length === 0) await openPhotoshopApp()
+  return board()
+}
+
+/** macOS 上插件已安装后，ERP 启动时自动准备 UXP 和 Photoshop。 */
+export async function preparePhotoshopAtAppStartup(): Promise<void> {
+  if (process.platform !== 'darwin') return
+  if (!existsSync(join(installedPluginDirectory(), 'manifest.json'))) return
+  if ((await photoshopPids()).length > 0) return
+
+  try {
+    await launchUxpDeveloperTool()
+  } catch (err) {
+    // UXP Developer Tool 不是必须项：曾加载过的插件会由 Photoshop 启动事件加载。
+    console.warn('[psd] 自动启动 UXP Developer Tool 失败:', err)
+  }
+  await openPhotoshopApp()
 }
 
 export async function openPsdPlugin(): Promise<void> {
