@@ -1,40 +1,11 @@
-# Photoshop 启动与插件常驻
+# Photoshop 插件安装与启动
 
-状态：按本计划改插件入口和应用的启动方式。不打包 `.ccx`，也不做无界面 Photoshop。
+## macOS：UXP
 
-## 结论
+ERP 把内置的 `photoshop-plugin/ajuan-psd/uxp` 复制到应用数据目录下的 `photoshop-plugin/ajuan-psd`。安装时打开 UXP Developer Tools 和 Photoshop；应用下次启动时也会打开两者。用户在 UXP Developer Tools 中用安装目录的 `manifest.json` 添加并加载插件，在 Photoshop 插件面板首次授权桥接目录及导出目录。ERP 不强制 Rosetta，也不关闭已打开的 Photoshop。UXP Developer Tools 仍负责插件的实际加载。
 
-- 同一次 Photoshop 进程里，插件加载过就不用再打开 UXP Developer Tools。
-- 开发版插件没有安装进 Photoshop。Photoshop 完全退出后，仍要在 UXP Developer Tools 里 Load 一次。`loadEvent: startup` 不能代替这次 Load。
-- macOS 安装插件后，如果启动阿卷 ERP 时 Photoshop 未运行，应用会先打开 UXP Developer Tool，再启动 Photoshop；首次加载仍需等 Photoshop 出现在 UDT 后手动 Load。
-- 插件一旦加载，轮询不依赖面板是否打开。面板只负责授权、日志和手动补跑。
-- 应用生成任务时，若 Photoshop 没在运行，就在后台启动它，不把它拉到前台。连续创建任务共用同一次启动。
-- 任务结束后保留 Photoshop 进程。开发版插件随宿主常驻，后续任务继续使用同一进程，不需要重新加载。
-- 连续创建任务共用一次 Photoshop 启动；若 Photoshop 已运行则直接复用。
-- Photoshop 仍会有启动画面和窗口。不做无界面宿主。
+## Windows：CEP
 
-## 插件
+ERP 把内置 CEP 扩展复制到 `%APPDATA%\Adobe\CEP\extensions\com.clukay.ajuan.psd`，写入 `ajuan-settings.json`，设置当前用户 `HKCU\Software\Adobe\CSXS.12\PlayerDebugMode=1`。重启 Photoshop 后，用户从「窗口 → 扩展（旧版）→ 阿卷 PSD」打开面板。可见面板不依赖 Node.js；独立后台扩展使用 Node.js 读取桥接队列，调用 `host.jsx` 完成处理。安装目录中的 `ajuan-worker.log` 记录队列状态。
 
-`manifest.json` 的 `host.data` 只加 `loadEvent: startup`，不加 `apiVersion`。再加一个命令入口「处理队列」，方便从 Photoshop 的插件菜单手动补跑。
-
-`index.js` 把队列从面板生命周期拆出：
-
-- `plugin.create` 开始轮询 `psd-bridge/inbox`。
-- `plugin.destroy` 停止轮询。
-- 面板 `create` / `show` 用当次的 `rootNode` 绑定按钮。`destroy` 丢掉这次的根节点，下次打开重新绑定。
-- 没有面板 DOM 时，日志先留在内存里，打开面板再显示。
-- 替换后按图层边界等比例完整放入，不分别拉伸宽高。左右区域由模板里的智能对象边界决定；内层 `slot_XX_rect` 组蒙版限制图片范围，外层 `slot_XX_circle` 组保留圆形边界。
-
-授权仍用原来的 persistent token，不需要每次重新授权。
-
-## 应用
-
-生成任务或重试时：
-
-1. 用进程列表判断 Photoshop 是否已在运行。匹配主程序，排除 AdobeIPCBroker。
-2. 没在运行就后台启动：macOS 用 `open -g`，Windows 用最小化启动。并发请求共用同一次启动。记录这次的进程号。
-3. 已经在运行就不记录、结束后也不退出。启动过程中若发现进程已经出现，也不算应用启动的。
-4. 队列里没有等待或处理中的任务后，只有进程号仍是当时启动的那个才退出。macOS 实际退出的是整个应用。
-5. 「打开 Photoshop」按钮仍把窗口带到前台，并且不把这次记成应用启动的。
-
-macOS 插件安装时会同时打开 UXP Developer Tool 和 Photoshop。首次在 UDT 添加复制后的 `manifest.json` 并 Load 后，插件会随 Photoshop 启动；之后仅启动 ERP 且 Photoshop 未运行时，ERP 会再次打开 UDT 和 Photoshop。
+两个平台复用原有的 PSD 导出和抠图任务协议。任务完成后 Photoshop 保持打开，后续任务继续使用已加载的插件。

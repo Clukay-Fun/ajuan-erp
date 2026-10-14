@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync, existsSync,
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { runInNewContext } from 'node:vm'
 import { deflateSync } from 'node:zlib'
 import { afterEach, describe, expect, it } from 'vitest'
 import { testDb } from './helpers'
@@ -30,13 +31,7 @@ import {
   syncPsdResults,
   type PsdPaths
 } from '../src/main/services/psdExport'
-import {
-  backgroundLaunch,
-  createLaunchGate,
-  darwinPhotoshopPids,
-  windowsPhotoshopPids,
-  windowsUxpDeveloperToolCandidates
-} from '../src/main/photoshopProcess'
+import { createLaunchGate, darwinPhotoshopPids, windowsPhotoshopPids } from '../src/main/photoshopProcess'
 
 const require = createRequire(import.meta.url)
 const { fitToBounds } = require('../photoshop-plugin/ajuan-psd/fit.js') as {
@@ -675,54 +670,93 @@ describe('Photoshop 安装位置', () => {
 })
 
 describe('插件约定', () => {
-  it('另存副本、不写回打开的文件，并带上缺图层和锁的错误', () => {
-    const source = readFileSync(
-      join(dirname(fileURLToPath(import.meta.url)), '../photoshop-plugin/ajuan-psd/index.js'),
-      'utf8'
-    )
-    const manifest = JSON.parse(
-      readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../photoshop-plugin/ajuan-psd/manifest.json'), 'utf8')
-    ) as { host: { data?: { loadEvent?: string; apiVersion?: number } } }
-    expect(source).toContain('placedLayerReplaceContents')
-    expect(source).toContain('current.scale(fit.scale * 100, fit.scale * 100, constants.AnchorPosition.MIDDLECENTER)')
-    expect(source).toContain('current.translate(fit.dx, fit.dy)')
-    expect(source).toContain('变换未落入模板范围')
-    expect(source).toContain('saveAs.psd')
-    expect(source).toContain('DONOTSAVECHANGES')
-    expect(source).toContain('图层不存在:')
-    expect(source).toContain('图层已锁定:')
-    expect(source).toContain('图层不是智能对象:')
-    expect(source).toContain('打开了错误文件:')
-    expect(source).toContain('startWorker')
-    expect(source).toContain('unmountPanel')
-    expect(source).toContain('create(rootNode)')
-    expect(source).not.toMatch(/doc\.save\(/)
-    expect(manifest.host.data?.loadEvent).toBe('startup')
-    expect(manifest.host.data?.apiVersion).toBeUndefined()
+  it('安装为 CEP 面板并由隐藏后台扩展处理 Photoshop 队列', () => {
+    const root = join(dirname(fileURLToPath(import.meta.url)), '../photoshop-plugin/ajuan-psd')
+    const panel = readFileSync(join(root, 'index.js'), 'utf8')
+    const worker = readFileSync(join(root, 'worker.js'), 'utf8')
+    const host = readFileSync(join(root, 'host.jsx'), 'utf8')
+    const manifest = readFileSync(join(root, 'CSXS/manifest.xml'), 'utf8')
+    expect(manifest).toContain('com.clukay.ajuan.psd.panel')
+    expect(manifest).toContain('com.clukay.ajuan.psd.worker')
+    expect(manifest).toContain('<Type>Custom</Type>')
+    expect(manifest).toContain('<Event>applicationActivate</Event>')
+    expect(manifest).toContain('--enable-nodejs')
+    expect(manifest.split('<Extension Id="com.clukay.ajuan.psd.panel">')[1]).not.toContain('--enable-nodejs')
+    expect(panel).toContain('window.cep')
+    expect(panel).not.toContain("require('fs')")
+    expect(worker).toContain('replace(/^file:')
+    expect(worker).toContain('AjuanPS.runHex(')
+    expect(worker).toContain('payload.templatePath')
+    expect(worker).toContain('Photoshop 导出参数不完整')
+    expect(host).toContain('placedLayerReplaceContents')
+    expect(host).toContain('function decodeHex(hex)')
+    expect(host).toContain('Photoshop 收到的导出任务缺少 templatePath')
+    expect(host).toContain('layer.resize(scale * 100, scale * 100, AnchorPosition.MIDDLECENTER)')
+    expect(host).toContain("layer.translate(UnitValue(dx, 'px'), UnitValue(dy, 'px'))")
+    expect(host).toContain('变换未落入模板范围')
+    expect(host).toContain('doc.saveAs(output, options, true, Extension.LOWERCASE)')
+    expect(host).toContain('DONOTSAVECHANGES')
+    expect(host).toContain('图层不存在:')
+    expect(host).toContain('图层已锁定:')
+    expect(host).toContain('图层不是智能对象:')
+    expect(host).toContain('打开了错误文件:')
+    expect(host).not.toMatch(/doc\.save\(/)
+  })
+
+  it('macOS UXP 插件保留独立入口和队列处理', () => {
+    const root = join(dirname(fileURLToPath(import.meta.url)), '../photoshop-plugin/ajuan-psd/uxp')
+    const manifest = JSON.parse(readFileSync(join(root, 'manifest.json'), 'utf8'))
+    const script = readFileSync(join(root, 'index.js'), 'utf8')
+    expect(manifest.host.app).toBe('PS')
+    expect(manifest.entrypoints.some((entry: { type: string }) => entry.type === 'panel')).toBe(true)
+    expect(script).toContain('entrypoints.setup(')
+    expect(script).toContain('runQueue(')
+  })
+
+  it('CEP JSX 按任务类型分别打开 PSD 模板与抠图原图', () => {
+    const root = join(dirname(fileURLToPath(import.meta.url)), '../photoshop-plugin/ajuan-psd')
+    const source = readFileSync(join(root, 'host.jsx'), 'utf8').replace(/^#target photoshop\s*/, '')
+    const dispatch = (payload: Record<string, unknown>) => {
+      const json = JSON.stringify(payload)
+      let hex = ''
+      for (let i = 0; i < json.length; i++) hex += ('000' + json.charCodeAt(i).toString(16)).slice(-4)
+      const raw = runInNewContext(`${source}\nAjuanPS.runHex("${hex}")`, {
+        File: (path: string) => ({ exists: true, fsName: path }),
+        app: {
+          open: (file: { fsName: string }) => {
+            throw new Error(`OPEN_CALLED:${file.fsName}`)
+          }
+        }
+      }) as string
+      return JSON.parse(raw) as { ok: boolean; error: string }
+    }
+
+    const exported = dispatch({
+      kind: 'export',
+      templatePath: 'C:\\Bridge\\staging\\5\\template.psd',
+      outputPath: 'C:\\Downloads\\out.psd',
+      replacements: []
+    })
+    const cutout = dispatch({
+      kind: 'cutout',
+      sourcePath: 'C:\\Bridge\\staging\\cutout-6\\source.jpg',
+      outputPath: 'C:\\Downloads\\out.png',
+      assetKind: 'dog'
+    })
+
+    expect(exported.error).toBe('OPEN_CALLED:C:\\Bridge\\staging\\5\\template.psd')
+    expect(cutout.error).toBe('OPEN_CALLED:C:\\Bridge\\staging\\cutout-6\\source.jpg')
   })
 })
 
 describe('Photoshop 进程', () => {
-  it('按 Windows 常见安装位置查找 UXP Developer Tool', () => {
-    expect(windowsUxpDeveloperToolCandidates({ ProgramFiles: 'C:\\Program Files' })).toContain(
-      'C:\\Program Files\\Adobe\\Adobe UXP Developer Tool\\Adobe UXP Developer Tool.exe'
-    )
-    expect(windowsUxpDeveloperToolCandidates({ LOCALAPPDATA: 'C:\\Users\\user\\AppData\\Local' })).toContain(
-      'C:\\Users\\user\\AppData\\Local\\Adobe\\UXP Developer Tool\\UXP Developer Tool.exe'
-    )
-  })
-
-  it('只认主进程并在后台启动，不打断已运行的宿主', () => {
+  it('只认 Photoshop 主进程，不把 AdobeIPCBroker 算作宿主', () => {
     const listing = [
       '17829 /Applications/Utilities/AdobeIPCBroker -launchedbyvulcan /Applications/Adobe Photoshop 2026/Adobe Photoshop 2026.app/Contents/MacOS/Adobe Photoshop 2026',
       '19606 /Applications/Adobe Photoshop 2026/Adobe Photoshop 2026.app/Contents/MacOS/Adobe Photoshop 2026'
     ].join('\n')
     expect(darwinPhotoshopPids(listing)).toEqual([19606])
     expect(windowsPhotoshopPids('"Photoshop.exe","4242","Console","1","120,000 K"')).toEqual([4242])
-    expect(backgroundLaunch('darwin', '/Applications/Adobe Photoshop 2026/Adobe Photoshop 2026.app')).toEqual({
-      command: 'open',
-      args: ['-g', '-a', '/Applications/Adobe Photoshop 2026/Adobe Photoshop 2026.app']
-    })
   })
 
   it('并发启动共用同一次，结束后下一次会重新启动', async () => {

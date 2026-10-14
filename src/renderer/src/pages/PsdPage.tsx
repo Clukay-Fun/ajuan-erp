@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
-import type { PsdAsset, PsdBoard, PsdCutoutJob, PsdJob, PsdJobStatus, PsdSlot } from '@shared/psd'
+import type { PsdAsset, PsdBoard, PsdCutoutJob, PsdExportFormat, PsdJob, PsdJobStatus, PsdSlot } from '@shared/psd'
+import type { AppInfo } from '@shared/ipc'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/Button'
 import { Field } from '@/components/Field'
@@ -50,11 +51,13 @@ const EMPTY_SLOT: SlotDraft = { slotKey: 'slot_01', dogLayer: 'slot_01_dog', nam
 export function PsdPage(): ReactElement {
   const toast = useToast()
   const [board, setBoard] = useState<PsdBoard | null>(null)
+  const [platform, setPlatform] = useState<AppInfo['platform'] | null>(null)
   const [busy, setBusy] = useState(false)
   const [templateName, setTemplateName] = useState('')
   const [slotDraft, setSlotDraft] = useState<SlotDraft>(EMPTY_SLOT)
   const [templateId, setTemplateId] = useState<number | null>(null)
   const [title, setTitle] = useState('')
+  const [format, setFormat] = useState<PsdExportFormat>('psd')
   const [picks, setPicks] = useState<Record<number, SlotPick>>({})
   const [pending, setPending] = useState<{ kind: 'template' | 'asset'; id: number; label: string } | null>(null)
   const [reviewCutoutId, setReviewCutoutId] = useState<number | null>(null)
@@ -67,6 +70,9 @@ export function PsdPage(): ReactElement {
 
   useEffect(() => {
     load().catch((err: unknown) => toast(errorMessage(err), 'error'))
+    unwrap(window.ajuan.app.getInfo())
+      .then((info) => setPlatform(info.platform))
+      .catch(() => {})
   }, [load, toast])
 
   useEffect(() => {
@@ -154,7 +160,7 @@ export function PsdPage(): ReactElement {
       return
     }
     void act(async () => {
-      const next = await unwrap(window.ajuan.psd.createJob({ templateId: template.id, title, items }))
+      const next = await unwrap(window.ajuan.psd.createJob({ templateId: template.id, title, format, items }))
       setTitle('')
       setPicks({})
       return next
@@ -203,8 +209,8 @@ export function PsdPage(): ReactElement {
 
   return (
     <>
-      <PageHeader title="定制" subtitle="用 Photoshop 替换模板里的狗图和名字图，并另存为新的 PSD。" />
-      <BridgeCard board={board} busy={busy} onAct={act} />
+      <PageHeader title="定制" subtitle="用 Photoshop 替换模板里的狗图和名字图，并另存为 PSD 或 TIFF。" />
+      <BridgeCard board={board} busy={busy} onAct={act} platform={platform} />
       <section className={styles.card}>
         <h2 className={styles.title}>模板</h2>
         <p className={styles.hint}>选择原始 PSD。导出时只复制一份，不改这个文件。可替换图层要做成智能对象。</p>
@@ -324,14 +330,15 @@ export function PsdPage(): ReactElement {
 
       <section className={styles.card}>
         <h2 className={styles.title}>导出</h2>
-        <p className={styles.hint}>勾选要替换的位置。只选一个就是单张替换，选多个会写进同一个 PSD。</p>
+        <p className={styles.hint}>勾选要替换的位置。只选一个就是单张替换，选多个会写进同一个文件；模板中的示例图案会自动清除。</p>
+        <p className={styles.hint}>PSD 和 TIFF 都会写入 W1 红色专色通道（密度 100%），通道内容取本次合并图层的透明形状。</p>
         <p className={styles.hint}>
           素材会按圆内矩形区域等比例缩放，完整显示，不拉伸。放不满的一边留白，内矩形限制图片范围，外圆保留圆形边界。
         </p>
         {!template && <p className={styles.muted}>先添加模板和位置。</p>}
         {template && (
           <>
-            <div className={styles.assets}>
+            <div className={`${styles.assets} ${styles.exportSettings}`}>
               <Select
                 label="模板"
                 value={template.id}
@@ -344,6 +351,15 @@ export function PsdPage(): ReactElement {
                 maxLength={60}
                 placeholder="用于输出文件名"
                 onChange={(event) => setTitle(event.target.value)}
+              />
+              <Select
+                label="导出格式"
+                value={format}
+                options={[
+                  { value: 'psd', label: 'PSD' },
+                  { value: 'tiff', label: 'TIFF' }
+                ]}
+                onChange={setFormat}
               />
             </div>
             {!template.slots.length && <p className={styles.muted}>这个模板还没有位置。</p>}
@@ -423,26 +439,37 @@ export function PsdPage(): ReactElement {
 function BridgeCard({
   board,
   busy,
-  onAct
+  onAct,
+  platform
 }: {
   board: PsdBoard | null
   busy: boolean
   onAct: (fn: () => Promise<PsdBoard | null>, ok?: string) => Promise<void>
+  platform: AppInfo['platform'] | null
 }): ReactElement {
+  const isMac = platform === 'darwin'
   return (
     <section className={styles.card}>
       <h2 className={styles.title}>Photoshop</h2>
       <p className={styles.hint}>
-        macOS 上插件安装后，启动阿卷 ERP 时会先打开 UXP Developer Tool，再打开 Photoshop。生成任务时，若 Photoshop
-        没在运行，应用也会按需启动它。任务完成后 Photoshop 会保持打开，已加载的插件可以继续处理后续任务。
+        {isMac
+          ? 'Mac 使用 UXP 插件。安装后在 UXP Developer Tools 中加载插件；阿卷 ERP 会按需打开 Photoshop，任务完成后保持打开。'
+          : 'Windows 使用 CEP 扩展面板。安装后可从 Photoshop「窗口 → 扩展（旧版）→ 阿卷 PSD」打开；后台扩展自动处理任务。'}
       </p>
       <ol className={styles.steps}>
-        <li>
-          点“安装插件”会复制插件文件并打开 UXP Developer Tools；macOS 会同时打开 Photoshop。首次需等 Photoshop 出现在工具里，再添加复制后的
-          manifest.json 并点击 Load 一次；以后 Photoshop 启动时，已加载插件会自动启动。
-        </li>
-        <li>第一次使用时，在「阿卷 PSD」面板授权桥接目录；首次导出时再授权导出目录。授权会记住。</li>
-        <li>插件加载后会自己处理队列，不必一直打开面板。面板用来看日志，或手动补跑。</li>
+        {isMac ? (
+          <>
+            <li>点“准备 UXP 插件”，随后在 UXP Developer Tools 中用 Add Plugin 选择下方的 manifest.json，再点 Load。</li>
+            <li>在 Photoshop「插件 → 阿卷 PSD」打开面板，首次使用时授权桥接目录及导出目录。</li>
+            <li>生成任务后插件自动处理；若插件未加载，请在 UXP Developer Tools 中重新点 Load。</li>
+          </>
+        ) : (
+          <>
+            <li>点“安装 CEP 面板”后重启 Photoshop，再从「窗口 → 扩展（旧版）→ 阿卷 PSD」打开。</li>
+            <li>桥接目录和导出目录由 ERP 自动同步给扩展，无需在 Photoshop 中重复授权。</li>
+            <li>后台扩展会随 Photoshop 启动并处理队列；面板显示日志和手动检查按钮。</li>
+          </>
+        )}
       </ol>
       <div className={styles.actions}>
         <Button
@@ -451,11 +478,13 @@ function BridgeCard({
           onClick={() =>
             void onAct(
               () => unwrap(window.ajuan.psd.installPlugin()),
-              '插件已复制，UXP Developer Tool 已打开；macOS 同时打开 Photoshop'
+              isMac
+                ? 'UXP 插件文件已准备好；请在 UXP Developer Tools 中选择下方 manifest.json 并点 Load'
+                : 'CEP 面板已安装；请重启 Photoshop 后从「窗口 → 扩展（旧版）」打开“阿卷 PSD”'
             )
           }
         >
-          安装插件
+          {isMac ? '准备 UXP 插件' : '安装 CEP 面板'}
         </Button>
         <Button
           variant="secondary"
@@ -490,7 +519,7 @@ function BridgeCard({
           disabled={busy}
           onClick={() => void onAct(() => unwrap(window.ajuan.psd.openPlugin()).then(() => null))}
         >
-          打开插件目录
+          {isMac ? '打开 UXP 插件目录' : '打开面板目录'}
         </Button>
         <Button
           variant="secondary"
@@ -523,10 +552,14 @@ function BridgeCard({
       <p className={styles.mono}>{board?.bridgeDir ?? '加载中…'}</p>
       <p className={styles.muted}>PSD 和透明 PNG 导出目录：</p>
       <p className={styles.mono}>{board?.outputDir ?? '加载中…'}</p>
-      <p className={styles.muted}>UXP Developer Tools 添加这个 manifest.json：</p>
-      <p className={styles.mono}>{board?.pluginDir ?? '加载中…'}/manifest.json</p>
+      <p className={styles.muted}>{isMac ? 'Photoshop UXP 插件文件：' : 'Photoshop CEP 面板安装目录：'}</p>
+      <p className={styles.mono}>
+        {board?.pluginDir ?? '加载中…'}/{isMac ? 'manifest.json' : 'CSXS/manifest.xml'}
+      </p>
       <p className={styles.muted}>
-        修改桥接目录后，请在 Photoshop 面板重新授权新目录；修改导出目录后，首次处理时会重新授权。
+        {isMac
+          ? '修改目录后，请在 Photoshop 插件面板中重新授权。'
+          : '修改目录后，ERP 会自动同步给 Photoshop CEP 后台扩展。'}
       </p>
       <p className={styles.muted}>
         {board?.photoshopPath ? `找到 Photoshop：${fileName(board.photoshopPath)}` : '未找到 Photoshop'}

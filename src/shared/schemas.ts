@@ -88,6 +88,7 @@ export const psdJobCreateSchema = z
   .object({
     templateId: z.number().int().positive(),
     title: z.string().trim().min(1, '请填写定制标题').max(60, '标题过长'),
+    format: z.enum(['psd', 'tiff']).default('psd'),
     items: z
       .array(
         z.object({

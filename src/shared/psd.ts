@@ -6,6 +6,7 @@ export const PSD_JOB_VERSION = 1
 export const SLOT_KEY_PATTERN = /^slot_(0[1-9]|[1-9][0-9])$/
 
 export type PsdAssetKind = 'dog' | 'name'
+export type PsdExportFormat = 'psd' | 'tiff'
 export type PsdJobStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled'
 export type PsdCutoutStatus = 'queued' | 'running' | 'ready' | 'failed' | 'confirmed' | 'cancelled'
 
@@ -30,7 +31,8 @@ export const psdJobFileSchema = z.object({
   title: z.string().min(1).max(60),
   templateFile: z.literal('template.psd'),
   outputDir: absoluteDirectory.optional(),
-  outputFile: baseName.refine((name) => name.toLowerCase().endsWith('.psd'), '输出文件必须是 PSD'),
+  format: z.enum(['psd', 'tiff']).optional(),
+  outputFile: baseName.refine((name) => /\.(psd|tif|tiff)$/i.test(name), '输出文件必须是 PSD 或 TIFF'),
   replacements: z
     .array(
       z.object({
@@ -114,12 +116,12 @@ export function safeOutputBase(title: string): string {
   return (scrubFileName(title) || 'export').slice(0, 60)
 }
 
-export function allocateOutputName(base: string, taken: Iterable<string>): string {
-  const used = new Set(taken)
-  if (!used.has(`${base}.psd`)) return `${base}.psd`
+export function allocateOutputName(base: string, taken: Iterable<string>, extension: 'psd' | 'tif' = 'psd'): string {
+  const used = new Set(Array.from(taken, (name) => name.toLowerCase()))
+  if (!used.has(`${base}.${extension}`.toLowerCase())) return `${base}.${extension}`
   for (let i = 2; i < 1000; i++) {
-    const name = `${base}-${i}.psd`
-    if (!used.has(name)) return name
+    const name = `${base}-${i}.${extension}`
+    if (!used.has(name.toLowerCase())) return name
   }
   throw new Error('输出文件名已用尽')
 }

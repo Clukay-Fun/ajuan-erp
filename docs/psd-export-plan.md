@@ -2,7 +2,7 @@
 
 状态：应用侧、Photoshop 插件和模板已按本计划落地。`templates/slot-template.psd` 已由 Photoshop ExtendScript 生成，并在 Photoshop 2026 中验证可打开。
 
-目标：按稳定图层名替换模板里的狗图和名字图，另存为新的 PSD。原始模板不被覆盖，其他图层和样式保持可编辑。
+目标：按稳定图层名替换模板里的狗图和名字图，另存为新的 PSD 或 TIFF。原始模板不被覆盖，其他图层和样式保持可编辑。
 
 ## 约束
 
@@ -12,7 +12,7 @@
 - 可替换图层必须是智能对象，名称稳定，例如 `slot_01_dog`、`slot_01_name`。
 - 插件只打开任务目录里的模板副本，`saveAs` 另存，并以不保存的方式关闭副本。
 - 第一版通信是文件队列：应用写入任务，插件自动轮询执行，应用再读结果。不做套接字自动连接。
-- 生成任务时按需在后台启动 Photoshop，不把它拉到最前。任务完成后保留 Photoshop，供插件继续处理任务。
+- 生成任务时若 Photoshop 未运行则自动启动并等待宿主进程出现；任务完成后保留 Photoshop，供插件继续处理任务。
 - 狗图边缘的红黄细边第一版不自动去除，放到白底上目视确认。
 - 库存备份仍只包含数据库和单据附件。PSD 模板、素材和导出文件在数据目录里，换机器恢复时要单独拷贝 `psd-assets`、`psd-bridge`。
 
@@ -37,9 +37,9 @@ psd-bridge/
 └─ outputs/<标题>.psd       另存结果
 ```
 
-任务 JSON 版本为 1。里面只有 `template.psd` 和 PNG/JPG 文件名，不写原始 PSD 的绝对路径。输出文件名冲突时追加 `-2`、`-3`。
+任务 JSON 版本为 1。里面只有 `template.psd` 和 PNG/JPG 文件名，不写原始 PSD 的绝对路径；输出格式字段兼容旧任务，默认 PSD。输出文件名冲突时按所选扩展名追加 `-2`、`-3`。
 
-替换后按原图层边界等比例完整放入：`scale = min(目标宽 / 素材宽, 目标高 / 素材高)`，再把中心移回目标中心。不拉伸、不裁切图片。放不满的一边留白，图层本身保持在目标区域内。左右位置由 PSD 里 `dogLayer` 和 `nameLayer` 的边界决定，不在数据库里另存坐标。几何在 `photoshop-plugin/ajuan-psd/fit.js`，单元测试锁定。
+替换后按原图层边界等比例完整放入：`scale = min(目标宽 / 素材宽, 目标高 / 素材高)`，再把中心移回目标中心。不拉伸、不裁切图片。放不满的一边留白，图层本身保持在目标区域内。左右位置由 PSD 里 `dogLayer` 和 `nameLayer` 的边界决定，不在数据库里另存坐标。macOS UXP 几何实现位于 `photoshop-plugin/ajuan-psd/uxp/fit.js`，单元测试锁定。
 
 当前使用的 `templates/slot-template.psd` 保留 6×3 网格，共 18 个 868×868 正方形位置。每格的 868×868 外圆组保留圆形边界，内缩 128 px 的 612×612 正方形区域由 `slot_XX_rect` 组蒙版限制，名字图和狗图各占一半（306×612），中间有分界线；内矩形的四角完整位于圆内。`templates/circle-base.psd` 是用户提供的圆形边框基础文件。`框.tif` 和 `图.tif` 只作排版参考，不导入 ERP。
 
@@ -47,17 +47,19 @@ psd-bridge/
 
 ## 插件
 
-目录 `photoshop-plugin/ajuan-psd/`。Photoshop 2024 及以上。开发版用 UXP Developer Tool 加载；Photoshop 完全退出后要再 Load 一次。`host.data.loadEvent` 为 `startup`，插件加载后随宿主启动，轮询不依赖面板。详见 `docs/psd-launch-plan.md`。
+目录 `photoshop-plugin/ajuan-psd/`。Photoshop 2024 及以上。macOS 使用原来的 UXP 插件，Windows 安装 CEP 扩展面板。详见 `docs/psd-launch-plan.md`。
 
-面板负责授权 `psd-bridge`、显示日志和手动补跑。后台轮询在 `plugin.create` 里启动。开发模式只有修改插件代码后才需要重载。
+Windows CEP 可见面板显示目录与日志，并可手动触发队列检查；隐藏后台扩展负责轮询。ERP 将桥接目录和导出目录同步到 CEP 配置。macOS UXP 面板首次使用需授权这些目录。
 
 每个任务：
 
 1. 打开 `staging/<id>/template.psd`。打开的文档名或路径对不上就停止，并且不关闭那个文档。
 2. 按图层名查找。找不到、被锁定、或不是智能对象时失败，错误分别是 `图层不存在: …`、`图层已锁定: …`、`图层不是智能对象: …`。
 3. 用 `placedLayerReplaceContents` 替换内容，再按 `fit.js` 缩放和移动。
-4. 把结果 `saveAs.psd` 到 `outputs/`，`asCopy`。
-5. 关闭副本时不保存。成功写入 `done`，失败写入 `failed`。
+4. 生成时从副本移除所有 `example_` 开头的示例图案；同一位置的狗图与名字图放好后合并为一个 `slot_XX` 图层，只作用于本次导出副本。
+5. 合并后按图层透明形状生成名为 `W1` 的专色通道，显示色红色、密度 100%。
+6. 把结果另存为 PSD 或 TIFF 到输出目录，两种格式都保存图层和专色通道。
+7. 关闭副本时不保存。成功写入 `done`，失败写入 `failed`。
 
 图层不存在时不产生输出文件。多个位置在同一次模态操作里替换，只保存一次。
 

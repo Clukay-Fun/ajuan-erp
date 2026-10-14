@@ -1,18 +1,12 @@
 import { app, BrowserWindow, dialog, shell } from 'electron'
 import { execFile, spawn } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import type { PsdAssetKind, PsdBoard } from '@shared/psd'
 import type { PsdJobCreateInput, PsdSlotCreateInput, PsdTemplateCreateInput } from '@shared/schemas'
 import { state } from './appState'
-import {
-  backgroundLaunch,
-  createLaunchGate,
-  darwinPhotoshopPids,
-  windowsPhotoshopPids,
-  windowsUxpDeveloperToolCandidates
-} from './photoshopProcess'
+import { createLaunchGate, darwinPhotoshopPids, windowsPhotoshopPids } from './photoshopProcess'
 import { ServiceError } from './services/errors'
 import {
   addPsdSlot,
@@ -54,7 +48,9 @@ async function photoshopPids(): Promise<number[]> {
 }
 
 async function waitForPhotoshopPid(): Promise<number | null> {
-  const deadline = Date.now() + 20_000
+  // Photoshop 2026 can take longer than 20 seconds on a cold start, especially
+  // when the plugin is also being loaded for the first time.
+  const deadline = Date.now() + 60_000
   while (Date.now() < deadline) {
     const ids = await photoshopPids()
     if (ids.length > 0) return ids[0]
@@ -79,12 +75,26 @@ function bundledPluginDirectory(): string {
 }
 
 function installedPluginDirectory(): string {
-  return join(app.getPath('userData'), 'photoshop-plugin', 'ajuan-psd')
+  return process.platform === 'darwin'
+    ? join(app.getPath('userData'), 'photoshop-plugin', 'ajuan-psd')
+    : join(app.getPath('appData'), 'Adobe', 'CEP', 'extensions', 'com.clukay.ajuan.psd')
 }
 
 function pluginDirectory(): string {
   const installed = installedPluginDirectory()
-  return existsSync(join(installed, 'manifest.json')) ? installed : bundledPluginDirectory()
+  const manifest = process.platform === 'darwin' ? 'manifest.json' : join('CSXS', 'manifest.xml')
+  if (existsSync(join(installed, manifest))) return installed
+  return process.platform === 'darwin' ? join(bundledPluginDirectory(), 'uxp') : bundledPluginDirectory()
+}
+
+function writePluginSettings(directory = installedPluginDirectory()): void {
+  if (process.platform === 'darwin') return
+  if (!existsSync(join(directory, 'CSXS', 'manifest.xml'))) return
+  writeFileSync(
+    join(directory, 'ajuan-settings.json'),
+    JSON.stringify({ bridgeDir: state.psdBridgeDir, outputDir: state.psdOutputDir }, null, 2),
+    'utf8'
+  )
 }
 
 function board(): PsdBoard {
@@ -169,14 +179,29 @@ export function cancelPsdCutoutInteractive(jobId: number): PsdBoard {
   return board()
 }
 
-async function launchPhotoshopInBackground(appPath: string): Promise<void> {
-  if (process.platform !== 'darwin' && process.platform !== 'win32') {
+async function launchPhotoshop(appPath: string): Promise<void> {
+  let command: string
+  let args: string[]
+  if (process.platform === 'darwin') {
+    command = '/usr/bin/open'
+    args = ['-a', appPath]
+  } else if (process.platform === 'win32') {
+    command = 'powershell.exe'
+    const quoted = `'${appPath.replace(/'/g, "''")}'`
+    args = ['-NoProfile', '-Command', `Start-Process -FilePath ${quoted}`]
+  } else {
     const error = await shell.openPath(appPath)
     if (error) throw new ServiceError('INTERNAL', `无法启动 Photoshop：${error}`)
     return
   }
-  const launch = backgroundLaunch(process.platform, appPath)
-  await execFileAsync(launch.command, launch.args)
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(command, args, { detached: true, stdio: 'ignore', windowsHide: false })
+    child.once('error', reject)
+    child.once('spawn', () => {
+      child.unref()
+      resolve()
+    })
+  })
 }
 
 async function startPhotoshopForJob(): Promise<void> {
@@ -186,9 +211,10 @@ async function startPhotoshopForJob(): Promise<void> {
   await photoshopLaunch.run(async () => {
     const again = await photoshopPids()
     if (again.length > 0) return
-    await launchPhotoshopInBackground(found)
+    await launchPhotoshop(found)
     // 保持启动门闩直到宿主进程出现，避免连续创建任务时重复打开 Photoshop。
-    await waitForPhotoshopPid()
+    const pid = await waitForPhotoshopPid()
+    if (!pid) throw new ServiceError('INTERNAL', '启动 Photoshop 超时，请检查安装目录后重试')
   })
 }
 
@@ -198,7 +224,9 @@ export async function createPsdJobInteractive(input: PsdJobCreateInput): Promise
     // 只在有导出任务时启动。任务完成后保留 Photoshop，让已加载的开发插件继续可用。
     await startPhotoshopForJob()
   } catch (err) {
-    console.error('[psd] 自动启动 Photoshop 失败:', err)
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('[psd] 任务已排队，但自动启动 Photoshop 失败:', err)
+    throw new ServiceError('INTERNAL', `任务已加入队列，但 Photoshop 未能自动打开：${message}`)
   }
   return board()
 }
@@ -257,6 +285,7 @@ async function pickPsdDirectory(kind: 'bridgeDir' | 'outputDir'): Promise<PsdBoa
   if (result.canceled || result.filePaths.length === 0) return null
   assertNoActivePsdTasks()
   state.setPsdDirectory(kind, result.filePaths[0])
+  writePluginSettings()
   return board()
 }
 
@@ -268,59 +297,54 @@ export function pickPsdOutputDirectory(): Promise<PsdBoard | null> {
   return pickPsdDirectory('outputDir')
 }
 
-async function launchUxpDeveloperTool(): Promise<void> {
-  if (process.platform === 'darwin') {
-    try {
-      await execFileAsync('open', ['-a', 'Adobe UXP Developer Tool'])
-      return
-    } catch {
-      throw new ServiceError('NOT_FOUND', '未找到 Adobe UXP Developer Tool，请先通过 Creative Cloud 安装它')
-    }
-  }
-  if (process.platform === 'win32') {
-    const executable = windowsUxpDeveloperToolCandidates(process.env).find((path) => existsSync(path))
-    if (executable) {
-      await new Promise<void>((resolve, reject) => {
-        const child = spawn(executable, [], { detached: true, stdio: 'ignore', windowsHide: false })
-        child.once('error', reject)
-        child.once('spawn', () => {
-          child.unref()
-          resolve()
-        })
-      })
-      return
-    }
-    throw new ServiceError('NOT_FOUND', '未找到 Adobe UXP Developer Tool，请先通过 Creative Cloud 安装它')
-  }
-  throw new ServiceError('VALIDATION', '插件开发工具目前只支持 macOS 和 Windows')
-}
-
 export async function installPsdPlugin(): Promise<PsdBoard> {
-  const source = bundledPluginDirectory()
+  const source = process.platform === 'darwin' ? join(bundledPluginDirectory(), 'uxp') : bundledPluginDirectory()
   const target = installedPluginDirectory()
-  if (!existsSync(join(source, 'manifest.json')))
-    throw new ServiceError('NOT_FOUND', '应用内没有找到 Photoshop 插件文件')
+  const manifest = process.platform === 'darwin' ? 'manifest.json' : join('CSXS', 'manifest.xml')
+  if (!existsSync(join(source, manifest))) throw new ServiceError('NOT_FOUND', '应用内没有找到 Photoshop 插件文件')
   mkdirSync(join(target, '..'), { recursive: true })
   rmSync(target, { recursive: true, force: true })
   cpSync(source, target, { recursive: true, force: true })
-  await launchUxpDeveloperTool()
-  if (process.platform === 'darwin' && (await photoshopPids()).length === 0) await openPhotoshopApp()
+  writePluginSettings(target)
+  if (process.platform === 'win32') {
+    await execFileAsync('reg.exe', [
+      'add',
+      'HKCU\\Software\\Adobe\\CSXS.12',
+      '/v',
+      'PlayerDebugMode',
+      '/t',
+      'REG_SZ',
+      '/d',
+      '1',
+      '/f'
+    ])
+  } else if (process.platform !== 'darwin') {
+    throw new ServiceError('VALIDATION', 'Photoshop 面板安装目前只支持 macOS 和 Windows')
+  }
+  if (process.platform === 'darwin') {
+    await openUxpDeveloperTool()
+  }
+  if ((await photoshopPids()).length === 0) await openPhotoshopApp()
   return board()
 }
 
-/** macOS 上插件已安装后，ERP 启动时自动准备 UXP 和 Photoshop。 */
+async function openUxpDeveloperTool(): Promise<void> {
+  const candidates = [
+    '/Applications/Adobe UXP Developer Tools/Adobe UXP Developer Tools.app',
+    '/Applications/Adobe UXP Developer Tool.app'
+  ]
+  const found = candidates.find(existsSync)
+  if (!found) return
+  await execFileAsync('/usr/bin/open', ['-g', '-a', found])
+}
+
+/** macOS 使用原来的 UXP 插件；安装后，ERP 启动时打开开发工具及 Photoshop。 */
 export async function preparePhotoshopAtAppStartup(): Promise<void> {
+  writePluginSettings()
   if (process.platform !== 'darwin') return
   if (!existsSync(join(installedPluginDirectory(), 'manifest.json'))) return
-  if ((await photoshopPids()).length > 0) return
-
-  try {
-    await launchUxpDeveloperTool()
-  } catch (err) {
-    // UXP Developer Tool 不是必须项：曾加载过的插件会由 Photoshop 启动事件加载。
-    console.warn('[psd] 自动启动 UXP Developer Tool 失败:', err)
-  }
-  await openPhotoshopApp()
+  await openUxpDeveloperTool()
+  if ((await photoshopPids()).length === 0) await startPhotoshopForJob()
 }
 
 export async function openPsdPlugin(): Promise<void> {
@@ -332,7 +356,16 @@ export async function openPsdPlugin(): Promise<void> {
 export async function openPhotoshopApp(): Promise<void> {
   const found = findPhotoshopApp(photoshopSearchRoots())
   if (!found) throw new ServiceError('NOT_FOUND', '没有找到 Photoshop。请先安装 Photoshop 2024 或更新版本。')
-  await openFolder(found)
+  if ((await photoshopPids()).length > 0) {
+    const error = await shell.openPath(found)
+    if (error) throw new ServiceError('INTERNAL', `无法切换到 Photoshop：${error}`)
+    return
+  }
+  if (process.platform === 'win32') {
+    await openFolder(found)
+    return
+  }
+  await launchPhotoshop(found)
 }
 
 export function revealPsdJob(jobId: number): void {

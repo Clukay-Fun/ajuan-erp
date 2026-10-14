@@ -599,7 +599,8 @@ export function createPsdJob(db: Db, paths: PsdPaths, input: PsdJobCreateInput):
 
   ensureBridge(paths.bridgeDir)
   ensurePsdOutputDir(paths)
-  const outputFile = allocateOutputName(safeOutputBase(data.title), takenOutputNames(db, paths))
+  const extension = data.format === 'tiff' ? 'tif' : 'psd'
+  const outputFile = allocateOutputName(safeOutputBase(data.title), takenOutputNames(db, paths), extension)
   const createdAt = nowIso()
   const id = transaction(db, () => {
     const row = db
@@ -638,6 +639,7 @@ export function createPsdJob(db: Db, paths: PsdPaths, input: PsdJobCreateInput):
       id,
       title: data.title,
       templateFile: 'template.psd',
+      format: data.format,
       outputDir: outputDir(paths),
       outputFile,
       replacements: prepared.flatMap((item) => {
@@ -959,6 +961,7 @@ export function retryPsdJob(db: Db, paths: PsdPaths, jobId: number): void {
     id: parsed.id,
     title: parsed.title,
     templateFile: parsed.templateFile,
+    format: parsed.format ?? (/\.tiff?$/i.test(parsed.outputFile) ? 'tiff' : 'psd'),
     outputDir: outputDir(paths),
     outputFile: parsed.outputFile,
     replacements: parsed.replacements

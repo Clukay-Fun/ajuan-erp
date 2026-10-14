@@ -12,15 +12,23 @@
 
 ### Added
 
-- PSD 定制页新增 Photoshop 插件准备入口（按 macOS / Windows 启动 UXP Developer Tools）、桥接 / 导出目录修改；导出默认写入下载目录下的「阿卷 ERP」，配置跨重启保存。
+- PSD 定制导出支持选择 PSD 或 TIFF；每个位置的狗图和名字图合并后生成 W1 红色专色通道，密度 100%，通道内容取所有合并图层的透明形状。
+- Photoshop 插件按平台分开：macOS 恢复 UXP 插件，Windows 使用 CEP 扩展面板。
+- PSD 定制页按平台显示插件安装入口，并支持修改桥接 / 导出目录；导出默认写入下载目录下的「阿卷 ERP」，配置跨重启保存。
 
 ### Changed
 
 - 模板位置、素材、抠图任务和导出任务列表设置固定可视高度，超出后在列表内部滚动。
 - 心形模板默认隐藏第一排六组示例图，保留心形框和下排可替换位置。
-- macOS 插件安装后，阿卷 ERP 启动时会在 Photoshop 未运行的情况下打开 UXP Developer Tool 和 Photoshop；首次仍需在 UDT 中手动 Load 插件。
+- macOS 使用原生 Photoshop，并打开 UXP Developer Tools 供用户加载插件；Windows CEP 后台扩展随 Photoshop 启动。
+- 点击生成导出任务时，Photoshop 未运行就自动启动；等待启动超时会明确提示，冷启动等待延长至 60 秒。
+- Photoshop 将每个位置的狗图和名字图放好后合并为 `slot_XX` 图层，仅修改本次导出副本。
+- 导出副本会清除所有 `example_` 开头的示例图案图层，不改动原始模板。
+- 修正 macOS UXP 保存选项中的专色字段名，确保已创建的专色通道能写入 PSD。
 
 ### Fixed
+
+- 修复 Windows CEP 将 PSD 导出任务误执行为抠图任务，导致 `sourcePath` 缺失的错误。
 
 - 抠图预览弹窗与其他弹层一致：焦点锁在弹窗内，Esc / 点遮罩 /「关闭预览」只收起预览，不删除 Photoshop 生成的临时透明图；可稍后从抠图任务再打开。弹窗打开时 ⌘/Ctrl 快捷键不再切页或新建单据。
 

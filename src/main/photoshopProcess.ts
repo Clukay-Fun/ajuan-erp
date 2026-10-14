@@ -20,27 +20,6 @@ export function windowsPhotoshopPids(tasklist: string): number[] {
   return ids
 }
 
-export function backgroundLaunch(platform: 'darwin' | 'win32', appPath: string): { command: string; args: string[] } {
-  if (platform === 'darwin') return { command: 'open', args: ['-g', '-a', appPath] }
-  const quoted = `'${appPath.replace(/'/g, "''")}'`
-  return {
-    command: 'powershell.exe',
-    args: ['-NoProfile', '-Command', `Start-Process -FilePath ${quoted} -WindowStyle Minimized`]
-  }
-}
-
-/** Adobe UXP Developer Tool 常见的 per-machine 和 per-user Windows 安装目录。 */
-export function windowsUxpDeveloperToolCandidates(env: NodeJS.ProcessEnv): string[] {
-  const roots = [env.ProgramFiles, env['ProgramFiles(x86)'], env.LOCALAPPDATA].filter((value): value is string =>
-    Boolean(value)
-  )
-  return roots.flatMap((root) => [
-    windowsPath.join(root, 'Adobe', 'Adobe UXP Developer Tool', 'Adobe UXP Developer Tool.exe'),
-    windowsPath.join(root, 'Adobe', 'Adobe UXP Developer Tool', 'UXP Developer Tool.exe'),
-    windowsPath.join(root, 'Adobe', 'UXP Developer Tool', 'UXP Developer Tool.exe')
-  ])
-}
-
 /** 并发的启动请求共用同一次启动，避免连续建任务时打开多个 Photoshop。 */
 export function createLaunchGate<T>(): { run: (start: () => Promise<T>) => Promise<T> } {
   let pending: Promise<T> | null = null
@@ -55,4 +34,3 @@ export function createLaunchGate<T>(): { run: (start: () => Promise<T>) => Promi
     }
   }
 }
-import { win32 as windowsPath } from 'node:path'

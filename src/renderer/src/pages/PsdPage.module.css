@@ -118,6 +118,10 @@
   gap: var(--space-4);
 }
 
+.exportSettings {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .slotList,
 .exportSlots,
 .assetList,
