@@ -114,8 +114,23 @@ var AjuanPS = (function () {
     for (var i = container.layers.length - 1; i >= 0; i--) {
       var layer = container.layers[i]
       if (layer.typename === 'LayerSet') removeExampleArtwork(layer)
-      if (/^example_/i.test(layer.name)) layer.remove()
+      if (/^example_|_frames_overlay$/i.test(layer.name) || /^矩形\s+\d+(?:\s+拷贝(?:\s+\d+)?)?$/.test(layer.name)) layer.remove()
     }
+  }
+  function removeUnusedSlotArtwork(container, selectedNames) {
+    for (var i = container.layers.length - 1; i >= 0; i--) {
+      var layer = container.layers[i]
+      if (layer.typename === 'LayerSet') removeUnusedSlotArtwork(layer, selectedNames)
+      if (/^slot_\d+_(dog|name)$/i.test(layer.name) && !selectedNames[layer.name]) layer.remove()
+    }
+  }
+  function addOpaqueTiffAlpha(doc) {
+    doc.selection.selectAll()
+    var channel = doc.channels.add()
+    doc.selection.store(channel, SelectionType.REPLACE)
+    channel.name = 'PreviewAlpha'
+    channel.visible = false
+    doc.selection.deselect()
   }
   function selectLayerForMerge(layer, addToSelection) {
     var descriptor = new ActionDescriptor()
@@ -223,12 +238,16 @@ var AjuanPS = (function () {
       }
       doc = openExact(task.templatePath)
       removeExampleArtwork(doc)
+      var selectedNames = {}
+      for (var r = 0; r < task.replacements.length; r++) selectedNames[task.replacements[r].layerName] = true
+      removeUnusedSlotArtwork(doc, selectedNames)
       var replaced = []
       for (var i = 0; i < task.replacements.length; i++) {
         replaceLayer(doc, task.replacements[i])
         replaced.push(task.replacements[i].layerName)
       }
       var mergedLayers = mergePlacedImages(doc, task.replacements)
+      if (task.format === 'tiff') addOpaqueTiffAlpha(doc)
       addSpotChannel(doc, mergedLayers)
       var output = File(task.outputPath)
       saveExport(doc, output, task.format)

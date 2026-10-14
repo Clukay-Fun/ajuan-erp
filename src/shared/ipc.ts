@@ -115,6 +115,7 @@ export const IPC = {
   psdPickOutputDir: 'psd:pickOutputDir',
   psdInstallPlugin: 'psd:installPlugin',
   psdOpenPlugin: 'psd:openPlugin',
+  psdOpenUxpDeveloperTool: 'psd:openUxpDeveloperTool',
   psdOpenPhotoshop: 'psd:openPhotoshop',
   psdRevealJob: 'psd:revealJob'
 } as const
@@ -251,6 +252,7 @@ export interface AjuanApi {
     pickOutputDir(): Promise<IpcResult<PsdBoard | null>>
     installPlugin(): Promise<IpcResult<PsdBoard>>
     openPlugin(): Promise<IpcResult<void>>
+    openUxpDeveloperTool(): Promise<IpcResult<void>>
     openPhotoshop(): Promise<IpcResult<void>>
     revealJob(id: number): Promise<IpcResult<void>>
   }

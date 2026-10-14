@@ -7,6 +7,8 @@ const { fitToBounds } = require('./fit.js')
 const TOKEN_KEY = 'ajuan.bridgeToken'
 const OUTPUT_TOKENS_KEY = 'ajuan.outputTokens'
 const POLL_INTERVAL_MS = 1000
+const HEARTBEAT_FILE = 'uxp-plugin-heartbeat.json'
+const HEARTBEAT_INTERVAL_MS = 3000
 const SAVE_OPTIONS = {
   alphaChannels: true,
   annotations: true,
@@ -20,6 +22,8 @@ const lines = ['首次使用请授权 psd-bridge。之后生成任务会自动�
 let workerTimer = null
 let panelRoot = null
 let queueRunning = false
+let heartbeatTimer = null
+let heartbeatRunning = false
 const boundClicks = new WeakSet()
 
 function element(id) {
@@ -310,9 +314,30 @@ async function mergePlacedImages(doc, replacements) {
     const dog = findLayer(doc, pair.dogLayerName)
     const name = findLayer(doc, pair.nameLayerName)
     if (!dog || !name) throw new Error(`${pair.slotKey} 图层不存在，无法合并`)
-    doc.activeLayers = [dog, name]
-    const merged = await dog.merge()
+    await selectLayer(dog)
+    await batch([
+      {
+        _obj: 'select',
+        _target: [{ _ref: 'layer', _id: name.id }],
+        selectionModifier: { _enum: 'selectionModifierType', _value: 'addToSelection' },
+        makeVisible: false,
+        _options: { dialogOptions: 'dontDisplay' }
+      }
+    ])
+    const selected = doc.activeLayers
+    if (selected.length !== 2 || ![selected[0].id, selected[1].id].includes(dog.id) ||
+      ![selected[0].id, selected[1].id].includes(name.id)) {
+      throw new Error(`${pair.slotKey} 未能同时选中狗图和名字图`)
+    }
+    await batch([{ _obj: 'mergeLayersNew', _options: { dialogOptions: 'dontDisplay' } }])
+    const merged = doc.activeLayers[0]
+    if (doc.activeLayers.length !== 1 || !merged) {
+      throw new Error(`${pair.slotKey} 狗图和名字图未正确合并`)
+    }
     merged.name = pair.slotKey
+    if (findLayer(doc, pair.dogLayerName) || findLayer(doc, pair.nameLayerName)) {
+      throw new Error(`${pair.slotKey} 狗图和名字图未正确合并`)
+    }
     merged.visible = true
     mergedLayers.push(merged)
   }
@@ -322,8 +347,24 @@ async function mergePlacedImages(doc, replacements) {
 function removeExampleArtwork(layers) {
   for (const layer of [...layers]) {
     if (layer.kind === constants.LayerKind.GROUP) removeExampleArtwork(layer.layers)
-    if (/^example_/i.test(layer.name)) layer.delete()
+    if (/^example_|_frames_overlay$/i.test(layer.name) || /^矩形\s+\d+(?:\s+拷贝(?:\s+\d+)?)?$/.test(layer.name)) {
+      layer.delete()
+    }
   }
+}
+
+function removeUnusedSlotArtwork(layers, selectedNames) {
+  for (const layer of [...layers]) {
+    if (layer.kind === constants.LayerKind.GROUP) removeUnusedSlotArtwork(layer.layers, selectedNames)
+    if (/^slot_\d+_(dog|name)$/i.test(layer.name) && !selectedNames.has(layer.name)) layer.delete()
+  }
+}
+
+async function addOpaqueTiffAlpha(doc) {
+  await doc.selection.selectAll()
+  await doc.selection.save('PreviewAlpha')
+  doc.channels.getByName('PreviewAlpha').visible = false
+  await doc.selection.deselect()
 }
 
 async function addSpotChannel(doc, layers) {
@@ -356,26 +397,32 @@ async function saveExport(doc, output, format) {
     return
   }
   const token = await fs.createSessionToken(output)
-  await action.batchPlay(
+  const results = await action.batchPlay(
     [
       {
         _obj: 'save',
         as: {
           _obj: 'TIFF',
           alphaChannels: true,
+          byteOrder: { _enum: 'platform', _value: 'IBMPC' },
           embedColorProfile: true,
-          imageCompression: { _enum: 'TIFFEncoding', _value: 'TIFFLZW' },
+          LZWCompression: true,
+          layerCompression: { _enum: 'encoding', _value: 'zip' },
           layers: true,
           spotColors: true
         },
         in: { _path: token, _kind: 'local' },
         copy: true,
         lowerCase: true,
-        _options: { dialogOptions: 'dontDisplay' }
+        _options: { dialogOptions: 'silent' }
       }
     ],
     { synchronousExecution: false, modalBehavior: 'execute' }
   )
+  const result = results[0]
+  if (result?._obj === 'error' || (typeof result?.result === 'number' && result.result < 0)) {
+    throw new Error(`Photoshop TIFF 保存失败：${result.message || result.result}`)
+  }
 }
 
 async function runInPhotoshop(bridge, staging, job) {
@@ -388,15 +435,18 @@ async function runInPhotoshop(bridge, staging, job) {
     if (!sameFile(opened, templateEntry)) throw new Error(`打开了错误文件: ${opened.name}`)
     doc = opened
     removeExampleArtwork(doc.layers)
+    removeUnusedSlotArtwork(doc.layers, new Set(job.replacements.map((item) => item.layerName)))
     for (const item of job.replacements) {
       await replaceOne(doc, staging, item)
       replaced.push(item.layerName)
     }
     const mergedLayers = await mergePlacedImages(doc, job.replacements)
+    const format = job.format || (/\.tiff?$/i.test(job.outputFile) ? 'tiff' : 'psd')
+    if (format === 'tiff') await addOpaqueTiffAlpha(doc)
     await addSpotChannel(doc, mergedLayers)
     const outputs = await outputFolderFor(bridge, job.outputDir)
     const output = await ensureOutput(outputs, job.outputFile)
-    await saveExport(doc, output, job.format || (/\.tiff?$/i.test(job.outputFile) ? 'tiff' : 'psd'))
+    await saveExport(doc, output, format)
     await doc.close(constants.SaveOptions.DONOTSAVECHANGES)
     return replaced
   } catch (err) {
@@ -643,6 +693,22 @@ async function getBridge() {
   }
 }
 
+async function refreshPluginHeartbeat() {
+  if (heartbeatRunning) return
+  heartbeatRunning = true
+  try {
+    const bridge = await getBridge()
+    if (!bridge) return
+    let file = await child(bridge, HEARTBEAT_FILE)
+    if (!file) file = await bridge.createFile(HEARTBEAT_FILE)
+    if (file && !file.isFolder) {
+      await file.write(JSON.stringify({ updatedAt: Date.now() }), { format: formats.utf8 })
+    }
+  } finally {
+    heartbeatRunning = false
+  }
+}
+
 async function showFolder() {
   const el = element('folder')
   if (!el) return
@@ -720,15 +786,26 @@ function unmountPanel() {
 
 function startWorker() {
   mountPanel()
+  if (!heartbeatTimer) {
+    refreshPluginHeartbeat().catch(() => {})
+    heartbeatTimer = globalThis.setInterval(() => {
+      refreshPluginHeartbeat().catch(() => {})
+    }, HEARTBEAT_INTERVAL_MS)
+  }
   if (workerTimer) return
   runQueue({ silent: true })
   workerTimer = globalThis.setInterval(() => runQueue({ silent: true }), POLL_INTERVAL_MS)
 }
 
 function stopWorker() {
-  if (!workerTimer) return
-  globalThis.clearInterval(workerTimer)
-  workerTimer = null
+  if (workerTimer) {
+    globalThis.clearInterval(workerTimer)
+    workerTimer = null
+  }
+  if (heartbeatTimer) {
+    globalThis.clearInterval(heartbeatTimer)
+    heartbeatTimer = null
+  }
 }
 
 if (typeof document !== 'undefined') {

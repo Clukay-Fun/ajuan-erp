@@ -4,7 +4,7 @@
 
 ## macOS：UXP
 
-`uxp/` 是原来的 UXP 插件。ERP 的“准备 UXP 插件”会复制它到应用数据目录，打开 UXP Developer Tools 和 Photoshop。首次使用在 UXP Developer Tools 中添加安装目录下的 `manifest.json` 并点 Load，然后在 Photoshop「插件 → 阿卷 PSD」打开面板，授权桥接与导出目录。Photoshop 原生运行，无需 Rosetta。应用启动时会打开开发工具和 Photoshop；插件加载状态仍由 UXP Developer Tools 管理。
+`uxp/` 是原来的 UXP 插件。ERP 的“准备 UXP 插件”会复制它到应用数据目录，打开 Photoshop 并把 UXP Developer Tools 切到前台；也可用“打开 UXP Developer Tools”按钮重新调出开发工具。首次使用在 UXP Developer Tools 中添加安装目录下的 `manifest.json` 并点 Load，然后在 Photoshop「插件 → 阿卷 PSD」打开面板，授权桥接与导出目录。Photoshop 原生运行，无需 Rosetta。应用启动时会打开开发工具和 Photoshop；插件加载状态仍由 UXP Developer Tools 管理。
 
 ## Windows：CEP
 

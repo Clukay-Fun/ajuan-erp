@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, shell } from 'electron'
 import { execFile, spawn } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import type { PsdAssetKind, PsdBoard } from '@shared/psd'
@@ -30,6 +30,8 @@ import {
 
 const execFileAsync = promisify(execFile)
 const photoshopLaunch = createLaunchGate<void>()
+const UXP_PLUGIN_HEARTBEAT_FILE = 'uxp-plugin-heartbeat.json'
+const UXP_PLUGIN_HEARTBEAT_TTL_MS = 10_000
 
 async function photoshopPids(): Promise<number[]> {
   try {
@@ -218,15 +220,44 @@ async function startPhotoshopForJob(): Promise<void> {
   })
 }
 
+function isUxpPluginActive(): boolean {
+  if (process.platform !== 'darwin') return true
+  try {
+    const status = JSON.parse(
+      readFileSync(join(state.psdBridgeDir, UXP_PLUGIN_HEARTBEAT_FILE), 'utf8')
+    ) as { updatedAt?: unknown }
+    const now = Date.now()
+    return (
+      typeof status.updatedAt === 'number' &&
+      status.updatedAt <= now &&
+      now - status.updatedAt <= UXP_PLUGIN_HEARTBEAT_TTL_MS
+    )
+  } catch {
+    return false
+  }
+}
+
+async function waitForUxpPlugin(timeoutMs = 2500): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (isUxpPluginActive()) return true
+    await new Promise((resolve) => setTimeout(resolve, 250))
+  }
+  return isUxpPluginActive()
+}
+
 export async function createPsdJobInteractive(input: PsdJobCreateInput): Promise<PsdBoard> {
   createPsdJob(state.db, dirs(), input)
   try {
     // 只在有导出任务时启动。任务完成后保留 Photoshop，让已加载的开发插件继续可用。
     await startPhotoshopForJob()
+    if (process.platform === 'darwin' && !(await waitForUxpPlugin())) {
+      await openUxpDeveloperTool()
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    console.error('[psd] 任务已排队，但自动启动 Photoshop 失败:', err)
-    throw new ServiceError('INTERNAL', `任务已加入队列，但 Photoshop 未能自动打开：${message}`)
+    console.error('[psd] 任务已排队，但 Photoshop 插件未准备好:', err)
+    throw new ServiceError('INTERNAL', `任务已加入队列，但 Photoshop 插件未能自动就绪：${message}`)
   }
   return board()
 }
@@ -322,9 +353,11 @@ export async function installPsdPlugin(): Promise<PsdBoard> {
     throw new ServiceError('VALIDATION', 'Photoshop 面板安装目前只支持 macOS 和 Windows')
   }
   if (process.platform === 'darwin') {
+    if ((await photoshopPids()).length === 0) await startPhotoshopForJob()
     await openUxpDeveloperTool()
+  } else if ((await photoshopPids()).length === 0) {
+    await openPhotoshopApp()
   }
-  if ((await photoshopPids()).length === 0) await openPhotoshopApp()
   return board()
 }
 
@@ -334,8 +367,14 @@ async function openUxpDeveloperTool(): Promise<void> {
     '/Applications/Adobe UXP Developer Tool.app'
   ]
   const found = candidates.find(existsSync)
-  if (!found) return
-  await execFileAsync('/usr/bin/open', ['-g', '-a', found])
+  if (!found) throw new ServiceError('NOT_FOUND', '没有找到 UXP Developer Tools，请检查它是否安装在“应用程序”目录')
+  // Do not use `open -g`: the user needs to interact with the tool and load the plugin.
+  await execFileAsync('/usr/bin/open', ['-a', found])
+}
+
+export async function openPsdUxpDeveloperTool(): Promise<void> {
+  if (process.platform !== 'darwin') throw new ServiceError('VALIDATION', 'UXP Developer Tools 入口仅适用于 macOS')
+  await openUxpDeveloperTool()
 }
 
 /** macOS 使用原来的 UXP 插件；安装后，ERP 启动时打开开发工具及 Photoshop。 */
@@ -343,8 +382,8 @@ export async function preparePhotoshopAtAppStartup(): Promise<void> {
   writePluginSettings()
   if (process.platform !== 'darwin') return
   if (!existsSync(join(installedPluginDirectory(), 'manifest.json'))) return
-  await openUxpDeveloperTool()
   if ((await photoshopPids()).length === 0) await startPhotoshopForJob()
+  await openUxpDeveloperTool()
 }
 
 export async function openPsdPlugin(): Promise<void> {

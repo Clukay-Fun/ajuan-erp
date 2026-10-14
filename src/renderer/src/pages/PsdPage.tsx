@@ -459,9 +459,9 @@ function BridgeCard({
       <ol className={styles.steps}>
         {isMac ? (
           <>
-            <li>点“准备 UXP 插件”，随后在 UXP Developer Tools 中用 Add Plugin 选择下方的 manifest.json，再点 Load。</li>
+            <li>点“准备 UXP 插件”，再点“打开 UXP Developer Tools”；若列表没有阿卷 PSD，用 Add Plugin 选择下方 manifest.json，然后点 Load。</li>
             <li>在 Photoshop「插件 → 阿卷 PSD」打开面板，首次使用时授权桥接目录及导出目录。</li>
-            <li>生成任务后插件自动处理；若插件未加载，请在 UXP Developer Tools 中重新点 Load。</li>
+            <li>生成任务前会检查插件状态；若未加载，ERP 会打开 UXP Developer Tools，点 Load 后插件会自动处理队列。</li>
           </>
         ) : (
           <>
@@ -521,6 +521,15 @@ function BridgeCard({
         >
           {isMac ? '打开 UXP 插件目录' : '打开面板目录'}
         </Button>
+        {isMac && (
+          <Button
+            variant="secondary"
+            disabled={busy}
+            onClick={() => void onAct(() => unwrap(window.ajuan.psd.openUxpDeveloperTool()).then(() => null))}
+          >
+            打开 UXP Developer Tools
+          </Button>
+        )}
         <Button
           variant="secondary"
           disabled={busy}

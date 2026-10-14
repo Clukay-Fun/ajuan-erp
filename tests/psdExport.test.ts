@@ -34,7 +34,7 @@ import {
 import { createLaunchGate, darwinPhotoshopPids, windowsPhotoshopPids } from '../src/main/photoshopProcess'
 
 const require = createRequire(import.meta.url)
-const { fitToBounds } = require('../photoshop-plugin/ajuan-psd/fit.js') as {
+const { fitToBounds } = require('../photoshop-plugin/ajuan-psd/uxp/fit.js') as {
   fitToBounds: (
     oldBounds: { left: number; top: number; right: number; bottom: number },
     newBounds: { left: number; top: number; right: number; bottom: number }

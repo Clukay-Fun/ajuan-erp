@@ -116,6 +116,7 @@ const api: AjuanApi = {
     pickOutputDir: () => ipcRenderer.invoke(IPC.psdPickOutputDir),
     installPlugin: () => ipcRenderer.invoke(IPC.psdInstallPlugin),
     openPlugin: () => ipcRenderer.invoke(IPC.psdOpenPlugin),
+    openUxpDeveloperTool: () => ipcRenderer.invoke(IPC.psdOpenUxpDeveloperTool),
     openPhotoshop: () => ipcRenderer.invoke(IPC.psdOpenPhotoshop),
     revealJob: (id) => ipcRenderer.invoke(IPC.psdRevealJob, id)
   }

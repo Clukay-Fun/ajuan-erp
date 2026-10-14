@@ -65,6 +65,7 @@ import {
   openPsdBridge,
   openPsdOutputDir,
   openPsdPlugin,
+  openPsdUxpDeveloperTool,
   pickPsdBridgeDirectory,
   pickPsdOutputDirectory,
   pickPsdTemplate,
@@ -188,6 +189,7 @@ export function registerIpc(): void {
   handle(IPC.psdPickOutputDir, () => pickPsdOutputDirectory())
   handle(IPC.psdInstallPlugin, () => installPsdPlugin())
   handle(IPC.psdOpenPlugin, () => openPsdPlugin())
+  handle(IPC.psdOpenUxpDeveloperTool, () => openPsdUxpDeveloperTool())
   handle(IPC.psdOpenPhotoshop, () => openPhotoshopApp())
   handle(IPC.psdRevealJob, (id: number) => revealPsdJob(id))
 }

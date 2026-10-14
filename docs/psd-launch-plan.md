@@ -2,7 +2,7 @@
 
 ## macOS：UXP
 
-ERP 把内置的 `photoshop-plugin/ajuan-psd/uxp` 复制到应用数据目录下的 `photoshop-plugin/ajuan-psd`。安装时打开 UXP Developer Tools 和 Photoshop；应用下次启动时也会打开两者。用户在 UXP Developer Tools 中用安装目录的 `manifest.json` 添加并加载插件，在 Photoshop 插件面板首次授权桥接目录及导出目录。ERP 不强制 Rosetta，也不关闭已打开的 Photoshop。UXP Developer Tools 仍负责插件的实际加载。
+ERP 把内置的 `photoshop-plugin/ajuan-psd/uxp` 复制到应用数据目录下的 `photoshop-plugin/ajuan-psd`。安装时打开 Photoshop，再把 UXP Developer Tools 切到前台；应用下次启动时也会打开两者。定制页提供单独的“打开 UXP Developer Tools”按钮。用户在 UXP Developer Tools 中用安装目录的 `manifest.json` 添加并加载插件，在 Photoshop 插件面板首次授权桥接目录及导出目录。ERP 不强制 Rosetta，也不关闭已打开的 Photoshop。UXP Developer Tools 仍负责插件的实际加载。
 
 ## Windows：CEP
 
