@@ -12,6 +12,16 @@
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Removed
+
+## [0.2.4] - 2026-10-15
+
+### Added
+
 - PSD 定制导出支持选择 PSD 或 TIFF；每个位置的狗图和名字图合并后生成 W1 红色专色通道，密度 100%，通道内容取所有合并图层的透明形状。
 - macOS 定制页增加“打开 UXP Developer Tools”按钮；打开时切到前台，便于加载或重新加载插件。
 - Photoshop 插件按平台分开：macOS 恢复 UXP 插件，Windows 使用 CEP 扩展面板。
@@ -19,6 +29,7 @@
 
 ### Changed
 
+- 版本号升至 0.2.4；整合 PSD / TIFF 导出、心形模板预览、素材抠图预览与 Photoshop 插件工作流。
 - 模板位置、素材、抠图任务和导出任务列表设置固定可视高度，超出后在列表内部滚动。
 - 心形模板默认隐藏第一排六组示例图，保留心形框和下排可替换位置。
 - macOS 使用原生 Photoshop，并打开 UXP Developer Tools 供用户加载插件；Windows CEP 后台扩展随 Photoshop 启动。
