@@ -280,7 +280,7 @@
     }
   }
 
-  log('Photoshop CEP 后台扩展已启动 [CEP 1.0.5 / ERP 0.2.4]')
+  log('Photoshop CEP 后台扩展已启动 [CEP 1.0.5 / ERP 0.2.5]')
   window.setInterval(function () {
     if (fs.existsSync(requestPath)) {
       try {
