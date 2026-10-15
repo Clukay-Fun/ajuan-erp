@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, shell } from 'electron'
-import { execFile, spawn } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { execFile, execFileSync, spawn } from 'node:child_process'
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { basename, join } from 'node:path'
 import { promisify } from 'node:util'
 import type { PsdAssetKind, PsdBoard } from '@shared/psd'
 import type { PsdJobCreateInput, PsdSlotCreateInput, PsdTemplateCreateInput } from '@shared/schemas'
@@ -32,6 +32,73 @@ const execFileAsync = promisify(execFile)
 const photoshopLaunch = createLaunchGate<void>()
 const UXP_PLUGIN_HEARTBEAT_FILE = 'uxp-plugin-heartbeat.json'
 const UXP_PLUGIN_HEARTBEAT_TTL_MS = 10_000
+let photoshopPathCache: { path: string | null; expiresAt: number } | null = null
+
+function windowsPhotoshopRegistryPaths(): string[] {
+  if (process.platform !== 'win32') return []
+  const keys = [
+    'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\Photoshop.exe',
+    'HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\Photoshop.exe',
+    'HKLM\\SOFTWARE\\Adobe\\Photoshop',
+    'HKLM\\SOFTWARE\\WOW6432Node\\Adobe\\Photoshop',
+    'HKCU\\SOFTWARE\\Adobe\\Photoshop'
+  ]
+  const paths = new Set<string>()
+  for (const key of keys) {
+    try {
+      const output = execFileSync('reg.exe', ['query', key, '/s'], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        windowsHide: true,
+        timeout: 3000
+      })
+      for (const line of output.split(/\r?\n/)) {
+        const match = /^\s*.+?\s+REG_(?:EXPAND_)?SZ\s+(.+?)\s*$/i.exec(line)
+        if (!match) continue
+        const raw = match[1].replace(/^"|"$/g, '').replace(/,\s*\d+$/, '')
+        for (const part of raw.split(';')) {
+          const value = part.trim().replace(/%([^%]+)%/g, (_all, name: string) => process.env[name] ?? `%${name}%`)
+          if (/photoshop/i.test(value)) paths.add(value)
+        }
+      }
+    } catch {
+      // Photoshop registry keys differ across Adobe installer versions.
+    }
+  }
+  return [...paths]
+}
+
+function findPhotoshopInstallation(): string | null {
+  const now = Date.now()
+  if (photoshopPathCache && photoshopPathCache.expiresAt > now) return photoshopPathCache.path
+
+  const roots = photoshopSearchRoots()
+  if (process.platform === 'win32') {
+    for (const registeredPath of windowsPhotoshopRegistryPaths()) {
+      const candidates = /\\Photoshop\.exe$/i.test(registeredPath)
+        ? [registeredPath]
+        : [join(registeredPath, 'Photoshop.exe')]
+      for (const candidate of candidates) {
+        try {
+          if (
+            existsSync(candidate) &&
+            statSync(candidate).isFile() &&
+            basename(candidate).toLowerCase() === 'photoshop.exe'
+          ) {
+            photoshopPathCache = { path: candidate, expiresAt: now + 30_000 }
+            return candidate
+          }
+        } catch {
+          // Fall back to known Adobe installation folders below.
+        }
+      }
+      if (!/\\Photoshop\.exe$/i.test(registeredPath)) roots.unshift(registeredPath)
+    }
+  }
+  const found = findPhotoshopApp(roots)
+  photoshopPathCache = { path: found, expiresAt: now + 30_000 }
+  return found
+}
 
 async function photoshopPids(): Promise<number[]> {
   try {
@@ -101,7 +168,7 @@ function writePluginSettings(directory = installedPluginDirectory()): void {
 
 function board(): PsdBoard {
   return getPsdBoard(state.db, dirs(), {
-    photoshopPath: findPhotoshopApp(photoshopSearchRoots()),
+    photoshopPath: findPhotoshopInstallation(),
     pluginDir: pluginDirectory()
   })
 }
@@ -207,7 +274,7 @@ async function launchPhotoshop(appPath: string): Promise<void> {
 }
 
 async function startPhotoshopForJob(): Promise<void> {
-  const found = findPhotoshopApp(photoshopSearchRoots())
+  const found = findPhotoshopInstallation()
   if (!found) throw new ServiceError('NOT_FOUND', '没有找到 Photoshop。请先安装 Photoshop 2024 或更新版本。')
   if ((await photoshopPids()).length > 0) return
   await photoshopLaunch.run(async () => {
@@ -223,9 +290,9 @@ async function startPhotoshopForJob(): Promise<void> {
 function isUxpPluginActive(): boolean {
   if (process.platform !== 'darwin') return true
   try {
-    const status = JSON.parse(
-      readFileSync(join(state.psdBridgeDir, UXP_PLUGIN_HEARTBEAT_FILE), 'utf8')
-    ) as { updatedAt?: unknown }
+    const status = JSON.parse(readFileSync(join(state.psdBridgeDir, UXP_PLUGIN_HEARTBEAT_FILE), 'utf8')) as {
+      updatedAt?: unknown
+    }
     const now = Date.now()
     return (
       typeof status.updatedAt === 'number' &&
@@ -393,7 +460,7 @@ export async function openPsdPlugin(): Promise<void> {
 }
 
 export async function openPhotoshopApp(): Promise<void> {
-  const found = findPhotoshopApp(photoshopSearchRoots())
+  const found = findPhotoshopInstallation()
   if (!found) throw new ServiceError('NOT_FOUND', '没有找到 Photoshop。请先安装 Photoshop 2024 或更新版本。')
   if ((await photoshopPids()).length > 0) {
     const error = await shell.openPath(found)

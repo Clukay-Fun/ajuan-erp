@@ -290,7 +290,20 @@ function ensurePsdOutputDir(paths: PsdPaths): void {
 
 export function photoshopSearchRoots(platform = process.platform): string[] {
   if (platform === 'darwin') return ['/Applications']
-  if (platform === 'win32') return ['C:\\Program Files\\Adobe', 'C:\\Program Files']
+  if (platform === 'win32') {
+    const roots = [
+      process.env.ProgramW6432,
+      process.env.ProgramFiles,
+      process.env['ProgramFiles(x86)'],
+      process.env.SystemDrive ? join(process.env.SystemDrive, 'Program Files') : undefined,
+      'C:\\Program Files\\Adobe',
+      'C:\\Program Files',
+      'C:\\Program Files (x86)\\Adobe',
+      'C:\\Program Files (x86)',
+      process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, 'Programs', 'Adobe') : undefined
+    ]
+    return [...new Set(roots.filter((root): root is string => Boolean(root)))]
+  }
   return []
 }
 
