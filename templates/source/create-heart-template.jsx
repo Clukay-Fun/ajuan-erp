@@ -3,7 +3,7 @@
 // smart-object pairs below them become replaceable slots.
 // ES3 only.
 
-var BASE_PATH = "/Users/clukay/Program/ajuan-erp/templates/heart-base.psd";
+var BASE_PATH = "/Users/clukay/Program/ajuan-erp/templates/source/heart-base.psd";
 var OUT_PATH = "/Users/clukay/Program/ajuan-erp/templates/slot-template-2.psd";
 var LOG_PATH = "/tmp/ajuan-heart-template.log";
 var XS = [0, 1097, 2193, 3290, 4386, 5483];

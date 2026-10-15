@@ -1,14 +1,14 @@
 # PSD 定制导出开发计划
 
-状态：应用侧、Photoshop 插件和模板已按本计划落地。`templates/slot-template.psd` 已由 Photoshop ExtendScript 生成，并在 Photoshop 2026 中验证可打开。
+状态：应用侧、Photoshop 插件和模板已按本计划落地。正式模板为 `templates/slot-template.psd`（矩形素材位）和 `templates/slot-template-2.psd`（心形素材位），均已在 Photoshop 2026 中验证可打开。
 
 目标：按稳定图层名替换模板里的狗图和名字图，另存为新的 PSD 或 TIFF。原始模板不被覆盖，其他图层和样式保持可编辑。
 
 ## 约束
 
 - 不使用 Node.js PSD 库重写文件。复杂智能对象和图层样式交给 Photoshop 自己保存。
-- 重新生成模板时运行 `templates/create-slot-template.jsx`，让 Photoshop 自己写入 PSD；不要用 Python/Node PSD 库改写主模板，否则 Photoshop 可能报版本不兼容。
-- `templates/circle-base.psd` 保存圆形边框基础文件。模板脚本在每个位置建立外圆组和内矩形组蒙版；两个智能对象放在矩形的左右区域。
+- 重新生成模板时运行 `templates/source/create-slot-template.jsx`，让 Photoshop 自己写入 PSD；不要用 Python/Node PSD 库改写主模板，否则 Photoshop 可能报版本不兼容。
+- `templates/source/circle-base.psd` 保存圆形边框基础文件。模板脚本在每个位置建立外圆组和内矩形组蒙版；两个智能对象放在矩形的左右区域。
 - 可替换图层必须是智能对象，名称稳定，例如 `slot_01_dog`、`slot_01_name`。
 - 插件只打开任务目录里的模板副本，`saveAs` 另存，并以不保存的方式关闭副本。
 - 第一版通信是文件队列：应用写入任务，插件自动轮询执行，应用再读结果。不做套接字自动连接。
@@ -41,9 +41,9 @@ psd-bridge/
 
 替换后按原图层边界等比例完整放入：`scale = min(目标宽 / 素材宽, 目标高 / 素材高)`，再把中心移回目标中心。不拉伸、不裁切图片。放不满的一边留白，图层本身保持在目标区域内。左右位置由 PSD 里 `dogLayer` 和 `nameLayer` 的边界决定，不在数据库里另存坐标。macOS UXP 几何实现位于 `photoshop-plugin/ajuan-psd/uxp/fit.js`，单元测试锁定。
 
-当前使用的 `templates/slot-template.psd` 保留 6×3 网格，共 18 个 868×868 正方形位置。每格的 868×868 外圆组保留圆形边界，内缩 128 px 的 612×612 正方形区域由 `slot_XX_rect` 组蒙版限制，名字图和狗图各占一半（306×612），中间有分界线；内矩形的四角完整位于圆内。`templates/circle-base.psd` 是用户提供的圆形边框基础文件。`框.tif` 和 `图.tif` 只作排版参考，不导入 ERP。
+当前使用的 `templates/slot-template.psd` 保留 6×3 网格，共 18 个 868×868 正方形位置。每格的 868×868 外圆组保留圆形边界，内缩 128 px 的 612×612 正方形区域由 `slot_XX_rect` 组蒙版限制，名字图和狗图各占一半（306×612），中间有分界线；内矩形的四角完整位于圆内。`templates/source/circle-base.psd` 是用户提供的圆形边框基础文件。`框.tif` 和 `图.tif` 只作排版参考，不导入 ERP。
 
-第二款为 `templates/slot-template-2.psd`，由 `templates/heart-base.psd` 和 `templates/create-heart-template.jsx` 生成，画布 6369×1841，包含 6×2 个心形位置。上排的六组示例图层保留在 PSD 中但默认隐藏，因此模板打开时第一排为空；下排是六个可替换位置，图层名为 `slot_01_dog` / `slot_01_name` 至 `slot_06_dog` / `slot_06_name`。下排通过 Photoshop 的「通过拷贝新建智能对象」创建独立内容，初始隐藏，插件替换内容时会显示。
+第二款为 `templates/slot-template-2.psd`，由 `templates/source/heart-base.psd` 和 `templates/source/create-heart-template.jsx` 生成，画布 6369×1841，包含 6×2 个心形位置。上排的六组示例图层保留在 PSD 中但默认隐藏，因此模板打开时第一排为空；下排是六个可替换位置，图层名为 `slot_01_dog` / `slot_01_name` 至 `slot_06_dog` / `slot_06_name`。下排通过 Photoshop 的「通过拷贝新建智能对象」创建独立内容，初始隐藏，插件替换内容时会显示。
 
 ## 插件
 

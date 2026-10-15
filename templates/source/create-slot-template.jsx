@@ -3,7 +3,7 @@
 // limits the image area, with name on the left and dog on the right.
 // ES3 only.
 
-var BASE_PATH = "/Users/clukay/Program/ajuan-erp/templates/circle-base.psd";
+var BASE_PATH = "/Users/clukay/Program/ajuan-erp/templates/source/circle-base.psd";
 var OUT_PATH = "/Users/clukay/Program/ajuan-erp/templates/slot-template.psd";
 var LOG_PATH = "/tmp/ajuan-psd-create.log";
 
