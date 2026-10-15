@@ -14,7 +14,8 @@ interface ShellProps {
   children: ReactNode
 }
 
-const isMac = navigator.platform.toUpperCase().includes('MAC')
+const platform = navigator.platform.toUpperCase()
+const hasNativeTitlebar = platform.includes('MAC') || platform.includes('WIN')
 const SIDEBAR_WIDTH = 56
 
 function isDarkNow(): boolean {
@@ -82,11 +83,11 @@ export function Shell({ route, seq, onNavigate, children }: ShellProps): ReactEl
 
   return (
     <div
-      className={`${styles.shell} ${isMac ? styles.macNative : ''} ${maximized ? styles.maximized : ''}`}
+      className={`${styles.shell} ${hasNativeTitlebar ? styles.nativeTitlebar : ''} ${maximized ? styles.maximized : ''}`}
       style={{ '--sidebar-width': `${width}px` } as React.CSSProperties}
     >
-      {/* 贯通顶部的标题栏：交通灯、品牌、主题快切。整条可拖动窗口。 */}
-      <header className={`${styles.titlebar} ${isMac ? styles.titlebarMac : ''}`}>
+      {/* 自定义窗口栏：品牌与主题快切；原生标题栏平台会隐藏这一栏。 */}
+      <header className={styles.titlebar}>
         <div className={styles.brand}>
           <span className={styles.brandText}>
             阿卷<em>ERP</em>

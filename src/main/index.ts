@@ -12,6 +12,7 @@ import { initUpdater } from './updater'
 import { IPC } from '@shared/ipc'
 
 const isMac = process.platform === 'darwin'
+const isWindows = process.platform === 'win32'
 const isDev = !app.isPackaged
 
 function createWindow(): BrowserWindow {
@@ -26,6 +27,8 @@ function createWindow(): BrowserWindow {
     title: '阿卷 ERP',
     // macOS 使用系统原生标题栏，应用名称和交通灯由系统统一管理。
     ...(isMac ? { titleBarStyle: 'default' as const } : {}),
+    // Windows 使用系统标题栏；菜单栏默认收起，按 Alt 可临时显示。
+    ...(isWindows ? { autoHideMenuBar: true } : {}),
     // 与 tokens.css 的 --color-bg 一致，避免启动白闪 / 黑闪
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#101114' : '#f6f7f8',
     webPreferences: {

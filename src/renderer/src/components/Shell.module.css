@@ -9,11 +9,11 @@
 .maximized {
   border-radius: 0;
 }
-.macNative {
+.nativeTitlebar {
   grid-template-rows: 0 1fr;
   border-radius: 0;
 }
-.macNative .titlebar {
+.nativeTitlebar .titlebar {
   visibility: hidden;
   height: 0;
   min-height: 0;
@@ -48,10 +48,6 @@
 .maximized .titlebar {
   margin-top: 0;
   border-radius: 0;
-}
-/* macOS：给交通灯留位置 */
-.titlebarMac {
-  padding-left: 76px;
 }
 .brand {
   display: flex;
