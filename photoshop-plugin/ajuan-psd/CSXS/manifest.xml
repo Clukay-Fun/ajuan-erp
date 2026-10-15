@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<ExtensionManifest xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Version="7.0" ExtensionBundleId="com.clukay.ajuan.psd" ExtensionBundleVersion="1.0.5" ExtensionBundleName="阿卷 PSD">
+<ExtensionManifest xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Version="7.0" ExtensionBundleId="com.clukay.ajuan.psd" ExtensionBundleVersion="1.0.7" ExtensionBundleName="阿卷 PSD">
   <ExtensionList>
-    <Extension Id="com.clukay.ajuan.psd.worker" Version="1.0.5" />
-    <Extension Id="com.clukay.ajuan.psd.panel" Version="1.0.5" />
+    <Extension Id="com.clukay.ajuan.psd.worker" Version="1.0.7" />
+    <Extension Id="com.clukay.ajuan.psd.panel" Version="1.0.7" />
   </ExtensionList>
   <ExecutionEnvironment>
     <HostList>

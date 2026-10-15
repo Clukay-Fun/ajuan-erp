@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, shell } from 'electron'
 import { execFile, execFileSync, spawn } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { promisify } from 'node:util'
 import type { PsdAssetKind, PsdBoard } from '@shared/psd'
@@ -149,6 +150,44 @@ function installedPluginDirectory(): string {
     : join(app.getPath('appData'), 'Adobe', 'CEP', 'extensions', 'com.clukay.ajuan.psd')
 }
 
+function cepSystemCopies(): string[] {
+  if (process.platform !== 'win32') return []
+  const roots = [process.env.CommonProgramFiles, process.env['CommonProgramFiles(x86)']].filter(
+    (value): value is string => Boolean(value)
+  )
+  const copies: string[] = []
+  for (const root of roots) {
+    const directory = join(root, 'Adobe', 'CEP', 'extensions')
+    if (!existsSync(directory)) continue
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue
+      const candidate = join(directory, entry.name, 'CSXS', 'manifest.xml')
+      if (!existsSync(candidate)) continue
+      const manifest = readFileSync(candidate, 'utf8')
+      if (/ExtensionBundleId="com\.clukay\.ajuan\.psd"/i.test(manifest) && !copies.includes(candidate)) {
+        copies.push(candidate)
+      }
+    }
+  }
+  return copies
+}
+
+function sameFileContents(left: string, right: string): boolean {
+  const digest = (file: string): string => createHash('sha256').update(readFileSync(file)).digest('hex')
+  return digest(left) === digest(right)
+}
+
+function assertCurrentCepInstalled(): void {
+  if (process.platform !== 'win32') return
+  const source = bundledPluginDirectory()
+  const target = installedPluginDirectory()
+  for (const file of [join('CSXS', 'manifest.xml'), 'worker.js', 'host.jsx']) {
+    if (!existsSync(join(target, file)) || !sameFileContents(join(source, file), join(target, file))) {
+      throw new ServiceError('VALIDATION', 'Windows CEP 面板版本与当前 ERP 不一致。请完全退出 Photoshop，再到“定制 → 设置”安装 CEP 面板')
+    }
+  }
+}
+
 function pluginDirectory(): string {
   const installed = installedPluginDirectory()
   const manifest = process.platform === 'darwin' ? 'manifest.json' : join('CSXS', 'manifest.xml')
@@ -229,6 +268,7 @@ export function deletePsdAssetInteractive(assetId: number): PsdBoard {
 }
 
 export async function createPsdCutoutInteractive(assetId: number): Promise<PsdBoard> {
+  assertCurrentCepInstalled()
   createPsdCutoutJob(state.db, dirs(), assetId)
   try {
     await startPhotoshopForJob()
@@ -314,6 +354,7 @@ async function waitForUxpPlugin(timeoutMs = 2500): Promise<boolean> {
 }
 
 export async function createPsdJobInteractive(input: PsdJobCreateInput): Promise<PsdBoard> {
+  assertCurrentCepInstalled()
   createPsdJob(state.db, dirs(), input)
   try {
     // 只在有导出任务时启动。任务完成后保留 Photoshop，让已加载的开发插件继续可用。
@@ -335,6 +376,7 @@ export function cancelPsdJobInteractive(jobId: number): PsdBoard {
 }
 
 export async function retryPsdJobInteractive(jobId: number): Promise<PsdBoard> {
+  assertCurrentCepInstalled()
   retryPsdJob(state.db, dirs(), jobId)
   try {
     await startPhotoshopForJob()
@@ -400,10 +442,26 @@ export async function installPsdPlugin(): Promise<PsdBoard> {
   const target = installedPluginDirectory()
   const manifest = process.platform === 'darwin' ? 'manifest.json' : join('CSXS', 'manifest.xml')
   if (!existsSync(join(source, manifest))) throw new ServiceError('NOT_FOUND', '应用内没有找到 Photoshop 插件文件')
+  if (process.platform === 'win32') {
+    if ((await photoshopPids()).length > 0) {
+      throw new ServiceError('VALIDATION', '请先完全退出 Photoshop，再点击“安装 CEP 面板”；运行中的旧面板不会自动更新')
+    }
+    const copies = cepSystemCopies()
+    if (copies.length > 0) {
+      throw new ServiceError('VALIDATION', `发现系统目录中的同名 CEP 扩展，可能覆盖用户目录版本。请先移除旧扩展：${copies.join('；')}`)
+    }
+  }
   mkdirSync(join(target, '..'), { recursive: true })
   rmSync(target, { recursive: true, force: true })
   cpSync(source, target, { recursive: true, force: true })
   writePluginSettings(target)
+  if (process.platform === 'win32') {
+    for (const file of [manifest, 'worker.js', 'host.jsx', 'index.html']) {
+      if (!sameFileContents(join(source, file), join(target, file))) {
+        throw new ServiceError('INTERNAL', `CEP 插件安装校验失败：${file}`)
+      }
+    }
+  }
   if (process.platform === 'win32') {
     await execFileAsync('reg.exe', [
       'add',

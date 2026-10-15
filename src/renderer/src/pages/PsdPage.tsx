@@ -757,6 +757,20 @@ function BridgeCard({
                   >
                     {isMac ? '准备 UXP 插件' : '安装 CEP 面板'}
                   </Button>
+                  {!isMac && (
+                    <Button
+                      variant="secondary"
+                      disabled={actionsDisabled}
+                      onClick={() =>
+                        void onAct(
+                          () => unwrap(window.ajuan.psd.installPlugin()),
+                          '旧 CEP 面板已删除并重新安装；请从 Photoshop「窗口 → 扩展（旧版）」打开“阿卷 PSD”'
+                        )
+                      }
+                    >
+                      重新安装 CEP 面板
+                    </Button>
+                  )}
                 </details>
                 <details className={styles.disclosure}>
                   <summary>路径与授权设置</summary>

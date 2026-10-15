@@ -19,6 +19,7 @@
 
   function show() {
     var root = extensionPath()
+    document.getElementById('extension-root').textContent = root
     var settings
     try {
       settings = JSON.parse(read(root + '/ajuan-settings.json') || '{}')

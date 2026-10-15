@@ -1,6 +1,6 @@
 {
   "name": "ajuan-inventory",
-  "version": "0.2.5",
+  "version": "0.2.7",
   "description": "阿卷 ERP —— 本地单用户成品库存管理桌面应用",
   "author": "Clukay",
   "private": true,
