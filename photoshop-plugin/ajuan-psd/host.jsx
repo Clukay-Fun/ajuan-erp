@@ -66,10 +66,13 @@ var AjuanPS = (function () {
     assertSmartObject(layer, item.layerName)
     layer.visible = true
     var target = bounds(layer)
+    var layerId = layer.id
     doc.activeLayer = layer
     replaceContents(item.imagePath)
-    layer = findLayer(doc, item.layerName)
-    if (!layer) throw new Error('图层不存在: ' + item.layerName)
+    layer = doc.activeLayer
+    if (!layer || layer.id !== layerId) throw new Error('替换后无法定位图层: ' + item.layerName)
+    // Photoshop 会把智能对象图层重命名为素材文件名，后续按模板图层名查找前需要恢复。
+    layer.name = item.layerName
     layer.visible = true
     var current = bounds(layer)
     var width = current.right - current.left
@@ -93,8 +96,9 @@ var AjuanPS = (function () {
     var pairs = []
     for (var i = 0; i < replacements.length; i++) {
       var item = replacements[i]
-      var match = /^(slot_\d+)_(dog|name)\.(?:png|jpe?g)$/i.exec(item.file)
-      if (!match) throw new Error('无法从任务文件名识别位置: ' + item.file)
+      var match = /^(slot_\d+)_(dog|name)\.(?:png|jpe?g)$/i.exec(item.file || '')
+      if (!match) match = /^(slot_\d+)_(dog|name)$/i.exec(item.layerName || '')
+      if (!match) throw new Error('无法识别位置: ' + (item.file || item.layerName))
       var slotKey = match[1]
       var pair = null
       for (var j = 0; j < pairs.length; j++) if (pairs[j].slotKey === slotKey) pair = pairs[j]
@@ -315,7 +319,7 @@ var AjuanPS = (function () {
     var doc = null
     try {
       if (!task || typeof task.sourcePath !== 'string' || !task.sourcePath) {
-        throw new Error('Photoshop 收到的抠图任务缺少 sourcePath [CEP 1.0.5]')
+        throw new Error('Photoshop 收到的抠图任务缺少 sourcePath [CEP 1.0.7]')
       }
       doc = openExact(task.sourcePath)
       unlockBackground(doc)
@@ -364,9 +368,25 @@ var AjuanPS = (function () {
         result = { ok: false, error: '不支持的 Photoshop 任务' }
       }
     } catch (error) {
-      result = { ok: false, error: errorText(error) }
+      result = { ok: false, error: '解析或分派任务：' + errorText(error) }
     }
     return json(result)
+  }
+  function runFile(path) {
+    var input = null
+    try {
+      if (typeof path !== 'string' || !path) throw new Error('任务文件路径为空')
+      input = File(path)
+      if (!input.exists) throw new Error('任务文件不存在: ' + path)
+      input.encoding = 'UTF-8'
+      if (!input.open('r')) throw new Error('无法打开任务文件: ' + path)
+      var raw = input.read()
+      input.close()
+      return run(raw)
+    } catch (error) {
+      if (input) { try { input.close() } catch (_) {} }
+      return json({ ok: false, error: '读取 Photoshop 任务：' + errorText(error) })
+    }
   }
   function runHexPart(token, index, total, hexPart) {
     try {
@@ -392,6 +412,7 @@ var AjuanPS = (function () {
   }
   return {
     run: run,
+    runFile: runFile,
     runHexPart: runHexPart
   }
 })()

@@ -92,12 +92,7 @@
     return error && error.message ? String(error.message) : String(error)
   }
 
-  function hostRun(payload, callback) {
-    var payloadJson = JSON.stringify(payload)
-    var encoded = ''
-    for (var i = 0; i < payloadJson.length; i++) {
-      encoded += ('000' + payloadJson.charCodeAt(i).toString(16)).slice(-4)
-    }
+  function hostRun(payload, payloadPath, callback) {
     log(
       '调用 Photoshop：' +
         payload.kind +
@@ -111,19 +106,14 @@
           : '不适用') +
         '，素材数=' +
         (Array.isArray(payload.replacements) ? payload.replacements.length : 0) +
-        '，传输分块=' +
-        Math.max(1, Math.ceil(encoded.length / 512))
+        '，传输方式=任务文件'
     )
-    var token = Date.now().toString(36) + Math.floor(Math.random() * 1000000).toString(36)
-    var chunkSize = 512
-    var chunkCount = Math.max(1, Math.ceil(encoded.length / chunkSize))
-
     function receiveResult(raw) {
       var result
       try {
         result = JSON.parse(raw)
       } catch {
-        callback(new Error(raw || 'Photoshop 没有返回结果'))
+        callback(new Error('Photoshop JSX 运行未返回任务结果：' + (raw || '无返回结果')))
         return
       }
       if (!result || result.ok !== true) {
@@ -133,32 +123,15 @@
       callback(null, result)
     }
 
-    function sendChunk(index) {
-      var chunk = encoded.substring(index * chunkSize, (index + 1) * chunkSize)
-      var script =
-        'AjuanPS.runHexPart(' +
-        JSON.stringify(token) +
-        ',' +
-        index +
-        ',' +
-        chunkCount +
-        ',' +
-        JSON.stringify(chunk) +
-        ')'
-      cs.evalScript(script, function (raw) {
-        if (index < chunkCount - 1) {
-          if (raw !== 'true') {
-            callback(new Error(raw || 'Photoshop 参数传输失败'))
-            return
-          }
-          sendChunk(index + 1)
-          return
-        }
-        receiveResult(raw)
-      })
-    }
-
-    sendChunk(0)
+    var hostPath = path.join(root, 'host.jsx').replace(/\\/g, '/')
+    var normalizedPayloadPath = payloadPath.replace(/\\/g, '/')
+    cs.evalScript('$.evalFile(File(' + JSON.stringify(hostPath) + ')); typeof AjuanPS.runFile', function (raw) {
+      if (raw !== 'function') {
+        callback(new Error('Photoshop JSX 加载失败 [CEP 1.0.7]：' + (raw || '无返回结果')))
+        return
+      }
+      cs.evalScript('AjuanPS.runFile(' + JSON.stringify(normalizedPayloadPath) + ')', receiveResult)
+    })
   }
 
   function processTask(fileName, cfg, bridge, done) {
@@ -213,7 +186,7 @@
             throw new Error('替换素材设置无效')
           var imagePath = path.join(staging, item.file)
           if (!fs.existsSync(imagePath)) throw new Error('素材文件不存在: ' + item.file)
-          replacements.push({ layerName: item.layerName, imagePath: imagePath })
+          replacements.push({ layerName: item.layerName, imagePath: imagePath, file: item.file })
         })
         payload = {
           kind: 'export',
@@ -226,7 +199,9 @@
       if (payload.kind === 'export' && (!payload.templatePath || !payload.outputPath || !payload.replacements.length)) {
         throw new Error('Photoshop 导出参数不完整：模板、输出路径或替换素材缺失')
       }
-      hostRun(payload, function (error, result) {
+      var payloadPath = path.join(bridge, 'staging', stagingKey, 'cep-payload.json')
+      fs.writeFileSync(payloadPath, JSON.stringify(payload), 'utf8')
+      hostRun(payload, payloadPath, function (error, result) {
         if (error) {
           fail(processingPath, bridge, task, cfg, errorText(error), isCutout)
           done()
@@ -280,7 +255,7 @@
     }
   }
 
-  log('Photoshop CEP 后台扩展已启动 [CEP 1.0.5 / ERP 0.2.5]')
+  log('Photoshop CEP 后台扩展已启动 [CEP 1.0.7 / ERP 0.2.7]，加载目录=' + root)
   window.setInterval(function () {
     if (fs.existsSync(requestPath)) {
       try {
