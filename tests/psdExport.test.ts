@@ -685,7 +685,7 @@ describe('插件约定', () => {
     expect(panel).toContain('window.cep')
     expect(panel).not.toContain("require('fs')")
     expect(worker).toContain('replace(/^file:')
-    expect(worker).toContain('AjuanPS.runHex(')
+    expect(worker).toContain('AjuanPS.runHexPart(')
     expect(worker).toContain('payload.templatePath')
     expect(worker).toContain('Photoshop 导出参数不完整')
     expect(host).toContain('placedLayerReplaceContents')
@@ -720,7 +720,7 @@ describe('插件约定', () => {
       const json = JSON.stringify(payload)
       let hex = ''
       for (let i = 0; i < json.length; i++) hex += ('000' + json.charCodeAt(i).toString(16)).slice(-4)
-      const raw = runInNewContext(`${source}\nAjuanPS.runHex("${hex}")`, {
+      const raw = runInNewContext(`${source}\nAjuanPS.runHexPart("job", 0, 1, ${JSON.stringify(hex)})`, {
         File: (path: string) => ({ exists: true, fsName: path }),
         app: {
           open: (file: { fsName: string }) => {
@@ -744,7 +744,7 @@ describe('插件约定', () => {
       assetKind: 'dog'
     })
 
-    expect(exported.error).toBe('OPEN_CALLED:C:\\Bridge\\staging\\5\\template.psd')
+    expect(exported.error).toBe('打开模板：OPEN_CALLED:C:\\Bridge\\staging\\5\\template.psd')
     expect(cutout.error).toBe('OPEN_CALLED:C:\\Bridge\\staging\\cutout-6\\source.jpg')
   })
 })

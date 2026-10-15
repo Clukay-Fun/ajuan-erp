@@ -1,6 +1,7 @@
 #target photoshop
 
 var AjuanPS = (function () {
+  var runBuffers = {}
   function sid(name) { return stringIDToTypeID(name) }
   function cid(name) { return charIDToTypeID(name) }
   function px(value) { try { return Number(value.as('px')) } catch (_) { return Number(value) } }
@@ -229,6 +230,7 @@ var AjuanPS = (function () {
   }
   function runExport(task) {
     var doc = null
+    var stage = '校验导出参数'
     try {
       if (!task || typeof task.templatePath !== 'string' || !task.templatePath) {
         throw new Error('Photoshop 收到的导出任务缺少 templatePath')
@@ -236,27 +238,36 @@ var AjuanPS = (function () {
       if (typeof task.outputPath !== 'string' || !task.outputPath || !(task.replacements instanceof Array)) {
         throw new Error('Photoshop 收到的导出任务字段不完整')
       }
+      stage = '打开模板'
       doc = openExact(task.templatePath)
+      stage = '清除模板示例图案'
       removeExampleArtwork(doc)
       var selectedNames = {}
       for (var r = 0; r < task.replacements.length; r++) selectedNames[task.replacements[r].layerName] = true
       removeUnusedSlotArtwork(doc, selectedNames)
       var replaced = []
       for (var i = 0; i < task.replacements.length; i++) {
+        stage = '替换图层 ' + task.replacements[i].layerName
         replaceLayer(doc, task.replacements[i])
         replaced.push(task.replacements[i].layerName)
       }
+      stage = '合并每个位置的狗图和名字图'
       var mergedLayers = mergePlacedImages(doc, task.replacements)
-      if (task.format === 'tiff') addOpaqueTiffAlpha(doc)
+      if (task.format === 'tiff') {
+        stage = '创建 TIFF 预览 Alpha 通道'
+        addOpaqueTiffAlpha(doc)
+      }
+      stage = '创建 W1 专色通道'
       addSpotChannel(doc, mergedLayers)
       var output = File(task.outputPath)
+      stage = task.format === 'tiff' ? '保存 TIFF' : '保存 PSD'
       saveExport(doc, output, task.format)
       doc.close(SaveOptions.DONOTSAVECHANGES)
       doc = null
       return { ok: true, replaced: replaced }
     } catch (error) {
       if (doc) { try { doc.close(SaveOptions.DONOTSAVECHANGES) } catch (_) {} }
-      return { ok: false, error: errorText(error) }
+      return { ok: false, error: stage + '：' + errorText(error) }
     }
   }
   function unlockBackground(doc) {
@@ -304,7 +315,7 @@ var AjuanPS = (function () {
     var doc = null
     try {
       if (!task || typeof task.sourcePath !== 'string' || !task.sourcePath) {
-        throw new Error('Photoshop 收到的抠图任务缺少 sourcePath [CEP 1.0.4]')
+        throw new Error('Photoshop 收到的抠图任务缺少 sourcePath [CEP 1.0.5]')
       }
       doc = openExact(task.sourcePath)
       unlockBackground(doc)
@@ -357,14 +368,30 @@ var AjuanPS = (function () {
     }
     return json(result)
   }
+  function runHexPart(token, index, total, hexPart) {
+    try {
+      if (typeof token !== 'string' || !/^[a-z0-9]+$/i.test(token)) throw new Error('Photoshop 参数传输标识无效')
+      if (typeof index !== 'number' || typeof total !== 'number' || index < 0 || total < 1 || index >= total) {
+        throw new Error('Photoshop 参数分块序号无效')
+      }
+      if (typeof hexPart !== 'string' || hexPart.length % 4 !== 0 || !/^[0-9a-f]*$/i.test(hexPart)) {
+        throw new Error('Photoshop 参数分块内容无效')
+      }
+      if (index === 0) runBuffers[token] = { next: 0, total: total, parts: [] }
+      var buffer = runBuffers[token]
+      if (!buffer || buffer.total !== total || buffer.next !== index) throw new Error('Photoshop 参数分块顺序错误')
+      buffer.parts.push(hexPart)
+      buffer.next++
+      if (buffer.next < buffer.total) return true
+      delete runBuffers[token]
+      return run(decodeHex(buffer.parts.join('')))
+    } catch (error) {
+      delete runBuffers[token]
+      return json({ ok: false, error: errorText(error) })
+    }
+  }
   return {
     run: run,
-    runHex: function (hex) {
-      try {
-        return run(decodeHex(hex))
-      } catch (error) {
-        return json({ ok: false, error: errorText(error) })
-      }
-    }
+    runHexPart: runHexPart
   }
 })()

@@ -104,11 +104,21 @@
         '，模板路径=' +
         (typeof payload.templatePath === 'string' && payload.templatePath ? '已传入' : '缺失') +
         '，原图路径=' +
-        (typeof payload.sourcePath === 'string' && payload.sourcePath ? '已传入' : '缺失') +
+        (payload.kind === 'cutout'
+          ? typeof payload.sourcePath === 'string' && payload.sourcePath
+            ? '已传入'
+            : '缺失'
+          : '不适用') +
         '，素材数=' +
-        (Array.isArray(payload.replacements) ? payload.replacements.length : 0)
+        (Array.isArray(payload.replacements) ? payload.replacements.length : 0) +
+        '，传输分块=' +
+        Math.max(1, Math.ceil(encoded.length / 512))
     )
-    cs.evalScript('AjuanPS.runHex("' + encoded + '")', function (raw) {
+    var token = Date.now().toString(36) + Math.floor(Math.random() * 1000000).toString(36)
+    var chunkSize = 512
+    var chunkCount = Math.max(1, Math.ceil(encoded.length / chunkSize))
+
+    function receiveResult(raw) {
       var result
       try {
         result = JSON.parse(raw)
@@ -121,7 +131,34 @@
         return
       }
       callback(null, result)
-    })
+    }
+
+    function sendChunk(index) {
+      var chunk = encoded.substring(index * chunkSize, (index + 1) * chunkSize)
+      var script =
+        'AjuanPS.runHexPart(' +
+        JSON.stringify(token) +
+        ',' +
+        index +
+        ',' +
+        chunkCount +
+        ',' +
+        JSON.stringify(chunk) +
+        ')'
+      cs.evalScript(script, function (raw) {
+        if (index < chunkCount - 1) {
+          if (raw !== 'true') {
+            callback(new Error(raw || 'Photoshop 参数传输失败'))
+            return
+          }
+          sendChunk(index + 1)
+          return
+        }
+        receiveResult(raw)
+      })
+    }
+
+    sendChunk(0)
   }
 
   function processTask(fileName, cfg, bridge, done) {
@@ -243,7 +280,7 @@
     }
   }
 
-  log('Photoshop CEP 后台扩展已启动 [CEP 1.0.4 / ERP 0.2.4]')
+  log('Photoshop CEP 后台扩展已启动 [CEP 1.0.5 / ERP 0.2.4]')
   window.setInterval(function () {
     if (fs.existsSync(requestPath)) {
       try {
