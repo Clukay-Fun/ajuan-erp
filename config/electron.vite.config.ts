@@ -4,10 +4,10 @@ import { resolve } from 'node:path'
 
 export default defineConfig({
   main: {
-    resolve: { alias: { '@shared': resolve(__dirname, 'src/shared') } }
+    resolve: { alias: { '@shared': resolve(__dirname, '../src/shared') } }
   },
   preload: {
-    resolve: { alias: { '@shared': resolve(__dirname, 'src/shared') } },
+    resolve: { alias: { '@shared': resolve(__dirname, '../src/shared') } },
     build: {
       rollupOptions: {
         output: { format: 'cjs', entryFileNames: '[name].cjs', inlineDynamicImports: true }
@@ -17,8 +17,8 @@ export default defineConfig({
   renderer: {
     resolve: {
       alias: {
-        '@shared': resolve(__dirname, 'src/shared'),
-        '@': resolve(__dirname, 'src/renderer/src')
+        '@shared': resolve(__dirname, '../src/shared'),
+        '@': resolve(__dirname, '../src/renderer/src')
       }
     },
     plugins: [react()]

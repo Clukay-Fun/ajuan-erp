@@ -10,17 +10,17 @@
     "node": ">=22.12"
   },
   "scripts": {
-    "dev": "electron-vite dev",
-    "build": "electron-vite build",
-    "preview": "electron-vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
-    "test": "vitest run",
+    "dev": "electron-vite dev --config config/electron.vite.config.ts",
+    "build": "electron-vite build --config config/electron.vite.config.ts",
+    "preview": "electron-vite preview --config config/electron.vite.config.ts",
+    "typecheck": "tsc --noEmit -p config/tsconfig.node.json && tsc --noEmit -p config/tsconfig.web.json",
+    "test": "vitest run --config config/vitest.config.ts",
     "build:mac": "npm run build && electron-builder --mac --arm64 --publish=never",
     "build:win": "npm run build && electron-builder --win nsis --x64 --publish=never",
     "e2e": "npm run build && node scripts/e2e.mjs",
     "e2e:only": "node scripts/e2e.mjs",
-    "lint": "eslint . && prettier --check .",
-    "format": "prettier --write ."
+    "lint": "eslint . --config config/eslint.config.js && prettier --config config/.prettierrc --ignore-path config/.prettierignore --check .",
+    "format": "prettier --config config/.prettierrc --ignore-path config/.prettierignore --write ."
   },
   "build": {
     "appId": "com.clukay.ajuan-inventory",

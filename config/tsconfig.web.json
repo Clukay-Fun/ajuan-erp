@@ -9,11 +9,12 @@
     "noEmit": true,
     "composite": true,
     "skipLibCheck": true,
-    "baseUrl": ".",
+    "tsBuildInfoFile": "../node_modules/tsconfig.web.tsbuildinfo",
+    "baseUrl": "..",
     "paths": {
       "@shared/*": ["src/shared/*"],
       "@/*": ["src/renderer/src/*"]
     }
   },
-  "include": ["src/renderer/**/*", "src/preload/*.d.ts", "src/shared/**/*"]
+  "include": ["../src/renderer/**/*", "../src/preload/*.d.ts", "../src/shared/**/*"]
 }
