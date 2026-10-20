@@ -1,153 +1,239 @@
-import type { ReactElement } from 'react'
-import { useCallback, useEffect, useState } from 'react'
-import { PackagePlus, PackageMinus, ImageIcon, Download } from 'lucide-react'
-import type { Overview, Product, Summary } from '@shared/types'
-import { PageHeader } from '@/components/PageHeader'
-import { Button } from '@/components/Button'
-import { Badge, StatusBadge, TypeBadge } from '@/components/Badge'
-import { Dropdown } from '@/components/Dropdown'
-import { SkeletonCard } from '@/components/Skeleton'
-import { TableEmpty } from '@/components/TableEmpty'
+/**
+ * 描述: 概览工作台看板页面 (OverviewPage)
+ * 主要功能:
+ *   - 顶部智能时间范围选择器与近 30 天无业务智能适配
+ *   - 待处理事项条 (Pending Bar) 集中呈现待办草稿与告急库存
+ *   - 4 组核心财务 KPI 磁贴 (出库额、毛利、库存成本、最短可售)
+ *   - 出入库趋势双柱图与逐日明细无缝切换，支持快捷 CSV 导出
+ *   - 紧凑库存状态列表，支持动态库存进度条与低库存置顶标红
+ *   - 最近单据流与零商品新手引导空状态
+ */
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import { Download, AlertTriangle, FileEdit, CheckCircle2, ChevronRight, ImageIcon, Sparkles } from 'lucide-react'
+import type { Product, DocumentSummary } from '@shared/types'
+import type { StatsSummaryResult, DailySeriesItem, ProductHealthItem, PendingSummaryResult } from '@shared/schemas'
+import {
+  IconButton,
+  StatCard,
+  Panel,
+  DocTypeBadge,
+  DocStatusBadge,
+  StockBadge,
+  SegmentedControl,
+  DateRangePicker,
+  EmptyState,
+  ConfirmDialog,
+  Button,
+  useDrawer
+} from '@/components/ui'
 import { useToast } from '@/components/Toast'
 import { unwrap, errorMessage } from '@/lib/api'
 import { formatCents, formatQty, shiftDate, todayString } from '@/lib/format'
 import { useNav } from '@/app/navigation'
 import { TrendChart } from '@/features/overview/TrendChart'
 import { productImageUrl } from '@/features/products/ProductImage'
-import table from '@/components/Table.module.css'
-import f from '@/components/Filters.module.css'
-import seg from '@/components/Segmented.module.css'
 import styles from './OverviewPage.module.css'
 
-type Preset = 'today' | '7d' | '30d' | 'month' | 'lastMonth' | null
+// #region 时间范围与预设辅助函数
 
-function presetRange(p: Exclude<Preset, null>): { from: string; to: string } {
-  const to = todayString()
-  switch (p) {
+type RangePreset = 'today' | '7d' | '30d' | 'month' | 'lastMonth' | 'custom'
+
+interface DateRange {
+  from: string
+  to: string
+}
+
+function calcPresetRange(preset: Exclude<RangePreset, 'custom'>): DateRange {
+  const today = todayString()
+  switch (preset) {
     case 'today':
-      return { from: to, to }
+      return { from: today, to: today }
     case '7d':
-      return { from: shiftDate(to, -6), to }
+      return { from: shiftDate(today, -6), to: today }
     case '30d':
-      return { from: shiftDate(to, -29), to }
+      return { from: shiftDate(today, -29), to: today }
     case 'month':
-      return { from: `${to.slice(0, 7)}-01`, to }
+      return { from: `${today.slice(0, 7)}-01`, to: today }
     case 'lastMonth': {
-      const first = `${to.slice(0, 7)}-01`
-      const lastEnd = shiftDate(first, -1)
-      return { from: `${lastEnd.slice(0, 7)}-01`, to: lastEnd }
+      const firstDayThisMonth = `${today.slice(0, 7)}-01`
+      const lastDayPrevMonth = shiftDate(firstDayThisMonth, -1)
+      const firstDayPrevMonth = `${lastDayPrevMonth.slice(0, 7)}-01`
+      return { from: firstDayPrevMonth, to: lastDayPrevMonth }
     }
   }
 }
 
-const PRESETS: [Exclude<Preset, null>, string][] = [
-  ['today', '今天'],
-  ['7d', '近 7 天'],
-  ['30d', '近 30 天'],
-  ['month', '本月'],
-  ['lastMonth', '上月']
+const PRESET_OPTIONS: { value: RangePreset; label: string }[] = [
+  { value: 'today', label: '今天' },
+  { value: '7d', label: '7天' },
+  { value: '30d', label: '30天' },
+  { value: 'month', label: '本月' },
+  { value: 'lastMonth', label: '上月' },
+  { value: 'custom', label: '自定义' }
 ]
 
-export function OverviewPage(): ReactElement {
+// #endregion
+
+// #region OverviewPage 概览主页面
+
+/**
+ * 用处: 桌面端首页综合看板
+ * 功能:
+ *   - 先处理事（草稿/告急）、再看数（财务KPI、出入库、库存健康）
+ */
+export function OverviewPage(): React.JSX.Element {
   const { navigate } = useNav()
   const toast = useToast()
-  const [data, setData] = useState<Overview | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [products, setProducts] = useState<Product[]>([])
-  const [skuId, setSkuId] = useState<number>(0)
-  const [preset, setPreset] = useState<Preset>('30d')
-  const [range, setRange] = useState(() => presetRange('30d'))
-  const [summary, setSummary] = useState<Summary | null>(null)
-  const [exporting, setExporting] = useState(false)
+  const { openDrawer, closeDrawer } = useDrawer()
 
-  const load = useCallback(async () => {
+  // 1. 时间范围状态
+  const [preset, setPreset] = useState<RangePreset>('30d')
+  const [range, setRange] = useState<DateRange>(() => calcPresetRange('30d'))
+  const [smartShiftInfo, setSmartShiftInfo] = useState<{ originalFrom: string; originalTo: string } | null>(null)
+
+  // 2. 业务数据状态
+  const [summary, setSummary] = useState<StatsSummaryResult | null>(null)
+  const [dailySeries, setDailySeries] = useState<DailySeriesItem[]>([])
+  const [productHealth, setProductHealth] = useState<ProductHealthItem[]>([])
+  const [pending, setPending] = useState<PendingSummaryResult | null>(null)
+  const [recentDocs, setRecentDocs] = useState<DocumentSummary[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+
+  // 3. 交互与筛选状态
+  const [filterProductId] = useState<number>(0)
+  const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart')
+  const [loading, setLoading] = useState<boolean>(true)
+  const [exporting, setExporting] = useState<boolean>(false)
+  const [seedConfirmOpen, setSeedConfirmOpen] = useState<boolean>(false)
+
+  // #region 数据载入逻辑
+
+  // 全量刷新核心数据
+  const loadData = useCallback(async () => {
     try {
-      const [o, ps] = await Promise.all([unwrap(window.ajuan.overview.get()), unwrap(window.ajuan.products.list())])
-      setData(o)
+      const [ps, health, pendingData, docsList] = await Promise.all([
+        unwrap(window.ajuan.products.list()),
+        unwrap(window.ajuan.stats.getProductHealth()),
+        unwrap(window.ajuan.documents.getPendingSummary()),
+        unwrap(window.ajuan.documents.list({}))
+      ])
+
       setProducts(ps.filter((p) => p.isActive))
-      setError(null)
+      setProductHealth(health)
+      setPending(pendingData)
+      setRecentDocs(docsList.slice(0, 5))
     } catch (err) {
-      setError(errorMessage(err))
+      toast(errorMessage(err), 'error')
+    }
+  }, [toast])
+
+  // 智能时间范围检测：若近 30 天无单据且最近单据早于 30 天前，自动设置范围
+  useEffect(() => {
+    let active = true
+    async function checkSmartDate(): Promise<void> {
+      try {
+        const latestDate = await unwrap(window.ajuan.stats.getLatestActivityDate())
+        if (!active || !latestDate) return
+
+        const today = todayString()
+        const thirtyDaysAgo = shiftDate(today, -29)
+
+        if (latestDate < thirtyDaysAgo) {
+          const newFrom = shiftDate(latestDate, -29)
+          setRange({ from: newFrom, to: latestDate })
+          setSmartShiftInfo({ originalFrom: newFrom, originalTo: latestDate })
+        }
+      } catch {
+        // 忽略智能检测失败
+      }
+    }
+
+    void checkSmartDate()
+    return () => {
+      active = false
     }
   }, [])
+
+  // 初始全量数据载入
   useEffect(() => {
-    void load()
-  }, [load])
-
-  useEffect(() => {
-    if (!range.from || !range.to) return
-    unwrap(window.ajuan.summary.get({ ...range, skuId: skuId || undefined }))
-      .then(setSummary)
-      .catch((err: unknown) => toast(errorMessage(err), 'error'))
-  }, [range, skuId, toast])
-
-  const actions = (
-    <>
-      <Button variant="primary" onClick={() => navigate('documents', { documents: { view: 'new', type: 'inbound' } })}>
-        <PackagePlus size={16} /> 入库
-      </Button>
-      <Button variant="primary" onClick={() => navigate('documents', { documents: { view: 'new', type: 'outbound' } })}>
-        <PackageMinus size={16} /> 出库
-      </Button>
-    </>
-  )
-
-  if (error)
-    return (
-      <>
-        <PageHeader title="概览" />
-        <p className={styles.error}>读取失败：{error}</p>
-      </>
-    )
-  if (!data)
-    return (
-      <>
-        <PageHeader title="概览" actions={actions} />
-        <div className={styles.kpis}>
-          {[0, 1, 2, 3].map((i) => (
-            <SkeletonCard key={i} lines={1} />
-          ))}
-        </div>
-        <div className={styles.row}>
-          <SkeletonCard lines={5} />
-          <SkeletonCard lines={5} />
-        </div>
-      </>
-    )
-
-  const { rows, hasOpening } = data
-  const lowRows = rows.filter((r) => r.lowStock)
-  const singleUnit = new Set(rows.map((r) => r.product.unit)).size === 1 ? rows[0]?.product.unit : ''
-  const gross = summary ? summary.outAmountCents - summary.outCostCents : 0
-
-  const pick = (p: Exclude<Preset, null>): void => {
-    setPreset(p)
-    setRange(presetRange(p))
-  }
-  const custom = (patch: Partial<typeof range>): void => {
-    setPreset(null)
-    setRange((r) => ({ ...r, ...patch }))
-  }
-
-  // 图表按区间逐日补齐；超过 62 天只画最后 62 天
-  const chartDays = (() => {
-    if (!summary) return []
-    const byDate = new Map(summary.daily.map((d) => [d.date, d]))
-    const days: typeof summary.daily = []
-    let from = summary.range.from
-    const span = Math.round((Date.parse(summary.range.to) - Date.parse(from)) / 86400000)
-    if (span > 61) from = shiftDate(summary.range.to, -61)
-    for (let d = from; d <= summary.range.to; d = shiftDate(d, 1)) {
-      days.push(byDate.get(d) ?? { date: d, inQty: 0, inAmountCents: 0, outQty: 0, outAmountCents: 0, outCostCents: 0 })
+    let active = true
+    setLoading(true)
+    loadData().finally(() => {
+      if (active) setLoading(false)
+    })
+    return () => {
+      active = false
     }
-    return days
-  })()
+  }, [loadData])
 
-  async function exportCsv(): Promise<void> {
+  // 当时间范围或商品筛选改变时，刷新区间统计与时序
+  useEffect(() => {
+    let active = true
+    if (!range.from || !range.to) return
+
+    Promise.all([
+      unwrap(window.ajuan.stats.getSummary(range)),
+      unwrap(
+        window.ajuan.stats.getDailySeries({
+          from: range.from,
+          to: range.to,
+          productId: filterProductId || undefined
+        })
+      )
+    ])
+      .then(([summaryRes, seriesRes]) => {
+        if (!active) return
+        setSummary(summaryRes)
+        setDailySeries(seriesRes)
+      })
+      .catch((err) => {
+        if (active) toast(errorMessage(err), 'error')
+      })
+
+    return () => {
+      active = false
+    }
+  }, [range, filterProductId, toast])
+
+  // #endregion
+
+  // #region 交互处理函数
+
+  // 切换预设区间
+  const handleSelectPreset = (p: RangePreset): void => {
+    setPreset(p)
+    if (p !== 'custom') {
+      setRange(calcPresetRange(p))
+      setSmartShiftInfo(null)
+    }
+  }
+
+  // 自定义区间变更
+  const handleCustomRangeChange = (newRange: { from: string; to: string }): void => {
+    setRange(newRange)
+    setSmartShiftInfo(null)
+  }
+
+  // 还原到默认真实近 30 天
+  const handleResetToReal30Days = (): void => {
+    setPreset('30d')
+    setRange(calcPresetRange('30d'))
+    setSmartShiftInfo(null)
+  }
+
+  // 导出逐日 CSV
+  const handleExportCsv = async (): Promise<void> => {
     setExporting(true)
     try {
-      const p = await unwrap(window.ajuan.csv.exportSummary({ ...range, skuId: skuId || undefined }))
-      if (p) toast(`已导出到 ${p}`, 'success')
+      const p = await unwrap(
+        window.ajuan.csv.exportSummary({
+          from: range.from,
+          to: range.to,
+          skuId: filterProductId || undefined
+        })
+      )
+      if (p) toast(`已导出逐日汇总到: ${p}`, 'success')
     } catch (err) {
       toast(errorMessage(err), 'error')
     } finally {
@@ -155,268 +241,590 @@ export function OverviewPage(): ReactElement {
     }
   }
 
-  return (
-    <>
-      <PageHeader title="概览" actions={actions} />
+  // 载入示例数据
+  const handleConfirmSeed = async (): Promise<void> => {
+    try {
+      await unwrap(window.ajuan.demo.seed())
+      toast('示例数据载入成功', 'success')
+      setSeedConfirmOpen(false)
+      await loadData()
+    } catch (err) {
+      toast(errorMessage(err), 'error')
+    }
+  }
 
-      {/* 当前状态 */}
-      <div className={styles.kpis}>
-        <div className={styles.kpi}>
-          <div className={styles.kpiLabel}>当前库存</div>
-          <div className={styles.kpiValue}>
-            {formatQty(data.totalQuantity)}
-            {singleUnit && <span className={styles.kpiUnit}>{singleUnit}</span>}
-          </div>
-          <div className={`${styles.kpiSub} ${data.lowStockCount ? styles.warn : hasOpening ? styles.ok : ''}`}>
-            {!hasOpening
-              ? '未录入期初'
-              : data.lowStockCount
-                ? `${data.lowStockCount} 个商品低于预警值`
-                : `${rows.length} 个商品 · 库存正常`}
-          </div>
-        </div>
-        <div className={styles.kpi}>
-          <div className={styles.kpiLabel}>库存成本</div>
-          <div className={styles.kpiValue}>¥{formatCents(data.totalCostValueCents)}</div>
-          <div className={styles.kpiSub}>
-            {data.totalQuantity > 0
-              ? `均价 ¥${formatCents(Math.round(data.totalCostValueCents / data.totalQuantity))}`
-              : '—'}
-          </div>
-        </div>
-        <div className={styles.kpi}>
-          <div className={styles.kpiLabel}>今日入库</div>
-          <div className={styles.kpiValue}>
-            {formatQty(data.today.inQty)}
-            {singleUnit && <span className={styles.kpiUnit}>{singleUnit}</span>}
-          </div>
-          <div className={styles.kpiSub}>¥{formatCents(data.today.inAmountCents)}</div>
-        </div>
-        <div className={styles.kpi}>
-          <div className={styles.kpiLabel}>今日出库</div>
-          <div className={styles.kpiValue}>
-            {formatQty(data.today.outQty)}
-            {singleUnit && <span className={styles.kpiUnit}>{singleUnit}</span>}
-          </div>
-          <div className={styles.kpiSub}>¥{formatCents(data.today.outAmountCents)}</div>
-        </div>
-      </div>
+  // 打开商品查看抽屉
+  const handleOpenProduct = (productId: number): void => {
+    const item = productHealth.find((p) => p.productId === productId)
+    if (!item) {
+      navigate('products')
+      return
+    }
 
-      {/* 区间汇总 */}
-      <div className={styles.sectionTitle}>出入库汇总</div>
-      <div className={f.bar}>
-        <Dropdown
-          compact
-          aria-label="商品"
-          value={skuId}
-          onChange={setSkuId}
-          options={[
-            { value: 0, label: '全部商品' },
-            ...products.map((p) => ({ value: p.defaultSku.id, label: p.name, hint: p.code }))
-          ]}
-        />
-        <input
-          className={`${f.input} ${f.date}`}
-          type="date"
-          value={range.from}
-          onChange={(e) => custom({ from: e.target.value })}
-        />
-        <span className={f.sep}>—</span>
-        <input
-          className={`${f.input} ${f.date}`}
-          type="date"
-          value={range.to}
-          onChange={(e) => custom({ to: e.target.value })}
-        />
-        <div className={seg.group} role="group" aria-label="快捷区间">
-          {PRESETS.map(([k, label]) => (
-            <button key={k} type="button" className={seg.item} aria-pressed={preset === k} onClick={() => pick(k)}>
-              {label}
-            </button>
-          ))}
+    openDrawer({
+      id: `product-view-${productId}`,
+      title: item.name,
+      size: 'md',
+      content: (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+            <div className={styles.stockThumb} style={{ width: 48, height: 48 }}>
+              <ImageIcon size={24} className={styles.stockThumbPlaceholder} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 600 }}>{item.name}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+                {item.code} · SKU: {item.skuCode}
+              </div>
+            </div>
+          </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: 'var(--space-2)'
+            }}
+          >
+            <StatCard label="当前库存" value={`${formatQty(item.stock)} 件`} />
+            <StatCard label="可售天数" value={item.daysOfSupply !== null ? `${item.daysOfSupply} 天` : '—'} />
+            <StatCard label="平均成本" value={`¥${formatCents(item.avgCostCents)}`} />
+            <StatCard label="库存成本" value={`¥${formatCents(item.costValueCents)}`} />
+          </div>
+          <div style={{ marginTop: 'var(--space-2)' }}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                closeDrawer()
+                navigate('products')
+              }}
+            >
+              前往商品列表管理详情 →
+            </Button>
+          </div>
         </div>
-        <div className={f.actions}>
-          <Button onClick={exportCsv} disabled={exporting || !summary || summary.daily.length === 0}>
-            <Download size={16} /> {exporting ? '导出中…' : '导出 CSV'}
+      )
+    })
+  }
+
+  // 打开单据查看抽屉
+  const handleOpenDocument = (docId: number): void => {
+    const doc = recentDocs.find((d) => d.id === docId)
+    openDrawer({
+      id: `doc-view-${docId}`,
+      title: doc ? `单据详情 ${doc.docNo}` : '单据详情',
+      size: 'md',
+      content: (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          {doc && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+              <div>
+                单据编号: <strong>{doc.docNo}</strong>
+              </div>
+              <div>业务类型: {doc.type === 'inbound' ? '入库单' : '出库单'}</div>
+              <div>业务日期: {doc.docDate}</div>
+              <div>单据状态: {doc.status}</div>
+              <div>货品总件数: {formatQty(doc.totalQuantity)} 件</div>
+            </div>
+          )}
+          <Button
+            variant="secondary"
+            onClick={() => {
+              closeDrawer()
+              navigate('documents', { documents: { view: 'detail', id: docId } })
+            }}
+          >
+            打开完整单据单页 →
           </Button>
         </div>
-      </div>
+      )
+    })
+  }
 
-      <div className={styles.kpis3}>
-        <div className={styles.kpi}>
-          <div className={styles.kpiLabel}>入库</div>
-          <div className={styles.kpiValue}>{summary ? formatQty(summary.inQty) : '—'}</div>
-          <div className={styles.kpiSub}>
-            {summary ? `¥${formatCents(summary.inAmountCents)} · ${summary.inDocCount} 张单` : ''}
-          </div>
-        </div>
-        <div className={styles.kpi}>
-          <div className={styles.kpiLabel}>出库</div>
-          <div className={styles.kpiValue}>{summary ? formatQty(summary.outQty) : '—'}</div>
-          <div className={styles.kpiSub}>
-            {summary ? `¥${formatCents(summary.outAmountCents)} · ${summary.outDocCount} 张单` : ''}
-          </div>
-        </div>
-        <div className={styles.kpi}>
-          <div className={styles.kpiLabel}>出库毛利（售价 − 成本快照）</div>
-          <div className={styles.kpiValue} style={{ color: gross < 0 ? 'var(--color-danger)' : 'var(--chart-profit)' }}>
-            {summary ? `¥${formatCents(gross)}` : '—'}
-          </div>
-          <div className={styles.kpiSub}>{summary ? `出库成本 ¥${formatCents(summary.outCostCents)}` : ''}</div>
-        </div>
-      </div>
+  // #endregion
 
-      <div className={styles.row}>
-        <section className={`${styles.card} ${styles.chartCard}`}>
-          <div className={styles.cardTitle}>逐日出入库</div>
-          <TrendChart data={chartDays} fill />
-        </section>
-        <div className={styles.side}>
-          <section className={styles.card}>
-            <div className={styles.cardTitle}>
-              最近单据
+  // #region 衍生指标与列表排序
+
+  // 异常商品数量（预警与告急）
+  const criticalProducts = useMemo(
+    () => productHealth.filter((p) => p.status === 'critical' || p.status === 'warning'),
+    [productHealth]
+  )
+
+  // 最短可售天数计算
+  const shortestSupplyItem = useMemo(() => {
+    const valid = productHealth.filter((p) => p.status !== 'inactive' && p.daysOfSupply !== null)
+    if (valid.length === 0) return null
+    return [...valid].sort((a, b) => (a.daysOfSupply ?? 999999) - (b.daysOfSupply ?? 999999))[0]
+  }, [productHealth])
+
+  // 库存卡片排序：异常优先置顶，其次按库存量从大到小
+  const sortedStockItems = useMemo(() => {
+    return [...productHealth].sort((a, b) => {
+      const isAWarning = a.status === 'critical' || a.status === 'warning'
+      const isBWarning = b.status === 'critical' || b.status === 'warning'
+      if (isAWarning && !isBWarning) return -1
+      if (!isAWarning && isBWarning) return 1
+      return b.stock - a.stock
+    })
+  }, [productHealth])
+
+  // 当前全局总库存量与总库存成本
+  const totalStockQty = useMemo(() => productHealth.reduce((acc, cur) => acc + cur.stock, 0), [productHealth])
+  const totalCostValueCents = useMemo(
+    () => productHealth.reduce((acc, cur) => acc + cur.costValueCents, 0),
+    [productHealth]
+  )
+
+  // #endregion
+
+  // #region 首开空状态 (Zero Products Empty State)
+
+  if (!loading && products.length === 0) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.headerRow}>
+          <h1 className={styles.headerTitle}>概览</h1>
+        </div>
+        <EmptyState
+          icon={<PackageIconPlaceholder />}
+          title="还没有商品，从这里开始"
+          description="建立你的第一份商品画像，或者快速载入示例数据体验工作台完整能力。"
+          actions={[
+            {
+              label: '新建第一个商品',
+              variant: 'primary',
+              onClick: () => navigate('products')
+            },
+            {
+              label: '导入 CSV',
+              variant: 'secondary',
+              onClick: () => navigate('documents', { documents: { view: 'list' } })
+            },
+            {
+              label: '载入示例数据',
+              variant: 'secondary',
+              onClick: () => setSeedConfirmOpen(true)
+            }
+          ]}
+        />
+        <ConfirmDialog
+          open={seedConfirmOpen}
+          onOpenChange={setSeedConfirmOpen}
+          title="载入示例数据"
+          description="载入示例数据将生成预设商品、期初库存以及真实的出入库单据记录。确认载入吗？"
+          confirmText="确认载入"
+          onConfirm={handleConfirmSeed}
+        />
+      </div>
+    )
+  }
+
+  // #endregion
+
+  const draftCount = pending?.draftCount ?? 0
+  const hasPendingWork = draftCount > 0 || criticalProducts.length > 0
+
+  return (
+    <div className={styles.container}>
+      {/* 1. 顶部页头栏：标题、智能日期提示、时间范围选择器 */}
+      <header className={styles.headerRow}>
+        <div className={styles.headerLeft}>
+          <h1 className={styles.headerTitle}>概览</h1>
+          {smartShiftInfo && (
+            <div className={styles.smartRangeHint}>
+              <Sparkles size={13} style={{ color: 'var(--accent)' }} />
+              <span>
+                近 30 天无单据，已智能匹配至 {smartShiftInfo.originalFrom.slice(5)} ~{' '}
+                {smartShiftInfo.originalTo.slice(5)}
+              </span>
               <button
                 type="button"
-                className={styles.link}
-                onClick={() => navigate('documents', { documents: { view: 'list' } })}
+                className={styles.hintLink}
+                onClick={handleResetToReal30Days}
+                title="重置为当前自然日近 30 天"
               >
-                全部
+                回到近 30 天
               </button>
             </div>
-            {data.recentDocuments.length === 0 ? (
-              <p className={styles.muted}>暂无单据</p>
+          )}
+        </div>
+
+        <div className={styles.headerRight}>
+          <SegmentedControl
+            options={PRESET_OPTIONS}
+            value={preset}
+            onChange={(val) => handleSelectPreset(val as RangePreset)}
+          />
+          {preset === 'custom' && <DateRangePicker value={range} onChange={handleCustomRangeChange} />}
+        </div>
+      </header>
+
+      {/* 2. 待处理事项条 (Pending Bar) */}
+      <section className={`${styles.pendingBar} ${hasPendingWork ? styles.hasWork : ''}`} aria-label="待处理事项">
+        <div className={styles.pendingLeft}>
+          {hasPendingWork ? (
+            <>
+              {draftCount > 0 && (
+                <button
+                  type="button"
+                  className={styles.pendingItem}
+                  onClick={() => navigate('documents', { documents: { view: 'list' } })}
+                >
+                  <FileEdit size={14} style={{ color: 'var(--status-out)' }} />
+                  <span>{draftCount} 张单据草稿待确认</span>
+                </button>
+              )}
+              {draftCount > 0 && criticalProducts.length > 0 && (
+                <span style={{ color: 'var(--text-tertiary)' }}>·</span>
+              )}
+              {criticalProducts.length > 0 && (
+                <button type="button" className={styles.pendingItem} onClick={() => navigate('products')}>
+                  <AlertTriangle size={14} style={{ color: 'var(--status-critical)' }} />
+                  <span>{criticalProducts.length} 个商品处于库存预警或告急</span>
+                </button>
+              )}
+            </>
+          ) : (
+            <div className={styles.pendingOk}>
+              <CheckCircle2 size={14} style={{ color: 'var(--text-tertiary)' }} />
+              <span>一切正常，当前暂无待处理草稿与库存告急</span>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* 3. 4 张 KPI 核心指标卡 */}
+      <section className={styles.kpiGrid} aria-label="核心财务与库存指标">
+        {/* 出库额 */}
+        <StatCard
+          label="出库额"
+          value={summary ? `¥${formatCents(summary.current.outAmountCents)}` : '—'}
+          subtext={summary ? `${summary.current.outQty} 件 · ${summary.current.outDocCount} 单` : '无出库记录'}
+          changePercentage={summary?.changes.outAmount}
+          onClick={() => navigate('documents', { documents: { view: 'list' } })}
+        />
+
+        {/* 毛利 */}
+        <StatCard
+          label="出库毛利"
+          value={
+            summary ? (
+              <span style={{ color: summary.current.profitCents < 0 ? 'var(--status-critical)' : undefined }}>
+                ¥{formatCents(summary.current.profitCents)}
+              </span>
             ) : (
-              <ul className={styles.recent}>
-                {data.recentDocuments.slice(0, 4).map((d) => (
-                  <li
-                    key={d.id}
-                    className={styles.recentItem}
-                    onClick={() => navigate('documents', { documents: { view: 'detail', id: d.id } })}
+              '—'
+            )
+          }
+          subtext={summary ? `毛利率 ${(summary.current.profitRate * 100).toFixed(1)}%` : '售价 − 成本快照'}
+          changePercentage={summary?.changes.profit}
+          onClick={() => navigate('documents', { documents: { view: 'list' } })}
+        />
+
+        {/* 库存成本 */}
+        <StatCard
+          label="当前库存成本"
+          value={`¥${formatCents(totalCostValueCents)}`}
+          subtext={`共 ${formatQty(totalStockQty)} 件 · ${products.length} 个商品`}
+          onClick={() => navigate('products')}
+        />
+
+        {/* 最短可售 */}
+        <StatCard
+          label="最短可售天数"
+          value={shortestSupplyItem ? `${shortestSupplyItem.daysOfSupply} 天` : '—'}
+          subtext={shortestSupplyItem ? shortestSupplyItem.name : '出库样本不足'}
+          onClick={() => {
+            if (shortestSupplyItem) {
+              handleOpenProduct(shortestSupplyItem.productId)
+            } else {
+              navigate('products')
+            }
+          }}
+        />
+      </section>
+
+      {/* 4. 双栏主体内容区 (左栏 2/3 出入库与逐日明细，右栏 1/3 库存状态与最近单据) */}
+      <div className={styles.mainGrid}>
+        {/* 左栏 */}
+        <div className={styles.leftCol}>
+          {/* 面板 1：出入库趋势 */}
+          <Panel
+            title="出入库"
+            count={filterProductId ? products.find((p) => p.id === filterProductId)?.name : '全部商品'}
+            actions={
+              <div className={styles.trendTools}>
+                {/* 视图切换 */}
+                <div className={styles.viewToggle} role="group" aria-label="图表或明细表格切换">
+                  <button
+                    type="button"
+                    className={`${styles.viewBtn} ${viewMode === 'chart' ? styles.active : ''}`}
+                    onClick={() => setViewMode('chart')}
                   >
-                    <TypeBadge type={d.type} />
-                    <div className={styles.recentMain}>
-                      <div className={styles.recentNo}>{d.docNo}</div>
-                      <div className={styles.recentMeta}>
-                        {d.docDate}
-                        {d.channelName ? ` · ${d.channelName}` : ''}
+                    图表
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.viewBtn} ${viewMode === 'table' ? styles.active : ''}`}
+                    onClick={() => setViewMode('table')}
+                  >
+                    明细
+                  </button>
+                </div>
+
+                {/* 导出按钮 */}
+                <IconButton
+                  label="导出逐日明细 CSV"
+                  icon={<Download size={14} />}
+                  variant="ghost"
+                  size="sm"
+                  disabled={exporting || dailySeries.length === 0}
+                  onClick={handleExportCsv}
+                />
+              </div>
+            }
+            flush={viewMode === 'table'}
+          >
+            {/* 指标摘要条 */}
+            {summary && viewMode === 'chart' && (
+              <div className={styles.trendSummaryRow}>
+                <span className={styles.trendMetric}>
+                  入库: <span className={`${styles.trendVal} ${styles.in}`}>{formatQty(summary.current.inQty)} 件</span>
+                  <span className={styles.mutedText}>(¥{formatCents(summary.current.inAmountCents)})</span>
+                </span>
+                <span className={styles.trendMetric}>
+                  出库:{' '}
+                  <span className={`${styles.trendVal} ${styles.out}`}>{formatQty(summary.current.outQty)} 件</span>
+                  <span className={styles.mutedText}>(¥{formatCents(summary.current.outAmountCents)})</span>
+                </span>
+                <span className={styles.trendMetric}>
+                  毛利:{' '}
+                  <span className={`${styles.trendVal} ${styles.profit}`}>
+                    ¥{formatCents(summary.current.profitCents)}
+                  </span>
+                </span>
+              </div>
+            )}
+
+            {/* 视图渲染 */}
+            {viewMode === 'chart' ? (
+              <TrendChart
+                data={dailySeries}
+                onNewOutbound={() => navigate('documents', { documents: { view: 'new', type: 'outbound' } })}
+                onResetRange={handleResetToReal30Days}
+              />
+            ) : (
+              <table className={styles.dailyTable}>
+                <thead>
+                  <tr>
+                    <th>日期</th>
+                    <th className={styles.num}>入库件数</th>
+                    <th className={styles.num}>入库金额</th>
+                    <th className={styles.num}>出库件数</th>
+                    <th className={styles.num}>出库金额</th>
+                    <th className={styles.num}>毛利</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dailySeries.filter((d) => d.inQty > 0 || d.outQty > 0).length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className={styles.emptyBlock}>
+                        该区间没有已生效的出入库单据
+                      </td>
+                    </tr>
+                  ) : (
+                    dailySeries
+                      .filter((d) => d.inQty > 0 || d.outQty > 0)
+                      .slice()
+                      .reverse()
+                      .map((d) => (
+                        <tr key={d.date}>
+                          <td className={styles.dateCell}>{d.date}</td>
+                          <td className={styles.num}>
+                            {d.inQty > 0 ? formatQty(d.inQty) : <span className={styles.mutedText}>—</span>}
+                          </td>
+                          <td className={styles.num}>
+                            {d.inQty > 0 ? (
+                              `¥${formatCents(d.inAmountCents)}`
+                            ) : (
+                              <span className={styles.mutedText}>—</span>
+                            )}
+                          </td>
+                          <td className={styles.num}>
+                            {d.outQty > 0 ? formatQty(d.outQty) : <span className={styles.mutedText}>—</span>}
+                          </td>
+                          <td className={styles.num}>
+                            {d.outQty > 0 ? (
+                              `¥${formatCents(d.outAmountCents)}`
+                            ) : (
+                              <span className={styles.mutedText}>—</span>
+                            )}
+                          </td>
+                          <td className={styles.num}>
+                            {d.outQty > 0 ? (
+                              `¥${formatCents(d.profitCents)}`
+                            ) : (
+                              <span className={styles.mutedText}>—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                  )}
+                </tbody>
+              </table>
+            )}
+          </Panel>
+        </div>
+
+        {/* 右栏 */}
+        <div className={styles.rightCol}>
+          {/* 面板 2：库存状态 */}
+          <Panel
+            title="库存"
+            count={`${products.length} 个商品`}
+            actions={
+              <button type="button" className={styles.allLink} onClick={() => navigate('products')}>
+                全部 <ChevronRight size={14} />
+              </button>
+            }
+            flush
+          >
+            <div className={styles.stockList}>
+              {sortedStockItems.slice(0, 8).map((p) => {
+                const prod = products.find((item) => item.id === p.productId)
+                const imgUrl = prod ? productImageUrl(prod) : null
+                const isWarning = p.status === 'critical' || p.status === 'warning'
+                const maxVal = Math.max(p.lowStockThreshold * 3, p.stock, 1)
+                const fillPercent = Math.min(100, Math.round((p.stock / maxVal) * 100))
+                const thresholdPercent =
+                  p.lowStockThreshold > 0 ? Math.min(100, Math.round((p.lowStockThreshold / maxVal) * 100)) : 0
+
+                return (
+                  <div
+                    key={p.productId}
+                    className={`${styles.stockItem} ${isWarning ? styles.isWarning : ''}`}
+                    onClick={() => handleOpenProduct(p.productId)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleOpenProduct(p.productId)
+                    }}
+                  >
+                    <div className={styles.stockRowTop}>
+                      <div className={styles.stockProductInfo}>
+                        <div className={styles.stockThumb}>
+                          {imgUrl ? (
+                            <img src={imgUrl} alt={p.name} />
+                          ) : (
+                            <ImageIcon size={14} className={styles.stockThumbPlaceholder} />
+                          )}
+                        </div>
+                        <div className={styles.stockMeta}>
+                          <span className={styles.stockName} title={p.name}>
+                            {p.name}
+                          </span>
+                          <span className={styles.stockCode}>{p.code}</span>
+                        </div>
+                      </div>
+
+                      <div className={styles.stockNumbers}>
+                        <span className={`${styles.stockQty} ${isWarning ? styles.critical : ''}`}>
+                          {formatQty(p.stock)} 件
+                        </span>
+                        <span className={styles.stockDays}>
+                          {p.daysOfSupply !== null ? `约 ${p.daysOfSupply} 天` : '—'}
+                        </span>
+                        {isWarning && <StockBadge status={p.status} />}
                       </div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div className={styles.recentQty}>{formatQty(d.totalQuantity)}</div>
-                      {d.status !== 'confirmed' && <StatusBadge status={d.status} />}
+
+                    {/* 细动态库存条 */}
+                    <div className={styles.stockBarWrap}>
+                      <div
+                        className={`${styles.stockBarFill} ${styles[p.status]}`}
+                        style={{ width: `${fillPercent}%` }}
+                      />
+                      {thresholdPercent > 0 && (
+                        <div
+                          className={styles.stockThresholdLine}
+                          style={{ left: `${thresholdPercent}%` }}
+                          title={`预警阈值: ${p.lowStockThreshold}`}
+                        />
+                      )}
                     </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-          <section className={styles.card}>
-            <div className={styles.cardTitle}>低库存预警</div>
-            {lowRows.length > 0 ? (
-              lowRows.map((r) => (
-                <div key={r.product.id} className={styles.alertRow}>
-                  <Badge tone="danger">预警</Badge>
-                  <span>
-                    {r.product.name} 仅剩 <strong>{formatQty(r.stock.quantity)}</strong> {r.product.unit}，预警值{' '}
-                    {formatQty(r.product.lowStockThreshold)}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <p className={styles.muted}>{hasOpening ? '暂无预警' : '录入期初后开始监控'}</p>
-            )}
-          </section>
+                  </div>
+                )
+              })}
+            </div>
+          </Panel>
+
+          {/* 面板 3：最近单据 */}
+          <Panel
+            title="最近单据"
+            actions={
+              <button
+                type="button"
+                className={styles.allLink}
+                onClick={() => navigate('documents', { documents: { view: 'list' } })}
+              >
+                全部 <ChevronRight size={14} />
+              </button>
+            }
+            flush
+          >
+            <div className={styles.recentList}>
+              {recentDocs.length === 0 ? (
+                <div className={styles.emptyBlock}>暂无单据记录</div>
+              ) : (
+                recentDocs.slice(0, 5).map((doc) => (
+                  <div
+                    key={doc.id}
+                    className={styles.recentItem}
+                    onClick={() => handleOpenDocument(doc.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleOpenDocument(doc.id)
+                    }}
+                  >
+                    <div className={styles.recentLeft}>
+                      <DocTypeBadge type={doc.type} />
+                      <div className={styles.recentMain}>
+                        <span className={styles.recentDocNo}>{doc.docNo}</span>
+                        <span className={styles.recentSub}>
+                          {doc.docDate}
+                          {doc.channelName ? ` · ${doc.channelName}` : ''}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className={styles.recentRight}>
+                      <span className={styles.recentQty}>{formatQty(doc.totalQuantity)} 件</span>
+                      <DocStatusBadge status={doc.status} />
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </Panel>
         </div>
       </div>
 
-      <div className={styles.sectionTitle}>逐日明细</div>
-      <div className={table.wrap} style={{ marginBottom: 'var(--space-6)' }}>
-        <table className={table.table}>
-          <thead>
-            <tr>
-              <th>日期</th>
-              <th className={table.num}>入库数量</th>
-              <th className={table.num}>入库金额</th>
-              <th className={table.num}>出库数量</th>
-              <th className={table.num}>出库金额</th>
-              <th className={table.num}>毛利</th>
-            </tr>
-          </thead>
-          <tbody>
-            {summary && summary.daily.length === 0 && (
-              <TableEmpty cols={6} title="该区间没有已生效的出入库" description="确认入库 / 出库单后，这里按天汇总" />
-            )}
-            {summary?.daily.map((d) => (
-              <tr key={d.date}>
-                <td className={table.mono}>{d.date}</td>
-                <td className={table.num}>{d.inQty ? formatQty(d.inQty) : <span className={table.muted}>—</span>}</td>
-                <td className={table.num}>
-                  {d.inQty ? `¥${formatCents(d.inAmountCents)}` : <span className={table.muted}>—</span>}
-                </td>
-                <td className={table.num}>{d.outQty ? formatQty(d.outQty) : <span className={table.muted}>—</span>}</td>
-                <td className={table.num}>
-                  {d.outQty ? `¥${formatCents(d.outAmountCents)}` : <span className={table.muted}>—</span>}
-                </td>
-                <td className={table.num}>
-                  {d.outQty ? (
-                    `¥${formatCents(d.outAmountCents - d.outCostCents)}`
-                  ) : (
-                    <span className={table.muted}>—</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className={styles.sectionTitle}>库存状态</div>
-      <div className={table.wrap}>
-        <table className={`${table.table} ${table.clickable}`}>
-          <thead>
-            <tr>
-              <th>商品</th>
-              <th>SKU</th>
-              <th className={table.num}>当前库存</th>
-              <th className={table.num}>平均成本</th>
-              <th className={table.num}>预警值</th>
-              <th>状态</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => {
-              const imgUrl = productImageUrl(r.product)
-              return (
-                <tr key={r.product.id} onClick={() => navigate('products')}>
-                  <td>
-                    <span className={styles.thumb}>
-                      {imgUrl ? <img src={imgUrl} alt="" /> : <ImageIcon size={14} strokeWidth={1.5} />}
-                    </span>
-                    <span className={styles.accent}>{r.product.name}</span>
-                  </td>
-                  <td className={table.mono}>{r.product.defaultSku.code}</td>
-                  <td className={table.num}>
-                    {formatQty(r.stock.quantity)} {r.product.unit}
-                  </td>
-                  <td className={table.num}>{r.stock.quantity > 0 ? `¥${formatCents(r.stock.avgCostCents)}` : '—'}</td>
-                  <td className={table.num}>
-                    {formatQty(r.product.lowStockThreshold)} {r.product.unit}
-                  </td>
-                  <td>
-                    {!r.hasOpening ? (
-                      <Badge>未录入期初</Badge>
-                    ) : r.lowStock ? (
-                      <Badge tone="danger">库存预警</Badge>
-                    ) : (
-                      <Badge tone="success">库存正常</Badge>
-                    )}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-    </>
+      {/* 示例数据确认弹窗 */}
+      <ConfirmDialog
+        open={seedConfirmOpen}
+        onOpenChange={setSeedConfirmOpen}
+        title="载入示例数据"
+        description="载入示例数据将生成预设商品、期初库存以及真实的出入库单据记录。确认载入吗？"
+        confirmText="确认载入"
+        onConfirm={handleConfirmSeed}
+      />
+    </div>
   )
 }
+
+function PackageIconPlaceholder(): React.JSX.Element {
+  return <ImageIcon size={32} style={{ color: 'var(--text-tertiary)' }} />
+}
+
+// #endregion

@@ -2,6 +2,7 @@ import type { ReactElement } from 'react'
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Shell } from '@/components/Shell'
 import { ToastProvider } from '@/components/Toast'
+import { DrawerHost } from '@/components/ui'
 import { NavProvider, useNav } from './navigation'
 import { useShortcuts } from './useShortcuts'
 import type { RouteKey } from './routes'
@@ -78,7 +79,9 @@ export function App(): ReactElement {
   return (
     <ToastProvider>
       <NavProvider>
-        <Routed />
+        <DrawerHost>
+          <Routed />
+        </DrawerHost>
       </NavProvider>
     </ToastProvider>
   )

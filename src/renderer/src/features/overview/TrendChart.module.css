@@ -1,67 +1,209 @@
 .wrap {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  position: relative;
 }
+
 .fill {
   flex: 1;
-  min-height: 180px;
+  min-height: 200px;
 }
-/* 绘图区：svg 绝对定位，不参与布局，高度只由容器决定，避免测量反馈 */
+
+.headerBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+  font-size: var(--font-size-xs);
+}
+
+.summaryMetrics {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.metricItem {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.metricValue {
+  font-weight: var(--font-weight-semibold);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.metricValue.in {
+  color: var(--status-in);
+}
+
+.metricValue.out {
+  color: var(--status-out);
+}
+
+.metricValue.profit {
+  color: var(--status-adjust);
+}
+
+.legend {
+  display: flex;
+  gap: var(--space-3);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legendDot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-xs, 2px);
+}
+
+.inDot {
+  background-color: var(--chart-in);
+}
+
+.outDot {
+  background-color: var(--chart-out);
+}
+
 .plot {
   position: relative;
-  flex: 1;
-  min-height: 160px;
+  width: 100%;
+  height: 200px;
+  overflow: visible;
 }
+
 .plot .svg {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
-.svg {
-  display: block;
-}
+
 .grid {
-  stroke: var(--color-border);
+  stroke: var(--border-subtle);
+  stroke-dasharray: 2 2;
   stroke-width: 1;
 }
+
 .tick {
-  fill: var(--color-text-muted);
-  font-size: 11px;
-  font-family: var(--font-sans);
+  fill: var(--text-tertiary);
+  font-size: 10px;
+  font-family: var(--font-mono);
 }
+
+.barGroup {
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.barGroup:hover {
+  opacity: 0.9;
+}
+
 .inBar {
   fill: var(--chart-in);
+  transition:
+    height 300ms cubic-bezier(0.16, 1, 0.3, 1),
+    y 300ms cubic-bezier(0.16, 1, 0.3, 1);
 }
+
 .outBar {
   fill: var(--chart-out);
+  transition:
+    height 300ms cubic-bezier(0.16, 1, 0.3, 1),
+    y 300ms cubic-bezier(0.16, 1, 0.3, 1);
 }
-.empty {
+
+.hoverZone {
+  fill: transparent;
+}
+
+.hoverActive {
+  fill: var(--bg-subtle);
+  opacity: 0.4;
+}
+
+.tooltip {
   position: absolute;
-  inset: 0 0 20px;
+  pointer-events: none;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  box-shadow: var(--shadow-md, none);
+  border-radius: var(--radius-md, 6px);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-xs);
+  z-index: 10;
+  min-width: 150px;
+  transform: translate(-50%, -100%);
+  margin-top: -8px;
   display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.tooltipTitle {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 2px;
+  margin-bottom: 2px;
+}
+
+.tooltipRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tooltipRow.in {
+  color: var(--status-in);
+}
+
+.tooltipRow.out {
+  color: var(--status-out);
+}
+
+.tooltipRow.profit {
+  color: var(--text-primary);
+  border-top: 1px dashed var(--border-subtle);
+  padding-top: 2px;
+  margin-top: 2px;
+}
+
+.emptyOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: var(--color-text-muted);
-  font-size: 13px;
+  background-color: var(--bg-surface);
+  border-radius: var(--radius-md, 6px);
+  z-index: 2;
+  gap: var(--space-3);
 }
-.legend {
+
+.emptyText {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+.emptyActions {
   display: flex;
-  gap: var(--space-4);
-  justify-content: flex-end;
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  margin-top: 4px;
-}
-.legend i {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  margin-right: 6px;
-  vertical-align: -1px;
-}
-.inDot {
-  background: var(--chart-in);
-}
-.outDot {
-  background: var(--chart-out);
+  gap: var(--space-2);
 }
