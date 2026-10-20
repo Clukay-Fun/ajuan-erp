@@ -150,3 +150,39 @@
 
 基线截图脚本：`scripts/screenshot.ts`（使用 Playwright Electron 驱动，注入临时独立目录并在空库自动载入标准 demo 数据）。
 尺寸涵盖 `{1280×800, 960×640}`，主题涵盖 `{浅色 (light), 深色 (dark)}`，输出位于 `docs/redesign/before/`。
+
+---
+
+## 阶段 1：设计 Token 与颜色语义
+
+### 1. 三层 Token 体系落地
+已在 `src/renderer/src/styles/` 下建立完整清晰的三层 Token 体系：
+- **原始层 (Primitives)**：`tokens/primitives.css`
+  - 沉淀基础灰阶板（Slate 浅色中性色）、深色灰阶板（Dark Surface）、冷苔墨绿（Cold Moss 品牌色）、经典数据色板（蓝色入库、琥珀出库、紫色调整、灰蓝期初、红色警报告急）。
+- **语义层 (Semantic)**：`tokens/semantic.css`
+  - 浅色模式（`:root` / `[data-theme='light']`）、深色模式（`[data-theme='dark']`）与高对比度模式（`[data-theme='high-contrast']`）的语义映射。
+  - 核心定义：`--bg-app`、`--bg-surface`、`--bg-subtle`、`--border-subtle`、`--border-bold`、`--text-primary`、`--text-secondary`、`--text-muted`、`--accent`、`--accent-hover`、`--accent-text`、`--accent-subtle`。
+  - 数据语义规范：入库（`--status-in` / `--status-in-bg`）、出库（`--status-out` / `--status-out-bg`）、调整（`--status-adjust` / `--status-adjust-bg`）、期初（`--status-opening` / `--status-opening-bg`）、危险（`--danger` / `--danger-bg`）、警告预警（`--warning` / `--warning-bg`）、图表颜色（`--chart-in` / `--chart-out`）。
+  - 彻底杜绝使用绿色表示数据（原库存、入库使用绿色已被彻底剥离）。
+- **基础与工具层 (Base & Utilities)**：`base.css`
+  - 跨平台系统字体栈、等宽数字栈（`"SF Mono", Menlo, Consolas, monospace`）、字号标尺（12 / 13 / 14 / 16 / 20 / 28px）。
+  - 通用工具类：`.num`（等宽排版与平滑变音）、`.mono`（等宽代码/单号）、`.tabular`。
+  - 统一定义全站无障碍键盘焦点环样式与 `@media (prefers-reduced-motion: reduce)` 动画关闭规则。
+- **向下兼容入口**：`tokens.css`
+  - 保持对旧变量（如 `--color-bg`、`--color-surface` 等）的一对一兼容映射，确保现有页面在未重构前不破损。
+
+### 2. 颜色合规性静态检测工具
+- 新建脚本 `scripts/check-colors.mjs`，递归扫描 `src/renderer/src/` 下所有 `*.module.css`。
+- 严禁任何十六进制（`#...`）、`rgb(...)`、`rgba(...)`、`hsl(...)` 裸字面量直接出现在组件样式中，违者立即报错并输出具体行号。
+- 已挂接至 `package.json` 的 `npm run lint` 任务。
+
+### 3. 硬编码颜色清零
+- 对现有工程内 33 个 CSS Modules 文件执行颜色迁移，将 38 处硬编码裸色值替换为标准语义 Token。
+- `node scripts/check-colors.mjs` 静态扫描退出码 0，100% 合规。
+
+### 4. 验证情况
+- `npm run lint`：通过。
+- `npm run typecheck`：通过。
+- `npm test`：82 项测试全数通过。
+- `npm run build`：构建成功无异常。
+

@@ -25,7 +25,7 @@
   white-space: nowrap;
 }
 .setupLink:hover {
-  background: rgba(47, 115, 87, 0.08);
+  background: var(--accent-subtle);
 }
 .kpis {
   display: grid;

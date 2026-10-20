@@ -2,7 +2,7 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(20, 16, 10, 0.4);
+  background: var(--bg-overlay);
   z-index: 40;
   opacity: 1;
   transition: opacity var(--dur-slow) ease;

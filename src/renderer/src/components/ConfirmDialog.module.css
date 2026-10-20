@@ -1,7 +1,7 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(20, 16, 10, 0.45);
+  background: var(--bg-overlay);
   z-index: 50;
   display: flex;
   align-items: center;
@@ -51,7 +51,7 @@
 }
 .danger {
   background: var(--color-danger) !important;
-  color: #fff !important;
+  color: var(--accent-fg) !important;
 }
 .danger:hover {
   background: var(--color-danger-hover) !important;

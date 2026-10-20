@@ -19,7 +19,7 @@
     "build:win": "npm run build && electron-builder --win nsis --x64 --publish=never",
     "e2e": "npm run build && node scripts/e2e.mjs",
     "e2e:only": "node scripts/e2e.mjs",
-    "lint": "eslint . --config config/eslint.config.js && prettier --config config/.prettierrc --ignore-path config/.prettierignore --check .",
+    "lint": "node scripts/check-colors.mjs && eslint . --config config/eslint.config.js && prettier --config config/.prettierrc --ignore-path config/.prettierignore --check .",
     "format": "prettier --config config/.prettierrc --ignore-path config/.prettierignore --write ."
   },
   "build": {

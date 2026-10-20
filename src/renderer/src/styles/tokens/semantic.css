@@ -1,0 +1,180 @@
+/* 语义 Token：在 :root 中定义浅色，在 [data-theme="dark"] 中定义深色 */
+:root {
+  color-scheme: light;
+
+  /* 背景 */
+  --bg-app: var(--primitive-gray-50);
+  --bg-surface: var(--primitive-white);
+  --bg-subtle: var(--primitive-gray-150);
+  --bg-sidebar: var(--primitive-gray-100);
+
+  /* 边框 */
+  --border-subtle: var(--primitive-gray-200);
+  --border-default: var(--primitive-gray-300);
+
+  /* 文本 */
+  --text-primary: var(--primitive-gray-900);
+  --text-secondary: var(--primitive-gray-500);
+  --text-tertiary: var(--primitive-gray-400);
+
+  /* 强调色（品牌色：墨绿） */
+  --accent: var(--primitive-moss-500);
+  --accent-hover: var(--primitive-moss-600);
+  --accent-subtle: var(--primitive-moss-100);
+  --accent-fg: var(--primitive-white);
+  --accent-text: var(--primitive-moss-500);
+
+  /* 焦点环 */
+  --focus-ring: rgba(52, 104, 79, 0.45);
+
+  /* 业务状态色 */
+  --status-in: var(--primitive-blue-500);
+  --status-in-bg: var(--primitive-blue-100);
+  --status-out: var(--primitive-amber-600);
+  --status-out-bg: var(--primitive-amber-100);
+  --status-adjust: var(--primitive-purple-500);
+  --status-adjust-bg: var(--primitive-purple-100);
+  --status-opening: var(--primitive-steel-500);
+  --status-opening-bg: var(--primitive-steel-100);
+
+  --danger: var(--primitive-red-600);
+  --danger-bg: var(--primitive-red-100);
+  --warning: var(--primitive-amber-600);
+  --warning-bg: var(--primitive-amber-100);
+
+  /* 图表 */
+  --chart-in: var(--status-in);
+  --chart-out: var(--status-out);
+
+  /* 阴影与遮罩 */
+  --shadow-card: none;
+  --shadow-overlay: 0 16px 40px -12px rgba(0, 0, 0, 0.2);
+  --bg-overlay: rgba(0, 0, 0, 0.5);
+  --bg-overlay-strong: rgba(0, 0, 0, 0.85);
+
+  /* 透明棋盘格（素材预览） */
+  --checker-bg: #ffffff;
+  --checker-pattern: #e5e7eb;
+  --checker-light-bg: var(--primitive-white);
+  --checker-light-fg: var(--primitive-gray-200);
+  --checker-dark-bg: var(--primitive-dark-800);
+  --checker-dark-fg: var(--primitive-dark-700);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    /* 背景 */
+    --bg-app: var(--primitive-dark-950);
+    --bg-surface: var(--primitive-dark-850);
+    --bg-subtle: var(--primitive-dark-800);
+    --bg-sidebar: var(--primitive-dark-900);
+
+    /* 边框 */
+    --border-subtle: var(--primitive-dark-750);
+    --border-default: var(--primitive-dark-700);
+
+    /* 文本 */
+    --text-primary: var(--primitive-dark-100);
+    --text-secondary: var(--primitive-dark-300);
+    --text-tertiary: var(--primitive-dark-400);
+
+    /* 强调色（深色墨绿统一版） */
+    --accent: var(--primitive-moss-400);
+    --accent-hover: var(--primitive-moss-350);
+    --accent-subtle: rgba(78, 148, 116, 0.16);
+    --accent-fg: var(--primitive-white);
+    --accent-text: var(--primitive-moss-300);
+
+    /* 焦点环 */
+    --focus-ring: rgba(93, 166, 132, 0.55);
+
+    /* 业务状态色 */
+    --status-in: var(--primitive-blue-400);
+    --status-in-bg: rgba(126, 176, 232, 0.14);
+    --status-out: var(--primitive-amber-400);
+    --status-out-bg: rgba(224, 164, 88, 0.14);
+    --status-adjust: var(--primitive-purple-400);
+    --status-adjust-bg: rgba(168, 145, 230, 0.14);
+    --status-opening: var(--primitive-steel-400);
+    --status-opening-bg: rgba(147, 168, 184, 0.14);
+
+    --danger: var(--primitive-red-400);
+    --danger-bg: rgba(240, 122, 112, 0.14);
+    --warning: var(--primitive-amber-400);
+    --warning-bg: rgba(224, 164, 88, 0.14);
+
+    /* 图表 */
+    --chart-in: var(--status-in);
+    --chart-out: var(--status-out);
+
+    /* 阴影与遮罩 */
+    --shadow-card: none;
+    --shadow-overlay: 0 16px 40px -12px rgba(0, 0, 0, 0.65);
+    --bg-overlay: rgba(0, 0, 0, 0.7);
+    --bg-overlay-strong: rgba(0, 0, 0, 0.92);
+
+    /* 透明棋盘格（素材预览） */
+    --checker-bg: #25272a;
+    --checker-pattern: #34373b;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* 背景 */
+  --bg-app: var(--primitive-dark-950);
+  --bg-surface: var(--primitive-dark-850);
+  --bg-subtle: var(--primitive-dark-800);
+  --bg-sidebar: var(--primitive-dark-900);
+
+  /* 边框 */
+  --border-subtle: var(--primitive-dark-750);
+  --border-default: var(--primitive-dark-700);
+
+  /* 文本 */
+  --text-primary: var(--primitive-dark-100);
+  --text-secondary: var(--primitive-dark-300);
+  --text-tertiary: var(--primitive-dark-400);
+
+  /* 强调色（深色墨绿统一版） */
+  --accent: var(--primitive-moss-400);
+  --accent-hover: var(--primitive-moss-350);
+  --accent-subtle: rgba(78, 148, 116, 0.16);
+  --accent-fg: var(--primitive-white);
+  --accent-text: var(--primitive-moss-300);
+
+  /* 焦点环 */
+  --focus-ring: rgba(93, 166, 132, 0.55);
+
+  /* 业务状态色 */
+  --status-in: var(--primitive-blue-400);
+  --status-in-bg: rgba(126, 176, 232, 0.14);
+  --status-out: var(--primitive-amber-400);
+  --status-out-bg: rgba(224, 164, 88, 0.14);
+  --status-adjust: var(--primitive-purple-400);
+  --status-adjust-bg: rgba(168, 145, 230, 0.14);
+  --status-opening: var(--primitive-steel-400);
+  --status-opening-bg: rgba(147, 168, 184, 0.14);
+
+  --danger: var(--primitive-red-400);
+  --danger-bg: rgba(240, 122, 112, 0.14);
+  --warning: var(--primitive-amber-400);
+  --warning-bg: rgba(224, 164, 88, 0.14);
+
+  /* 图表 */
+  --chart-in: var(--status-in);
+  --chart-out: var(--status-out);
+
+  /* 阴影与遮罩 */
+  --shadow-card: none;
+  --shadow-overlay: 0 16px 40px -12px rgba(0, 0, 0, 0.65);
+  --bg-overlay: rgba(0, 0, 0, 0.7);
+  --bg-overlay-strong: rgba(0, 0, 0, 0.92);
+
+  /* 透明棋盘格（素材预览） */
+  --checker-bg: #25272a;
+  --checker-pattern: #34373b;
+}

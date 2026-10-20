@@ -30,7 +30,7 @@
 }
 .error {
   background: var(--color-danger);
-  color: #fff;
+  color: var(--accent-fg);
 }
 .success {
   background: var(--color-primary);

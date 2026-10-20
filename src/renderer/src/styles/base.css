@@ -1,0 +1,53 @@
+/* 基础工具与重置：字体栈、字号阶梯、工具类、焦点环与动效策略 */
+:root {
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei UI',
+    'Microsoft YaHei', sans-serif;
+  --font-mono: 'SF Mono', Menlo, Consolas, monospace;
+
+  /* 字号阶梯 */
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 16px;
+  --text-lg: 20px;
+  --text-kpi: 28px;
+
+  /* 控件尺寸 */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-drawer: 0px;
+
+  /* 动效 */
+  --dur-fast: 150ms;
+  --dur-base: 200ms;
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --motion: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion: 0;
+  }
+}
+
+/* 焦点环 */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* 工具类：等宽数字 */
+.num,
+:global(.num) {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* 工具类：单号 */
+.mono,
+:global(.mono) {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}

@@ -1,18 +1,9 @@
-/*
- * 阿卷 ERP 视觉系统 —— 同一套结构，两种气质
- *   浅色「Cold Moss」：冷白灰 + 墨绿   → 经营 / 库存 / 稳定
- *   深色「Violet Night」：墨黑 + 紫罗兰 → 夜间 / 数据 / 专注
- * 交互层级完全一致，只换视觉语言。组件只用语义 token，不写裸色值。
- * 品牌色只负责交互（按钮、当前项、链接、焦点、图表主序列），状态色独立。
- */
+@import './tokens/primitives.css';
+@import './tokens/semantic.css';
+@import './base.css';
+
+/* 兼容层：将原有旧变量无缝重定向至标准语义 Token */
 :root {
-  --font-sans: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', system-ui, sans-serif;
-  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-
-  --radius-sm: 9px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -21,241 +12,87 @@
   --space-6: 24px;
   --space-8: 32px;
 
-  /* 兼容旧引用 */
-  --shadow-sm: var(--shadow-card);
-
-  /* 动效：进场强 ease-out，退场更快只做淡出；--motion 控制位移幅度 */
-  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
-  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
-  --dur-fast: 120ms;
-  --dur-base: 180ms;
-  --dur-slow: 260ms;
-  --dur-exit: 160ms;
-  --motion: 1;
-
   --logo-light-display: block;
   --logo-dark-display: none;
   --sidebar-width: 64px;
   --titlebar-height: 36px;
-  --control-height: 38px;
+  --control-height: 34px;
   --nav-item-height: 42px;
-  --content-max: 1360px;
-  --page-pad-x: 36px;
-  --page-pad-top: 32px;
+  --content-max: 1680px;
+  --page-pad-x: 32px;
+  --page-pad-top: 24px;
 
-  color-scheme: light;
+  /* 表面映射 */
+  --color-bg: var(--bg-app);
+  --color-sidebar: var(--bg-sidebar);
+  --color-surface: var(--bg-surface);
+  --color-surface-raised: var(--bg-surface);
+  --color-surface-hover: var(--bg-subtle);
+  --color-inset: var(--bg-subtle);
+  --color-border: var(--border-subtle);
+  --color-border-input: var(--border-default);
+  --color-border-strong: var(--border-default);
 
-  /* 表面：冷白灰 → 纯白卡片 */
-  --color-bg: #f6f7f8;
-  --color-sidebar: #f1f3f4;
-  --color-surface: #ffffff;
-  --color-surface-raised: #ffffff;
-  --color-surface-hover: #f7f9f8;
-  --color-inset: #f4f6f5;
-  --color-border: #e1e5e3;
-  --color-border-input: #d2d8d5;
-  --color-border-strong: #c3cac6;
+  /* 文字映射 */
+  --color-text: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-tertiary);
+  --color-text-on-primary: var(--accent-fg);
 
-  /* 文字：灰黑负责信息 */
-  --color-text: #1d211f;
-  --color-text-secondary: #68706c;
-  --color-text-muted: #99a09c;
-  --color-text-on-primary: #ffffff;
+  /* 品牌与交互 */
+  --color-primary: var(--accent);
+  --color-primary-hover: var(--accent-hover);
+  --color-primary-active: var(--accent-hover);
+  --color-primary-soft: var(--accent-subtle);
+  --color-primary-soft-text: var(--accent-text);
+  --color-accent-text: var(--accent-text);
+  --color-nav-active: var(--accent-subtle);
+  --color-nav-hover: rgba(52, 104, 79, 0.08);
+  --color-ring: var(--focus-ring);
+  --color-selection: var(--accent-subtle);
 
-  /* 品牌 / 交互：墨绿，只出现在按钮、当前项、链接、焦点环、图表主序列 */
-  --color-primary: #2f7357;
-  --color-primary-hover: #286248;
-  --color-primary-active: #20513c;
-  --color-primary-soft: #e8f1ec;
-  --color-primary-soft-text: #2f7357;
-  --color-nav-active: #e8f1ec;
-  --color-nav-hover: rgba(47, 115, 87, 0.06);
-  --color-ring: rgba(47, 115, 87, 0.12);
-  --color-selection: rgba(47, 115, 87, 0.18);
+  /* 状态与语义 */
+  --color-success: var(--accent);
+  --color-success-soft: var(--accent-subtle);
+  --color-success-soft-text: var(--accent-text);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-bg);
+  --color-warning-soft-text: var(--warning);
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger);
+  --color-danger-soft: var(--danger-bg);
+  --color-danger-soft-text: var(--danger);
+  --color-info: var(--status-in);
+  --color-info-soft: var(--status-in-bg);
+  --color-info-soft-text: var(--status-in);
 
-  /* 语义状态：独立于品牌色 */
-  --color-success: #2f8a5f;
-  --color-success-soft: #e6f3ec;
-  --color-success-soft-text: #256e4b;
-  --color-warning: #c69238;
-  --color-warning-soft: #f8efdc;
-  --color-warning-soft-text: #8a6320;
-  --color-danger: #c95757;
-  --color-danger-hover: #b34747;
-  --color-danger-soft: #f9e8e8;
-  --color-danger-soft-text: #a33f3f;
-  --color-info: #527db8;
-  --color-info-soft: #e8eff8;
-  --color-info-soft-text: #3f66a0;
-
-  /* 业务方向色：入库 / 出库 徽标 */
-  --color-in-soft: #e8f1ec;
-  --color-in-soft-text: #2f7357;
-  --color-out-soft: #f9ebe4;
-  --color-out-soft-text: #b0603f;
-
-  /* 图表序列 */
-  --chart-in: #2f7357;
-  --chart-out: #cf744f;
-  --chart-cost: #85918a;
-  --chart-profit: #5887c8;
+  /* 单据流向 */
+  --color-in-soft: var(--status-in-bg);
+  --color-in-soft-text: var(--status-in);
+  --color-out-soft: var(--status-out-bg);
+  --color-out-soft-text: var(--status-out);
 
   /* 表格 */
-  --table-header: #f4f6f5;
-  --table-row: #ffffff;
-  --table-hover: #f7f9f8;
-  --table-divider: #e6e9e7;
-  --table-selected: #edf5f1;
+  --table-header: var(--bg-subtle);
+  --table-row: transparent;
+  --table-hover: var(--bg-subtle);
+  --table-divider: var(--border-subtle);
+  --table-selected: var(--accent-subtle);
 
-  /* 层级：白卡片 + 细边框 + 极轻阴影 */
-  --shadow-card: 0 1px 3px rgba(20, 30, 25, 0.035);
-  --shadow-md: 0 8px 24px -8px rgba(20, 30, 25, 0.16), 0 2px 6px rgba(20, 30, 25, 0.06);
-  --shadow-lg: 0 24px 48px -16px rgba(20, 30, 25, 0.24), 0 4px 12px rgba(20, 30, 25, 0.08);
+  /* 阴影 */
+  --shadow-sm: var(--shadow-card);
+  --shadow-md: var(--shadow-overlay);
+  --shadow-lg: var(--shadow-overlay);
+}
+
+:root[data-theme='dark'] {
+  --logo-light-display: none;
+  --logo-dark-display: block;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    color-scheme: dark;
     --logo-light-display: none;
     --logo-dark-display: block;
-
-    /* 表面：墨黑底，靠明度分层，不用阴影 */
-    --color-bg: #101114;
-    --color-sidebar: #15161a;
-    --color-surface: #191b20;
-    --color-surface-raised: #202229;
-    --color-surface-hover: #252831;
-    --color-inset: #202229;
-    --color-border: #292c34;
-    --color-border-input: #343844;
-    --color-border-strong: #414655;
-
-    /* 文字：紫色只负责状态，正文永远是白灰 */
-    --color-text: #f1f1f4;
-    --color-text-secondary: #b1b2bc;
-    --color-text-muted: #777985;
-    --color-text-on-primary: #ffffff;
-
-    /* 品牌 / 交互：紫罗兰 */
-    --color-primary: #8e78eb;
-    --color-primary-hover: #a08cf4;
-    --color-primary-active: #7863d1;
-    --color-primary-soft: #29243c;
-    --color-primary-soft-text: #aa95fa;
-    --color-nav-active: #29243c;
-    --color-nav-hover: rgba(154, 130, 246, 0.08);
-    --color-ring: rgba(154, 130, 246, 0.22);
-    --color-selection: rgba(154, 130, 246, 0.3);
-
-    --color-success: #57b681;
-    --color-success-soft: rgba(87, 182, 129, 0.14);
-    --color-success-soft-text: #7fcba0;
-    --color-warning: #d9a64d;
-    --color-warning-soft: rgba(217, 166, 77, 0.14);
-    --color-warning-soft-text: #e5bd75;
-    --color-danger: #e27575;
-    --color-danger-hover: #ea8f8f;
-    --color-danger-soft: rgba(226, 117, 117, 0.14);
-    --color-danger-soft-text: #ee9a9a;
-    --color-info: #7197d0;
-    --color-info-soft: rgba(113, 151, 208, 0.14);
-    --color-info-soft-text: #97b4de;
-
-    --color-in-soft: rgba(99, 185, 146, 0.14);
-    --color-in-soft-text: #7fcba0;
-    --color-out-soft: rgba(232, 138, 104, 0.14);
-    --color-out-soft-text: #eea486;
-
-    --chart-in: #63b992;
-    --chart-out: #e88a68;
-    --chart-cost: #777985;
-    --chart-profit: #a38df5;
-
-    --table-header: #1d1f25;
-    --table-row: #191b20;
-    --table-hover: #22252c;
-    --table-divider: #292c34;
-    --table-selected: #29243c;
-
-    --shadow-card: none;
-    --shadow-md: 0 8px 24px -8px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.3);
-    --shadow-lg: 0 24px 48px -16px rgba(0, 0, 0, 0.7), 0 4px 12px rgba(0, 0, 0, 0.35);
-  }
-}
-
-:root[data-theme='dark'] {
-  color-scheme: dark;
-  --logo-light-display: none;
-  --logo-dark-display: block;
-
-  /* 表面：墨黑底，靠明度分层，不用阴影 */
-  --color-bg: #101114;
-  --color-sidebar: #15161a;
-  --color-surface: #191b20;
-  --color-surface-raised: #202229;
-  --color-surface-hover: #252831;
-  --color-inset: #202229;
-  --color-border: #292c34;
-  --color-border-input: #343844;
-  --color-border-strong: #414655;
-
-  /* 文字：紫色只负责状态，正文永远是白灰 */
-  --color-text: #f1f1f4;
-  --color-text-secondary: #b1b2bc;
-  --color-text-muted: #777985;
-  --color-text-on-primary: #ffffff;
-
-  /* 品牌 / 交互：紫罗兰 */
-  --color-primary: #8e78eb;
-  --color-primary-hover: #a08cf4;
-  --color-primary-active: #7863d1;
-  --color-primary-soft: #29243c;
-  --color-primary-soft-text: #aa95fa;
-  --color-nav-active: #29243c;
-  --color-nav-hover: rgba(154, 130, 246, 0.08);
-  --color-ring: rgba(154, 130, 246, 0.22);
-  --color-selection: rgba(154, 130, 246, 0.3);
-
-  --color-success: #57b681;
-  --color-success-soft: rgba(87, 182, 129, 0.14);
-  --color-success-soft-text: #7fcba0;
-  --color-warning: #d9a64d;
-  --color-warning-soft: rgba(217, 166, 77, 0.14);
-  --color-warning-soft-text: #e5bd75;
-  --color-danger: #e27575;
-  --color-danger-hover: #ea8f8f;
-  --color-danger-soft: rgba(226, 117, 117, 0.14);
-  --color-danger-soft-text: #ee9a9a;
-  --color-info: #7197d0;
-  --color-info-soft: rgba(113, 151, 208, 0.14);
-  --color-info-soft-text: #97b4de;
-
-  --color-in-soft: rgba(99, 185, 146, 0.14);
-  --color-in-soft-text: #7fcba0;
-  --color-out-soft: rgba(232, 138, 104, 0.14);
-  --color-out-soft-text: #eea486;
-
-  --chart-in: #63b992;
-  --chart-out: #e88a68;
-  --chart-cost: #777985;
-  --chart-profit: #a38df5;
-
-  --table-header: #1d1f25;
-  --table-row: #191b20;
-  --table-hover: #22252c;
-  --table-divider: #292c34;
-  --table-selected: #29243c;
-
-  --shadow-card: none;
-  --shadow-md: 0 8px 24px -8px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 24px 48px -16px rgba(0, 0, 0, 0.7), 0 4px 12px rgba(0, 0, 0, 0.35);
-}
-
-/* 减少动效：保留 opacity / 颜色过渡，去掉位移与缩放 */
-@media (prefers-reduced-motion: reduce) {
-  :root {
-    --motion: 0;
-    --dur-slow: 160ms;
   }
 }

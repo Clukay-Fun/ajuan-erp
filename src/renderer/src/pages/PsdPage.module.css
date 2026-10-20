@@ -45,10 +45,10 @@
   width: 30px;
   height: 30px;
   place-items: center;
-  border: 1px solid #b9d9c8;
+  border: 1px solid var(--border-subtle);
   border-radius: 7px;
-  background: #e7f2eb;
-  color: #236d4c;
+  background: var(--accent-subtle);
+  color: var(--accent-text);
   font-size: 13px;
   font-weight: 700;
 }
@@ -69,7 +69,7 @@
   z-index: 90;
   display: flex;
   justify-content: flex-end;
-  background: rgb(18 24 21 / 38%);
+  background: var(--bg-overlay);
   animation: drawerFadeIn 160ms ease-out;
 }
 
@@ -263,8 +263,8 @@
 }
 
 .slotCard[data-selected] {
-  border-color: #a8d4bd;
-  box-shadow: 0 0 0 1px #a8d4bd;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
 .slotCardHead {
@@ -432,7 +432,7 @@
   background: var(--color-surface);
   color: var(--color-text);
   font-weight: 500;
-  box-shadow: 0 1px 2px rgba(41, 33, 20, 0.08);
+  box-shadow: var(--shadow-card);
 }
 
 .steps {
@@ -587,10 +587,12 @@
   flex: none;
   border: 1px solid var(--color-border);
   border-radius: 6px;
-  background-color: #fff;
+  background-color: var(--checker-bg);
   background-image:
-    linear-gradient(45deg, #e4e4e4 25%, transparent 25%), linear-gradient(-45deg, #e4e4e4 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #e4e4e4 75%), linear-gradient(-45deg, transparent 75%, #e4e4e4 75%);
+    linear-gradient(45deg, var(--checker-pattern) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--checker-pattern) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--checker-pattern) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--checker-pattern) 75%);
   background-size: 12px 12px;
   background-position:
     0 0,
@@ -623,7 +625,7 @@
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(17, 18, 21, 0.68);
+  background: var(--bg-overlay-strong);
   opacity: 1;
   transition: opacity var(--dur-base) ease;
 }
@@ -717,10 +719,12 @@
 }
 
 .previewLight {
-  background-color: #fff;
+  background-color: var(--checker-light-bg);
   background-image:
-    linear-gradient(45deg, #e5e7eb 25%, transparent 25%), linear-gradient(-45deg, #e5e7eb 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #e5e7eb 75%), linear-gradient(-45deg, transparent 75%, #e5e7eb 75%);
+    linear-gradient(45deg, var(--checker-light-fg) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--checker-light-fg) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--checker-light-fg) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--checker-light-fg) 75%);
   background-size: 24px 24px;
   background-position:
     0 0,
@@ -730,10 +734,12 @@
 }
 
 .previewDark {
-  background-color: #25272a;
+  background-color: var(--checker-dark-bg);
   background-image:
-    linear-gradient(45deg, #34373b 25%, transparent 25%), linear-gradient(-45deg, #34373b 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #34373b 75%), linear-gradient(-45deg, transparent 75%, #34373b 75%);
+    linear-gradient(45deg, var(--checker-dark-fg) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--checker-dark-fg) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--checker-dark-fg) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--checker-dark-fg) 75%);
   background-size: 24px 24px;
   background-position:
     0 0,

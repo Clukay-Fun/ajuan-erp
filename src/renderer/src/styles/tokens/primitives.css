@@ -1,0 +1,59 @@
+/* 原始色板：只供 semantic.css 引用，业务代码禁止直接使用 */
+:root {
+  /* 中性灰阶（浅色基底） */
+  --primitive-gray-50: #f5f6f8;
+  --primitive-gray-100: #eef0f3;
+  --primitive-gray-150: #f1f3f5;
+  --primitive-gray-200: #e6e9ec;
+  --primitive-gray-300: #d9dde2;
+  --primitive-gray-400: #9aa2ac;
+  --primitive-gray-500: #5f6873;
+  --primitive-gray-900: #1b1f24;
+
+  /* 中性深色阶（深色基底） */
+  --primitive-dark-950: #111315;
+  --primitive-dark-900: #15181b;
+  --primitive-dark-850: #1a1d21;
+  --primitive-dark-800: #22262b;
+  --primitive-dark-750: #2a2f35;
+  --primitive-dark-700: #343a41;
+  --primitive-dark-400: #6e7681;
+  --primitive-dark-300: #a3abb5;
+  --primitive-dark-100: #e8eaed;
+
+  /* 墨绿（品牌与强调色） */
+  --primitive-moss-600: #2a5541;
+  --primitive-moss-500: #34684f;
+  --primitive-moss-400: #3d7a5f;
+  --primitive-moss-350: #47896b;
+  --primitive-moss-300: #7cc0a0;
+  --primitive-moss-100: #e6efea;
+
+  /* 入库（蓝） */
+  --primitive-blue-500: #2f6fb5;
+  --primitive-blue-400: #7eb0e8;
+  --primitive-blue-100: #eaf2fb;
+
+  /* 出库 / 预警（琥珀） */
+  --primitive-amber-600: #9a5a0c;
+  --primitive-amber-400: #e0a458;
+  --primitive-amber-100: #fbf1e3;
+
+  /* 调整（紫） */
+  --primitive-purple-500: #6b4fb8;
+  --primitive-purple-400: #a891e6;
+  --primitive-purple-100: #f1edfa;
+
+  /* 期初（灰蓝） */
+  --primitive-steel-500: #4f6475;
+  --primitive-steel-400: #93a8b8;
+  --primitive-steel-100: #eef2f5;
+
+  /* 错误 / 告急 / 负毛利（红） */
+  --primitive-red-600: #c23b32;
+  --primitive-red-400: #f07a70;
+  --primitive-red-100: #fcecea;
+
+  /* 基础常数 */
+  --primitive-white: #ffffff;
+}

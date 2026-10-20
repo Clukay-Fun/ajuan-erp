@@ -35,7 +35,7 @@
   padding: 8px;
   opacity: 0;
   transition: opacity var(--dur-fast) ease;
-  background: linear-gradient(transparent, rgba(20, 16, 10, 0.55));
+  background: linear-gradient(transparent, var(--bg-overlay));
 }
 .box:hover .overlay,
 .box:focus-within .overlay {
