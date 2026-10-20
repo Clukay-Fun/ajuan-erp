@@ -5,7 +5,14 @@ import { state } from './appState'
 import { updateApi } from './updater'
 import { getApplicationVersion } from './appVersion'
 import { toAppError } from './services/errors'
-import { getProduct, getProductById, listProducts, createProduct, updateProduct } from './services/products'
+import {
+  getProduct,
+  getProductById,
+  listProducts,
+  createProduct,
+  updateProduct,
+  getLastPrices
+} from './services/products'
 import { getStock, listStock } from './services/inventory'
 import { createOpening, getOpening } from './services/opening'
 import {
@@ -16,8 +23,11 @@ import {
   deleteDraft,
   confirmDocument,
   voidDocument,
-  findDuplicateOrder
+  findDuplicateOrder,
+  getPendingSummary
 } from './services/documents'
+import { getStatsSummary, getStatsDailySeries, getLatestActivityDate, getProductHealth } from './services/stats'
+import type { StatsSummaryInput, StatsDailySeriesInput } from '@shared/schemas'
 import { listChannels, createChannel, updateChannel } from './services/channels'
 import { listMovements } from './services/movements'
 import { getOverview, getSummary } from './services/reports'
@@ -123,6 +133,15 @@ export function registerIpc(): void {
   handle(IPC.productsList, () => listProducts(state.db))
   handle(IPC.productsGetById, (id: number) => getProductById(state.db, id))
   handle(IPC.productsCreate, (input) => createProduct(state.db, input))
+  handle(IPC.productsGetLastPrices, (input: { productIds: number[] }) =>
+    getLastPrices(state.db, input?.productIds ?? [])
+  )
+  handle(IPC.statsGetSummary, (input: StatsSummaryInput) => getStatsSummary(state.db, input))
+  handle(IPC.statsGetDailySeries, (input: StatsDailySeriesInput) => getStatsDailySeries(state.db, input))
+  handle(IPC.statsGetLatestActivityDate, () => getLatestActivityDate(state.db))
+  handle(IPC.statsGetProductHealth, (input?: { windowDays?: number; baseDate?: string }) =>
+    getProductHealth(state.db, input?.windowDays, input?.baseDate)
+  )
   handle(IPC.inventoryListStock, () => listStock(state.db))
   handle(IPC.inventoryGetStock, (skuId: number) => getStock(state.db, skuId))
   handle(IPC.openingGet, (skuId: number) => getOpening(state.db, skuId))
@@ -134,6 +153,7 @@ export function registerIpc(): void {
   handle(IPC.documentsDeleteDraft, (id: number) => deleteDraft(state.db, id, state.attachmentsDir))
   handle(IPC.documentsConfirm, (id: number) => confirmDocument(state.db, id))
   handle(IPC.documentsVoid, (id: number, reason: string) => voidDocument(state.db, id, String(reason ?? '')))
+  handle(IPC.documentsGetPendingSummary, () => getPendingSummary(state.db))
   handle(IPC.documentsFindDuplicate, (channelId: number | null, no: string, excludeId: number | null) =>
     findDuplicateOrder(state.db, channelId, String(no ?? ''), excludeId)
   )

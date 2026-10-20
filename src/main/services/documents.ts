@@ -1,6 +1,11 @@
 import type { Db } from '../db/connection'
 import { localDateTime, nowIso, transaction } from '../db/connection'
-import { documentDraftSchema, type DocumentDraftInput } from '@shared/schemas'
+import {
+  documentDraftSchema,
+  pendingSummaryResultSchema,
+  type DocumentDraftInput,
+  type PendingSummaryResult
+} from '@shared/schemas'
 import { centsToE4, e4ToCents } from '@shared/money'
 import type { DocumentDetail, DocumentItem, DocumentListFilter, DocumentSummary } from '@shared/types'
 import { ServiceError } from './errors'
@@ -300,5 +305,43 @@ export function voidDocument(db: Db, id: number, reason: string): DocumentDetail
       `UPDATE documents SET status = 'voided', voided_at = ?, void_reason = ?, updated_at = ? WHERE id = ?`
     ).run(now, trimmed, now, id)
     return getDocument(db, id)
+  })
+}
+
+export function getPendingSummary(db: Db): PendingSummaryResult {
+  const rows = db
+    .prepare(
+      `SELECT d.id, d.doc_no, d.type, d.doc_date, d.note,
+              COALESCE(SUM(i.quantity), 0) AS total_qty,
+              COALESCE(SUM(i.quantity * i.unit_price_cents), 0) AS total_amount
+       FROM documents d
+       LEFT JOIN document_items i ON i.document_id = d.id
+       WHERE d.status = 'draft'
+       GROUP BY d.id
+       ORDER BY d.id DESC`
+    )
+    .all() as {
+    id: number
+    doc_no: string
+    type: 'inbound' | 'outbound'
+    doc_date: string
+    note: string
+    total_qty: number
+    total_amount: number
+  }[]
+
+  const drafts = rows.map((r) => ({
+    id: r.id,
+    docNo: r.doc_no,
+    type: r.type,
+    docDate: r.doc_date,
+    totalQuantity: Number(r.total_qty),
+    totalAmountCents: Number(r.total_amount),
+    note: r.note || ''
+  }))
+
+  return pendingSummaryResultSchema.parse({
+    drafts,
+    draftCount: drafts.length
   })
 }

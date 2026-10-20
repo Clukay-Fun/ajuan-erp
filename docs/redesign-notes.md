@@ -289,5 +289,35 @@
   - `npm test`：93 项单元测试全数通过。
   - `npm run build`：构建成功无异常。
 
+---
+
+## 阶段 4：只读数据接口
+
+### 1. 新增接口契约与数据结构
+按重构计划在 `src/shared/schemas.ts` 与 `src/shared/ipc.ts` 中完成了 6 项核心只读接口的入参与出参契约定义：
+1. `stats.getSummary`：接受 `{ from, to }`，返回本期与上一个等长周期的财务指标汇总（出库金额、出库成本、毛利、毛利率、出库件数、出库单数、入库件数、入库金额）与环比变动百分比；
+2. `stats.getDailySeries`：接受 `{ from, to, productId? }`，生成自然日补零的连续时序数据（入库件数/金额、出库件数/金额、出库成本、毛利）；
+3. `stats.getLatestActivityDate`：无参接口，毫秒级快速检索全局最近一张已生效单据的业务日期，若无业务单据则返回 `null`；
+4. `stats.getProductHealth`：接受 `{ windowDays = 30, baseDate? }`，返回每个启用商品的实时库存、平均成本、库存成本、预警值、窗口内出库件数与单数、可售天数及健康状态判定；
+5. `documents.getPendingSummary`：无参接口，聚合所有草稿单据并返回单据列表与草稿总数；
+6. `products.getLastPrices`：接受 `{ productIds }`，返回各商品最近一次生效入库的进价和出库售价。
+
+### 2. 底层实现与安全边界
+- 严禁任何数据库写入或 schema 变更，全量接口均为纯 `SELECT` 聚合查询；
+- 在 `src/main/services/stats.ts` 中实现核心算法：
+  - 可售天数根据出库单数（>= 3 笔且日均出库 > 0）判定，不足时返回 `null`（UI 显示为破折号）；
+  - 健康状态按照 `inactive`（停用商品）、`critical`（库存 <= 0 且近期有出库）、`warning`（库存 <= 预警阈值 或 可售天数 <= 7 天）、`normal` 严谨分流；
+  - 环比变动计算内置除以零防御，前周期为零时安全返回 `null`。
+- 在 `src/main/ipc.ts` 与 `src/preload/index.ts` 完成双向绑定与暴露。
+
+### 3. 单元测试与验收情况
+- 新建专用测试套件 `tests/stats-readonly.test.ts`，覆盖 8 项核心边界场景；
+- 全量自动化质量验证：
+  - `npm run lint`：通过。
+  - `npm run typecheck`：通过。
+  - `npm test`：13 个测试套件、101 项单元测试全量通过。
+  - `npm run build`：打包构建成功。
+
+
 
 

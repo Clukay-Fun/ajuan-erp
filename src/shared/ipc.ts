@@ -8,7 +8,15 @@ import type {
   ChannelUpdateInput,
   PsdJobCreateInput,
   PsdSlotCreateInput,
-  PsdTemplateCreateInput
+  PsdTemplateCreateInput,
+  StatsSummaryInput,
+  StatsSummaryResult,
+  StatsDailySeriesInput,
+  DailySeriesItem,
+  ProductHealthInput,
+  ProductHealthItem,
+  PendingSummaryResult,
+  ProductLastPrices
 } from './schemas'
 import type { PsdAssetKind, PsdBoard } from './psd'
 import type {
@@ -49,6 +57,12 @@ export const IPC = {
   updateInstall: 'update:install',
   updateOpenReleases: 'update:openReleases',
   updateState: 'update:state',
+  statsGetSummary: 'stats:getSummary',
+  statsGetDailySeries: 'stats:getDailySeries',
+  statsGetLatestActivityDate: 'stats:getLatestActivityDate',
+  statsGetProductHealth: 'stats:getProductHealth',
+  documentsGetPendingSummary: 'documents:getPendingSummary',
+  productsGetLastPrices: 'products:getLastPrices',
   productsGet: 'products:get',
   productsUpdate: 'products:update',
   productsList: 'products:list',
@@ -156,6 +170,13 @@ export interface AjuanApi {
     update(id: number, input: ProductUpdateInput): Promise<IpcResult<Product>>
     setImage(id: number, upload: AttachmentUpload): Promise<IpcResult<Product>>
     clearImage(id: number): Promise<IpcResult<Product>>
+    getLastPrices(input: { productIds: number[] }): Promise<IpcResult<ProductLastPrices>>
+  }
+  stats: {
+    getSummary(input: StatsSummaryInput): Promise<IpcResult<StatsSummaryResult>>
+    getDailySeries(input: StatsDailySeriesInput): Promise<IpcResult<DailySeriesItem[]>>
+    getLatestActivityDate(): Promise<IpcResult<string | null>>
+    getProductHealth(input?: ProductHealthInput): Promise<IpcResult<ProductHealthItem[]>>
   }
   inventory: {
     getStock(skuId: number): Promise<IpcResult<StockLevel>>
@@ -192,6 +213,7 @@ export interface AjuanApi {
     deleteDraft(id: number): Promise<IpcResult<void>>
     confirm(id: number): Promise<IpcResult<DocumentDetail>>
     void(id: number, reason: string): Promise<IpcResult<DocumentDetail>>
+    getPendingSummary(): Promise<IpcResult<PendingSummaryResult>>
     /** 同渠道下已存在相同外部订单号的单据（用于提示，不阻断） */
     findDuplicate(
       channelId: number | null,

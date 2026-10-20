@@ -31,7 +31,14 @@ const api: AjuanApi = {
     create: (input) => ipcRenderer.invoke(IPC.productsCreate, input),
     update: (id, input) => ipcRenderer.invoke(IPC.productsUpdate, id, input),
     setImage: (id, upload) => ipcRenderer.invoke(IPC.productsSetImage, id, upload),
-    clearImage: (id) => ipcRenderer.invoke(IPC.productsClearImage, id)
+    clearImage: (id) => ipcRenderer.invoke(IPC.productsClearImage, id),
+    getLastPrices: (input) => ipcRenderer.invoke(IPC.productsGetLastPrices, input)
+  },
+  stats: {
+    getSummary: (input) => ipcRenderer.invoke(IPC.statsGetSummary, input),
+    getDailySeries: (input) => ipcRenderer.invoke(IPC.statsGetDailySeries, input),
+    getLatestActivityDate: () => ipcRenderer.invoke(IPC.statsGetLatestActivityDate),
+    getProductHealth: (input) => ipcRenderer.invoke(IPC.statsGetProductHealth, input)
   },
   inventory: {
     getStock: (skuId) => ipcRenderer.invoke(IPC.inventoryGetStock, skuId),
@@ -65,6 +72,7 @@ const api: AjuanApi = {
     deleteDraft: (id) => ipcRenderer.invoke(IPC.documentsDeleteDraft, id),
     confirm: (id) => ipcRenderer.invoke(IPC.documentsConfirm, id),
     void: (id, reason) => ipcRenderer.invoke(IPC.documentsVoid, id, reason),
+    getPendingSummary: () => ipcRenderer.invoke(IPC.documentsGetPendingSummary),
     findDuplicate: (channelId, no, excludeId) =>
       ipcRenderer.invoke(IPC.documentsFindDuplicate, channelId, no, excludeId)
   },

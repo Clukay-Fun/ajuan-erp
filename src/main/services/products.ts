@@ -3,8 +3,10 @@ import { nowIso, transaction } from '../db/connection'
 import {
   productCreateSchema,
   productUpdateSchema,
+  productLastPricesSchema,
   type ProductCreateInput,
-  type ProductUpdateInput
+  type ProductUpdateInput,
+  type ProductLastPrices
 } from '@shared/schemas'
 import type { Product } from '@shared/types'
 import { ServiceError } from './errors'
@@ -130,4 +132,44 @@ export function updateProduct(db: Db, id: number, raw: ProductUpdateInput): Prod
     db.prepare(`UPDATE skus SET code = ? WHERE product_id = ? AND is_default = 1`).run(`${input.code}-DEFAULT`, id)
     return getProductById(db, id)
   })
+}
+
+export function getLastPrices(db: Db, productIds: number[]): ProductLastPrices {
+  if (productIds.length === 0) return {}
+
+  const result: ProductLastPrices = {}
+  for (const pid of productIds) {
+    // 最近一次已确认入库的进价
+    const inRow = db
+      .prepare(
+        `SELECT i.unit_price_cents
+         FROM documents d
+         JOIN document_items i ON i.document_id = d.id
+         JOIN skus s ON s.id = i.sku_id
+         WHERE d.status = 'confirmed' AND d.type = 'inbound' AND s.product_id = ?
+         ORDER BY d.doc_date DESC, d.id DESC
+         LIMIT 1`
+      )
+      .get(pid) as { unit_price_cents: number } | undefined
+
+    // 最近一次已确认出库的售价
+    const outRow = db
+      .prepare(
+        `SELECT i.unit_price_cents
+         FROM documents d
+         JOIN document_items i ON i.document_id = d.id
+         JOIN skus s ON s.id = i.sku_id
+         WHERE d.status = 'confirmed' AND d.type = 'outbound' AND s.product_id = ?
+         ORDER BY d.doc_date DESC, d.id DESC
+         LIMIT 1`
+      )
+      .get(pid) as { unit_price_cents: number } | undefined
+
+    result[String(pid)] = {
+      lastInboundPriceCents: inRow ? inRow.unit_price_cents : null,
+      lastOutboundPriceCents: outRow ? outRow.unit_price_cents : null
+    }
+  }
+
+  return productLastPricesSchema.parse(result)
 }

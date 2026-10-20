@@ -115,3 +115,106 @@ export const adjustmentSchema = z.object({
   reason: z.string().trim().min(1, '请填写调整原因').max(200, '原因过长')
 })
 export type AdjustmentInput = z.infer<typeof adjustmentSchema>
+
+// #region 阶段 4 只读数据接口 Schema
+
+export const statsSummaryInputSchema = z.object({
+  from: dateString,
+  to: dateString
+})
+export type StatsSummaryInput = z.infer<typeof statsSummaryInputSchema>
+
+export const statsPeriodSummarySchema = z.object({
+  outAmountCents: z.number().int(),
+  outCostCents: z.number().int(),
+  profitCents: z.number().int(),
+  profitRate: z.number(),
+  outQty: z.number().int(),
+  outDocCount: z.number().int(),
+  inQty: z.number().int(),
+  inAmountCents: z.number().int()
+})
+export type StatsPeriodSummary = z.infer<typeof statsPeriodSummarySchema>
+
+export const statsSummaryResultSchema = z.object({
+  current: statsPeriodSummarySchema,
+  previous: statsPeriodSummarySchema,
+  changes: z.object({
+    outAmount: z.number().nullable(),
+    outCost: z.number().nullable(),
+    profit: z.number().nullable(),
+    outQty: z.number().nullable(),
+    outDocCount: z.number().nullable(),
+    inQty: z.number().nullable(),
+    inAmount: z.number().nullable()
+  })
+})
+export type StatsSummaryResult = z.infer<typeof statsSummaryResultSchema>
+
+export const statsDailySeriesInputSchema = z.object({
+  from: dateString,
+  to: dateString,
+  productId: z.number().int().positive().optional()
+})
+export type StatsDailySeriesInput = z.infer<typeof statsDailySeriesInputSchema>
+
+export const dailySeriesItemSchema = z.object({
+  date: dateString,
+  inQty: z.number().int(),
+  inAmountCents: z.number().int(),
+  outQty: z.number().int(),
+  outAmountCents: z.number().int(),
+  outCostCents: z.number().int(),
+  profitCents: z.number().int()
+})
+export type DailySeriesItem = z.infer<typeof dailySeriesItemSchema>
+
+export const productHealthInputSchema = z.object({
+  windowDays: z.number().int().positive().default(30),
+  baseDate: dateString.optional()
+})
+export type ProductHealthInput = z.infer<typeof productHealthInputSchema>
+
+export const productHealthItemSchema = z.object({
+  productId: z.number().int().positive(),
+  name: z.string(),
+  code: z.string(),
+  skuCode: z.string(),
+  stock: z.number().int(),
+  avgCostCents: z.number().int(),
+  costValueCents: z.number().int(),
+  lowStockThreshold: z.number().int(),
+  windowOutQty: z.number().int(),
+  windowOutDocCount: z.number().int(),
+  daysOfSupply: z.number().int().nullable(),
+  status: z.enum(['critical', 'warning', 'normal', 'inactive'])
+})
+export type ProductHealthItem = z.infer<typeof productHealthItemSchema>
+
+export const pendingDraftItemSchema = z.object({
+  id: z.number().int().positive(),
+  docNo: z.string(),
+  type: z.enum(['inbound', 'outbound']),
+  docDate: dateString,
+  totalQuantity: z.number().int(),
+  totalAmountCents: z.number().int(),
+  note: z.string()
+})
+export type PendingDraftItem = z.infer<typeof pendingDraftItemSchema>
+
+export const pendingSummaryResultSchema = z.object({
+  drafts: z.array(pendingDraftItemSchema),
+  draftCount: z.number().int()
+})
+export type PendingSummaryResult = z.infer<typeof pendingSummaryResultSchema>
+
+export const productLastPricesSchema = z.record(
+  z.string(),
+  z.object({
+    lastInboundPriceCents: z.number().int().nullable(),
+    lastOutboundPriceCents: z.number().int().nullable()
+  })
+)
+export type ProductLastPrices = z.infer<typeof productLastPricesSchema>
+
+// #endregion
