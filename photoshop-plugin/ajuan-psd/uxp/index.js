@@ -325,8 +325,11 @@ async function mergePlacedImages(doc, replacements) {
       }
     ])
     const selected = doc.activeLayers
-    if (selected.length !== 2 || ![selected[0].id, selected[1].id].includes(dog.id) ||
-      ![selected[0].id, selected[1].id].includes(name.id)) {
+    if (
+      selected.length !== 2 ||
+      ![selected[0].id, selected[1].id].includes(dog.id) ||
+      ![selected[0].id, selected[1].id].includes(name.id)
+    ) {
       throw new Error(`${pair.slotKey} 未能同时选中狗图和名字图`)
     }
     await batch([{ _obj: 'mergeLayersNew', _options: { dialogOptions: 'dontDisplay' } }])

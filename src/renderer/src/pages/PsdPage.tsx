@@ -324,9 +324,7 @@ export function PsdPage(): ReactElement {
                   {!template.slots.length ? (
                     <div className={styles.emptyList}>还没有位置，添加后会显示在这里。</div>
                   ) : (
-                    template.slots.map((slot) => (
-                      <SlotRow key={slot.id} slot={slot} />
-                    ))
+                    template.slots.map((slot) => <SlotRow key={slot.id} slot={slot} />)
                   )}
                 </div>
                 <div className={styles.templateDelete}>
@@ -463,9 +461,7 @@ export function PsdPage(): ReactElement {
                         <Button
                           variant="ghost"
                           disabled={busy}
-                          onClick={() =>
-                            void act(() => unwrap(window.ajuan.psd.deleteSlot(slot.id)), '槽位已删除')
-                          }
+                          onClick={() => void act(() => unwrap(window.ajuan.psd.deleteSlot(slot.id)), '槽位已删除')}
                         >
                           删除
                         </Button>

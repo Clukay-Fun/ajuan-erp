@@ -183,7 +183,10 @@ function assertCurrentCepInstalled(): void {
   const target = installedPluginDirectory()
   for (const file of [join('CSXS', 'manifest.xml'), 'worker.js', 'host.jsx']) {
     if (!existsSync(join(target, file)) || !sameFileContents(join(source, file), join(target, file))) {
-      throw new ServiceError('VALIDATION', 'Windows CEP 面板版本与当前 ERP 不一致。请完全退出 Photoshop，再到“定制 → 设置”安装 CEP 面板')
+      throw new ServiceError(
+        'VALIDATION',
+        'Windows CEP 面板版本与当前 ERP 不一致。请完全退出 Photoshop，再到“定制 → 设置”安装 CEP 面板'
+      )
     }
   }
 }
@@ -448,7 +451,10 @@ export async function installPsdPlugin(): Promise<PsdBoard> {
     }
     const copies = cepSystemCopies()
     if (copies.length > 0) {
-      throw new ServiceError('VALIDATION', `发现系统目录中的同名 CEP 扩展，可能覆盖用户目录版本。请先移除旧扩展：${copies.join('；')}`)
+      throw new ServiceError(
+        'VALIDATION',
+        `发现系统目录中的同名 CEP 扩展，可能覆盖用户目录版本。请先移除旧扩展：${copies.join('；')}`
+      )
     }
   }
   mkdirSync(join(target, '..'), { recursive: true })
