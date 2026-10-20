@@ -13,16 +13,40 @@
   --text-lg: 20px;
   --text-kpi: 28px;
 
+  /* 组件库使用的字号 / 字重 / 行高别名（字重只用 400、500、600） */
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-base: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 20px;
+  --font-size-xl: 28px;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 600;
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --space-1-5: 6px;
+  --space-2-5: 10px;
+
   /* 控件尺寸 */
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 10px;
   --radius-drawer: 0px;
+  --radius-xs: 4px;
+  --radius-control: 6px;
+  --radius-full: 999px;
 
   /* 动效 */
   --dur-fast: 150ms;
   --dur-base: 200ms;
+  --dur-slow: 300ms;
+  --dur-exit: 150ms;
   --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --transition-fast: 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --transition-normal: 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
   --motion: 1;
 }
 

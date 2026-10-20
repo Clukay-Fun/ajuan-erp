@@ -39,6 +39,10 @@ export interface NumberInputProps {
   className?: string
   /** 自动聚焦 */
   autoFocus?: boolean
+  /** 键盘按下事件 */
+  onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void
+  /** 失焦事件 */
+  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void
   /** 元素 ID */
   id?: string
 }
@@ -71,6 +75,8 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(functi
     disabled = false,
     className = '',
     autoFocus,
+    onKeyDown,
+    onBlur,
     id
   },
   ref
@@ -106,7 +112,8 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(functi
     }
   }
 
-  const handleBlur = (): void => {
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>): void => {
+    onBlur?.(e)
     if (textValue === '' || textValue === '-') {
       onChange?.(null)
       return
@@ -122,6 +129,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(functi
   }
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
+    onKeyDown?.(e)
     if (readOnly || disabled) return
 
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {

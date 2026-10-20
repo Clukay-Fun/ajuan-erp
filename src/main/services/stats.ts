@@ -283,18 +283,13 @@ export function getProductHealth(db: Db, windowDays = 30, baseDate?: string): Pr
       daysOfSupply = Math.floor(st.quantity / dailyOut)
     }
 
-    let status: 'critical' | 'warning' | 'normal' | 'inactive'
-    if (!p.isActive) {
-      status = 'inactive'
-    } else if (st.quantity <= 0 && stat.outQty > 0) {
-      status = 'critical'
-    } else if (st.quantity > 0 && st.quantity <= p.lowStockThreshold) {
-      status = 'warning'
-    } else if (daysOfSupply !== null && daysOfSupply <= 7) {
-      status = 'warning'
-    } else {
-      status = 'normal'
-    }
+    // 按顺序取第一个命中的：缺货 → 可售不足 7 天 → 低于预警 → 正常；停用商品单独标记
+    let status: ProductHealthItem['status']
+    if (!p.isActive) status = 'inactive'
+    else if (st.quantity <= 0) status = 'out'
+    else if (daysOfSupply !== null && daysOfSupply < 7) status = 'critical'
+    else if (p.lowStockThreshold > 0 && st.quantity <= p.lowStockThreshold) status = 'low'
+    else status = 'ok'
 
     return {
       productId: p.id,

@@ -1,184 +1,311 @@
-.card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  padding: var(--space-5);
-  margin-bottom: var(--space-4);
-}
-.detailHead {
+.container {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--space-4);
+  flex-direction: column;
+  gap: var(--space-3);
+  height: 100%;
+  width: 100%;
+  max-width: 1680px;
+  box-sizing: border-box;
 }
-.detailActions {
-  display: flex;
-  gap: var(--space-2);
-  flex: 0 0 auto;
-}
-.profile {
-  display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: var(--space-4);
-  align-items: start;
-  min-width: 0;
-}
-.name {
+
+.headerRow {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 17px;
-  font-weight: 600;
-  line-height: 1.3;
-  color: var(--color-primary);
-}
-.code {
-  color: var(--color-text-muted);
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  margin-top: 2px;
-  margin-bottom: var(--space-3);
-}
-.meta {
-  display: grid;
-  grid-template-columns: 76px 1fr;
-  row-gap: 6px;
-  column-gap: var(--space-3);
-  color: var(--color-text-secondary);
-  font-size: 13.5px;
-  margin: 0;
-}
-.meta dd {
-  margin: 0;
-  color: var(--color-text);
-}
-.stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  justify-content: space-between;
   gap: var(--space-3);
-  margin-top: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+  min-height: 40px;
 }
-.stat {
-  padding: 10px 14px;
-  border-radius: var(--radius-md);
-  background: var(--color-inset);
-  min-width: 0;
+
+.headerTitle {
+  font-size: 22px;
+  font-weight: var(--font-weight-bold);
+  color: var(--accent-text);
+  margin: 0;
+  line-height: 1.2;
 }
-.statLabel {
-  font-size: 12px;
-  color: var(--color-text-secondary);
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
-.statValue {
-  font-size: 16px;
-  font-weight: 600;
-  margin-top: 2px;
+
+/* 主面板撑满视口高度 */
+.mainPanel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg, 10px);
+  overflow: hidden;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+.searchBox {
+  width: 280px;
+  max-width: 100%;
+}
+
+.toolRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.countText {
+  color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
-  color: var(--color-primary);
+}
+
+.switchLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* 表格容器自适应滚动 */
+.tableWrap {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+.productTable {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: var(--font-size-xs);
+  text-align: left;
+}
+
+.colProduct {
+  width: 26%;
+}
+
+.colSku {
+  width: 12%;
+}
+
+.colStock {
+  width: 11%;
+}
+
+.colDays {
+  width: 10%;
+}
+
+.colCost {
+  width: 12%;
+}
+
+.colPrice {
+  width: 10%;
+}
+
+.colThreshold {
+  width: 10%;
+}
+
+.colStatus {
+  width: 9%;
+}
+
+.productTable th {
+  position: sticky;
+  top: 0;
+  background-color: var(--bg-subtle);
+  color: var(--text-tertiary);
+  font-weight: var(--font-weight-medium);
+  font-size: 11.5px;
+  padding: 8px var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  z-index: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  padding-left: var(--space-2);
+  padding-right: var(--space-2);
 }
-.sectionTitle {
-  font-size: 15px;
-  font-weight: 600;
-  margin-bottom: var(--space-3);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+
+.productTable td {
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: var(--space-2);
+  padding-right: var(--space-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.openingCard {
-  margin: var(--space-4) 0 0;
-  padding: var(--space-4) var(--space-5);
-  background: var(--color-inset);
-  border: 0;
-  box-shadow: none;
+
+.productTable th.num,
+.productTable td.num {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
-.openingCard .stat {
-  background: var(--color-surface);
-}
-.openingRow {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-3);
-}
-.openingEmpty {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: var(--space-2) 0;
-  color: var(--color-text-secondary);
-  font-size: 13.5px;
-}
-.openingEmpty strong {
-  color: var(--color-text);
-  font-weight: 500;
-}
-.link {
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
+
+.tableRow {
+  height: 40px;
+  border-bottom: 1px solid var(--border-subtle);
   cursor: pointer;
-  padding: 0;
+  transition: background-color var(--transition-fast);
+  position: relative;
 }
-.link:hover {
-  text-decoration: underline;
+
+.tableRow:hover {
+  background-color: var(--bg-subtle);
 }
-.cell {
+
+.tableRow.selected {
+  background-color: var(--accent-subtle);
+}
+
+.tableRow.isCritical > td:first-child {
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+
+.tableRow.isWarning > td:first-child {
+  box-shadow: inset 3px 0 0 var(--warning);
+}
+
+.tableRow.inactive {
+  opacity: 0.6;
+}
+
+.loadError {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.loadError strong {
+  margin-right: var(--space-2);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.productCell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   min-width: 0;
 }
+
 .thumb {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  background: var(--color-inset);
-  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm, 4px);
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-text-muted);
   overflow: hidden;
-  flex: 0 0 auto;
+  flex-shrink: 0;
 }
+
 .thumb img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-.cellText {
+
+.thumbPlaceholder {
+  color: var(--text-tertiary);
+}
+
+.nameMeta {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  line-height: 1.25;
 }
-.cellName {
-  font-weight: 500;
+
+.productName {
+  font-weight: var(--font-weight-medium);
+  color: var(--accent-text);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
-.inactive {
-  color: var(--color-text-muted);
+
+@media (max-width: 1000px) {
+  .toolbar {
+    padding-left: var(--space-3);
+    padding-right: var(--space-3);
+  }
+
+  .productTable th,
+  .productTable td {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  .productTable {
+    font-size: 12px;
+  }
+
+  .productCell {
+    gap: var(--space-1);
+  }
 }
-.cellCode {
+
+.productCode {
+  font-size: 11px;
+  color: var(--text-tertiary);
   font-family: var(--font-mono);
-  font-size: 11.5px;
-  color: var(--color-text-muted);
 }
-.error {
-  color: var(--color-danger);
+
+.skuCell {
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
 }
-.flat {
-  border: 0;
-  box-shadow: none;
-  padding: 0;
-  margin-bottom: 0;
+
+.editableThreshold {
+  cursor: pointer;
+  border-bottom: 1px dashed var(--border-default);
+  padding: 2px 4px;
+  display: inline-block;
+  min-width: 36px;
+  text-align: right;
+  border-radius: var(--radius-xs, 2px);
+  transition: background-color var(--transition-fast);
 }
-.movements {
-  margin-top: var(--space-4);
+
+.editableThreshold:hover {
+  background-color: var(--bg-subtle);
+}
+
+.inlineInput {
+  width: 60px;
+  box-sizing: border-box;
+}
+
+.emptyArea {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
 }

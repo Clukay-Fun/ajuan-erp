@@ -103,4 +103,29 @@ export function TableHeaderCell({
   )
 }
 
+export interface TableEmptyProps {
+  cols: number
+  title?: string
+  description?: string
+}
+
+export function TableEmpty({ cols, title = '暂无数据', description }: TableEmptyProps): React.JSX.Element {
+  return (
+    <tr>
+      <td
+        colSpan={cols}
+        style={{
+          padding: 'var(--space-6)',
+          textAlign: 'center',
+          color: 'var(--text-tertiary)',
+          fontSize: 'var(--font-size-xs)'
+        }}
+      >
+        <div style={{ fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 2 }}>{title}</div>
+        {description && <div>{description}</div>}
+      </td>
+    </tr>
+  )
+}
+
 // #endregion

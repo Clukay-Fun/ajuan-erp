@@ -128,7 +128,7 @@ export function DevUiPage(): React.JSX.Element {
       id: '1',
       label: '高透亚克力双层展示立牌',
       sublabel: 'SPU-8821 · 现货',
-      badge: <StockBadge status="normal" label="库存 531" />
+      badge: <StockBadge status="ok" label="库存 531" />
     },
     {
       id: '2',
@@ -140,7 +140,7 @@ export function DevUiPage(): React.JSX.Element {
       id: '3',
       label: '双闪色纸加厚收藏卡',
       sublabel: 'SPU-1024 · 预警',
-      badge: <StockBadge status="warning" label="库存 18" />
+      badge: <StockBadge status="low" label="库存 18" />
     }
   ]
 
@@ -304,9 +304,10 @@ export function DevUiPage(): React.JSX.Element {
             <DocStatusBadge status="draft" />
             <DocStatusBadge status="confirmed" />
             <DocStatusBadge status="voided" />
+            <StockBadge status="out" />
             <StockBadge status="critical" />
-            <StockBadge status="warning" />
-            <StockBadge status="normal" />
+            <StockBadge status="low" />
+            <StockBadge status="ok" />
             <StockBadge status="inactive" />
           </div>
         </div>

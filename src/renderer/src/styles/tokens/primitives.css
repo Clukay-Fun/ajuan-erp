@@ -22,16 +22,26 @@
   --primitive-dark-100: #e8eaed;
 
   /* 墨绿（品牌与强调色） */
-  --primitive-moss-600: #2a5541;
-  --primitive-moss-500: #34684f;
+  --primitive-moss-700: #20513c;
+  --primitive-moss-600: #286248;
+  --primitive-moss-500: #2f7357;
+  --primitive-moss-450: #49a27d;
+  --primitive-moss-425: #5ab38b;
   --primitive-moss-400: #3d7a5f;
   --primitive-moss-350: #47896b;
   --primitive-moss-300: #7cc0a0;
   --primitive-moss-100: #e6efea;
 
+  /* 紫罗兰（深色主题品牌色） */
+  --primitive-violet-600: #6a55cf;
+  --primitive-violet-500: #7560dc;
+  --primitive-violet-450: #8470e6;
+  --primitive-violet-300: #aa95fa;
+
   /* 入库（蓝） */
   --primitive-blue-500: #2f6fb5;
   --primitive-blue-400: #7eb0e8;
+  --primitive-blue-350: #7aa4dc;
   --primitive-blue-100: #eaf2fb;
 
   /* 出库 / 预警（琥珀） */
@@ -39,10 +49,10 @@
   --primitive-amber-400: #e0a458;
   --primitive-amber-100: #fbf1e3;
 
-  /* 调整（紫） */
-  --primitive-purple-500: #6b4fb8;
-  --primitive-purple-400: #a891e6;
-  --primitive-purple-100: #f1edfa;
+  /* 调整（青）：避开深色主题的紫罗兰品牌色 */
+  --primitive-cyan-600: #1b7a8c;
+  --primitive-cyan-400: #5cc4d6;
+  --primitive-cyan-100: #e6f4f6;
 
   /* 期初（灰蓝） */
   --primitive-steel-500: #4f6475;

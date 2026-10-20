@@ -187,7 +187,8 @@ export const productHealthItemSchema = z.object({
   windowOutQty: z.number().int(),
   windowOutDocCount: z.number().int(),
   daysOfSupply: z.number().int().nullable(),
-  status: z.enum(['critical', 'warning', 'normal', 'inactive'])
+  /** out 缺货 · critical 可售不足 7 天 · low 低于预警 · ok 正常 · inactive 已停用 */
+  status: z.enum(['out', 'critical', 'low', 'ok', 'inactive'])
 })
 export type ProductHealthItem = z.infer<typeof productHealthItemSchema>
 

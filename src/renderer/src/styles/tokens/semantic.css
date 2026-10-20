@@ -17,23 +17,24 @@
   --text-secondary: var(--primitive-gray-500);
   --text-tertiary: var(--primitive-gray-400);
 
-  /* 强调色（品牌色：墨绿） */
+  /* 强调色（浅色：墨绿）。--accent-text 也用于页面标题、关键数字和商品名 */
   --accent: var(--primitive-moss-500);
   --accent-hover: var(--primitive-moss-600);
+  --accent-active: var(--primitive-moss-700);
   --accent-subtle: var(--primitive-moss-100);
   --accent-fg: var(--primitive-white);
   --accent-text: var(--primitive-moss-500);
 
   /* 焦点环 */
-  --focus-ring: rgba(52, 104, 79, 0.45);
+  --focus-ring: rgba(47, 115, 87, 0.45);
 
   /* 业务状态色 */
   --status-in: var(--primitive-blue-500);
   --status-in-bg: var(--primitive-blue-100);
   --status-out: var(--primitive-amber-600);
   --status-out-bg: var(--primitive-amber-100);
-  --status-adjust: var(--primitive-purple-500);
-  --status-adjust-bg: var(--primitive-purple-100);
+  --status-adjust: var(--primitive-cyan-600);
+  --status-adjust-bg: var(--primitive-cyan-100);
   --status-opening: var(--primitive-steel-500);
   --status-opening-bg: var(--primitive-steel-100);
 
@@ -41,10 +42,22 @@
   --danger-bg: var(--primitive-red-100);
   --warning: var(--primitive-amber-600);
   --warning-bg: var(--primitive-amber-100);
+  --status-critical: var(--danger);
+  --warning-text: var(--warning);
+  --warning-border: color-mix(in srgb, var(--warning) 45%, transparent);
+  --border-bold: var(--border-default);
 
   /* 图表 */
   --chart-in: var(--status-in);
   --chart-out: var(--status-out);
+  --chart-profit: var(--primitive-blue-500);
+
+  /* 全局浮层层级 */
+  --z-shell: 10;
+  --z-popover: 85;
+  --z-drawer: 80;
+  --z-modal: 90;
+  --z-toast: 100;
 
   /* 阴影与遮罩 */
   --shadow-card: none;
@@ -80,23 +93,24 @@
     --text-secondary: var(--primitive-dark-300);
     --text-tertiary: var(--primitive-dark-400);
 
-    /* 强调色（深色墨绿统一版） */
-    --accent: var(--primitive-moss-400);
-    --accent-hover: var(--primitive-moss-350);
-    --accent-subtle: rgba(78, 148, 116, 0.16);
+    /* 强调色（深色：紫罗兰 Violet Night） */
+    --accent: var(--primitive-violet-500);
+    --accent-hover: var(--primitive-violet-450);
+    --accent-active: var(--primitive-violet-600);
+    --accent-subtle: rgba(142, 120, 235, 0.16);
     --accent-fg: var(--primitive-white);
-    --accent-text: var(--primitive-moss-300);
+    --accent-text: var(--primitive-violet-300);
 
     /* 焦点环 */
-    --focus-ring: rgba(93, 166, 132, 0.55);
+    --focus-ring: rgba(142, 120, 235, 0.55);
 
     /* 业务状态色 */
     --status-in: var(--primitive-blue-400);
     --status-in-bg: rgba(126, 176, 232, 0.14);
     --status-out: var(--primitive-amber-400);
     --status-out-bg: rgba(224, 164, 88, 0.14);
-    --status-adjust: var(--primitive-purple-400);
-    --status-adjust-bg: rgba(168, 145, 230, 0.14);
+    --status-adjust: var(--primitive-cyan-400);
+    --status-adjust-bg: rgba(92, 196, 214, 0.14);
     --status-opening: var(--primitive-steel-400);
     --status-opening-bg: rgba(147, 168, 184, 0.14);
 
@@ -108,6 +122,7 @@
     /* 图表 */
     --chart-in: var(--status-in);
     --chart-out: var(--status-out);
+    --chart-profit: var(--primitive-blue-350);
 
     /* 阴影与遮罩 */
     --shadow-card: none;
@@ -139,23 +154,24 @@
   --text-secondary: var(--primitive-dark-300);
   --text-tertiary: var(--primitive-dark-400);
 
-  /* 强调色（深色墨绿统一版） */
-  --accent: var(--primitive-moss-400);
-  --accent-hover: var(--primitive-moss-350);
-  --accent-subtle: rgba(78, 148, 116, 0.16);
+  /* 强调色（深色：紫罗兰 Violet Night） */
+  --accent: var(--primitive-violet-500);
+  --accent-hover: var(--primitive-violet-450);
+  --accent-active: var(--primitive-violet-600);
+  --accent-subtle: rgba(142, 120, 235, 0.16);
   --accent-fg: var(--primitive-white);
-  --accent-text: var(--primitive-moss-300);
+  --accent-text: var(--primitive-violet-300);
 
   /* 焦点环 */
-  --focus-ring: rgba(93, 166, 132, 0.55);
+  --focus-ring: rgba(142, 120, 235, 0.55);
 
   /* 业务状态色 */
   --status-in: var(--primitive-blue-400);
   --status-in-bg: rgba(126, 176, 232, 0.14);
   --status-out: var(--primitive-amber-400);
   --status-out-bg: rgba(224, 164, 88, 0.14);
-  --status-adjust: var(--primitive-purple-400);
-  --status-adjust-bg: rgba(168, 145, 230, 0.14);
+  --status-adjust: var(--primitive-cyan-400);
+  --status-adjust-bg: rgba(92, 196, 214, 0.14);
   --status-opening: var(--primitive-steel-400);
   --status-opening-bg: rgba(147, 168, 184, 0.14);
 
@@ -167,6 +183,7 @@
   /* 图表 */
   --chart-in: var(--status-in);
   --chart-out: var(--status-out);
+  --chart-profit: var(--primitive-blue-350);
 
   /* 阴影与遮罩 */
   --shadow-card: none;

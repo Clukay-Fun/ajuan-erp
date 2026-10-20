@@ -5,9 +5,9 @@ const { launch, assert, eq } = require('./harness.cjs')
 module.exports = async () => {
   const t = await launch()
   await t.ui(`
-    await click('商品'); $$('tbody tr')[0].click(); await sleep(400); await click('录入期初库存', 150)
-    setVal(inputOf('期初数量'), '100'); setVal(inputOf('单位成本'), '10')
-    await click('确认期初', 400)
+    await click('商品'); $$('tbody tr')[0].click(); await sleep(500); await click('录入期初库存', 200)
+    setVal(inputOf('期初数量'), '100'); setVal(inputOf('单件成本 (元)'), '10')
+    await click('确认期初', 600)
   `)
   assert((await t.ui(`return text()`)).includes('当前库存 100 件'), '期初后库存应为 100')
 
@@ -67,11 +67,11 @@ module.exports = async () => {
     '作废后库存与成本回到 150 / ¥11'
   )
 
-  // 库存调整（盘亏 5）
+  // 库存调整：商品抽屉里按盘点数盘亏 5
   await t.ui(`
-    await click('商品'); $$('tbody tr')[0].click(); await sleep(400); await click('库存调整', 400)
-    setVal(inputOf('减少数量'), '5'); setVal(inputOf('调整原因'), '月末盘点少 5 件')
-    await click('确认调整', 500)
+    await click('商品'); $$('tbody tr')[0].click(); await sleep(500); await click('调整库存', 300)
+    setVal(inputOf('实际盘点数'), '145'); setVal(inputOf('原因'), '月末盘点少 5 件'); await sleep(100)
+    await click('确认盘亏 5 件', 600)
   `)
   const afterAdjust = await t.ui(`return text()`)
   assert(afterAdjust.includes('当前库存 145 件'), '调整后商品页应显示 145')
@@ -103,11 +103,14 @@ module.exports = async () => {
   await t.shot('flow-settings-update.png')
   await t.ui(`$$('[role=radio]').find(b => b.textContent.startsWith('跟随系统')).click(); await sleep(100)`)
 
-  // 快捷键：⌘/Ctrl+N 新建入库
+  // 快捷键：⌘/Ctrl+N 新建出库单，⇧⌘/Ctrl+N 新建入库单
   const isMac = process.platform === 'darwin'
+  const mod = isMac ? 'metaKey' : 'ctrlKey'
   const viaKey = await t.ui(`
-    key('n', { ${isMac ? 'metaKey' : 'ctrlKey'}: true }); await sleep(300)
-    return text().includes('新建入库单')
+    key('n', { ${mod}: true }); await sleep(400)
+    const out = text().includes('新建出库单')
+    key('n', { ${mod}: true, shiftKey: true }); await sleep(400)
+    return out && text().includes('新建入库单')
   `)
-  assert(viaKey, '⌘/Ctrl+N 应打开新建入库单')
+  assert(viaKey, '⌘N 应打开新建出库单，⇧⌘N 应打开新建入库单')
 }

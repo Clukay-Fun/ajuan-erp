@@ -42,6 +42,8 @@ export interface DrawerHelpers {
   close: (force?: boolean) => void
   goBack: () => void
   setDirty: (dirty: boolean) => void
+  /** 内容改名后同步抽屉标题（例如商品改名、新建后） */
+  setTitle: (title: string) => void
 }
 
 interface DrawerContextValue {
@@ -49,6 +51,7 @@ interface DrawerContextValue {
   closeDrawer: (force?: boolean) => void
   goBack: () => void
   setDirty: (dirty: boolean) => void
+  setTitle: (title: string) => void
   currentDrawer: DrawerOptions | null
   history: DrawerOptions[]
 }
@@ -160,6 +163,10 @@ export function DrawerHost({ children }: DrawerHostProps): React.JSX.Element {
     setCurrentDrawer((prev) => (prev ? { ...prev, isDirty: dirty } : null))
   }, [])
 
+  const setTitle = useCallback((title: string) => {
+    setCurrentDrawer((prev) => (prev ? { ...prev, title } : null))
+  }, [])
+
   const handleDiscardConfirm = (): void => {
     const action = pendingAction
     setPendingAction(null)
@@ -174,9 +181,10 @@ export function DrawerHost({ children }: DrawerHostProps): React.JSX.Element {
     () => ({
       close: closeDrawer,
       goBack,
-      setDirty
+      setDirty,
+      setTitle
     }),
-    [closeDrawer, goBack, setDirty]
+    [closeDrawer, goBack, setDirty, setTitle]
   )
 
   const contextValue = useMemo<DrawerContextValue>(
@@ -185,10 +193,11 @@ export function DrawerHost({ children }: DrawerHostProps): React.JSX.Element {
       closeDrawer,
       goBack,
       setDirty,
+      setTitle,
       currentDrawer,
       history
     }),
-    [openDrawer, closeDrawer, goBack, setDirty, currentDrawer, history]
+    [openDrawer, closeDrawer, goBack, setDirty, setTitle, currentDrawer, history]
   )
 
   const prevDrawer = history.length > 0 ? history[history.length - 1] : null

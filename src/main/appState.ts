@@ -13,6 +13,8 @@ class AppState {
 
   /** 开发时把测试数据放在项目目录，打包后再回到 Electron 的 userData。 */
   private get dataRoot(): string {
+    const isolatedDataDir = process.env.AJUAN_DATA_DIR?.trim()
+    if (isDev && isolatedDataDir) return resolve(isolatedDataDir)
     return isDev ? join(app.getAppPath(), 'data') : app.getPath('userData')
   }
 

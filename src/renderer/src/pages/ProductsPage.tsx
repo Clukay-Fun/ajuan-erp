@@ -1,347 +1,375 @@
-import type { ReactElement } from 'react'
-import { useCallback, useEffect, useState } from 'react'
-import { PackagePlus, Plus, Scale, ImageIcon, Pencil, Upload, Download } from 'lucide-react'
-import type { DocumentSummary, Product, StockRow } from '@shared/types'
-import { PageHeader } from '@/components/PageHeader'
-import { Button } from '@/components/Button'
-import { Badge } from '@/components/Badge'
-import { Drawer } from '@/components/Drawer'
-import { SkeletonTable } from '@/components/Skeleton'
-import { TableEmpty } from '@/components/TableEmpty'
+/**
+ * 描述: 商品管理工作台列表页面 (ProductsPage)
+ * 主要功能:
+ *   - 列表整块面板撑满视口高度，内嵌搜索与停用过滤
+ *   - 严格呈现商品名称、编码、SKU、库存、可售天数、成本、售价与健康徽标
+ *   - 预警值单元格双击支持就地编辑，按 Enter 保存，按 Esc 取消
+ *   - 全面收敛为右侧抽屉流（查看、编辑、新建、期初、库存调整），杜绝居中弹窗套弹窗
+ *   - 支持导出全部流水与 CSV 导入
+ */
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import { Plus, MoreVertical, Upload, Download, ImageIcon } from 'lucide-react'
+import type { StockRow, Product } from '@shared/types'
+import type { ProductHealthItem } from '@shared/schemas'
+import {
+  Button,
+  IconButton,
+  Input,
+  NumberInput,
+  StockBadge,
+  isStockAlert,
+  Menu,
+  TableEmpty,
+  useDrawer
+} from '@/components/ui'
 import { useToast } from '@/components/Toast'
 import { unwrap, errorMessage } from '@/lib/api'
 import { formatCents, formatQty } from '@/lib/format'
-import { ProductEditDrawer } from '@/features/products/ProductEditDrawer'
-import { OpeningStockDrawer } from '@/features/products/OpeningStockDrawer'
-import { ProductImage, productImageUrl } from '@/features/products/ProductImage'
-import { AdjustmentDrawer } from '@/features/adjustments/AdjustmentDrawer'
-import { ProductMovements } from '@/features/products/ProductMovements'
-import { ImportDialog } from '@/features/csv/ImportDialog'
-import { useNav } from '@/app/navigation'
-import table from '@/components/Table.module.css'
+import { productImageUrl } from '@/features/products/ProductImage'
+import { useEntityDrawers } from '@/app/entityDrawers'
+import { useDataChanged } from '@/lib/dataEvents'
 import styles from './ProductsPage.module.css'
 
-export function ProductsPage(): ReactElement {
-  const toast = useToast()
-  const { navigate } = useNav()
-  const [rows, setRows] = useState<StockRow[] | null>(null)
-  const [selectedId, setSelectedId] = useState<number | null>(null)
-  const [opening, setOpening] = useState<DocumentSummary | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [editing, setEditing] = useState<'create' | 'edit' | null>(null)
-  const [openingOpen, setOpeningOpen] = useState(false)
-  const [adjustOpen, setAdjustOpen] = useState(false)
-  const [importOpen, setImportOpen] = useState(false)
-  const [exporting, setExporting] = useState(false)
+// #region ProductsPage 组件实现
 
-  const load = useCallback(async () => {
+/**
+ * 用处: 商品档案与库存全景列表页
+ * 功能:
+ *   - 集中掌控全量商品库存健康、流转成本与资料维护
+ */
+export function ProductsPage(): React.JSX.Element {
+  const toast = useToast()
+  const { currentDrawer } = useDrawer()
+  const { openProduct, newProduct, openImport } = useEntityDrawers()
+
+  const [rows, setRows] = useState<StockRow[] | null>(null)
+  const [healthItems, setHealthItems] = useState<ProductHealthItem[]>([])
+  const [loadError, setLoadError] = useState<boolean>(false)
+  const [loading, setLoading] = useState<boolean>(true)
+  const [search, setSearch] = useState<string>('')
+  const [showInactive, setShowInactive] = useState<boolean>(false)
+  const [exporting, setExporting] = useState<boolean>(false)
+
+  // 预警值就地行内编辑
+  const [editingThresholdId, setEditingThresholdId] = useState<number | null>(null)
+  const [thresholdDraft, setThresholdDraft] = useState<number>(0)
+
+  // #region 数据载入与刷新
+
+  const loadData = useCallback(async () => {
+    setLoading(true)
     try {
-      const list = await unwrap(window.ajuan.inventory.listStock())
-      setRows(list)
-      setSelectedId((cur) => (cur !== null && list.some((r) => r.product.id === cur) ? cur : null))
-      setError(null)
-    } catch (err) {
-      setError(errorMessage(err))
+      const [stockList, healthList] = await Promise.all([
+        unwrap(window.ajuan.inventory.listStock()),
+        unwrap(window.ajuan.stats.getProductHealth())
+      ])
+      setRows(stockList)
+      setHealthItems(healthList)
+      setLoadError(false)
+    } catch {
+      setLoadError(true)
+    } finally {
+      setLoading(false)
     }
   }, [])
-  useEffect(() => {
-    void load()
-  }, [load])
-
-  const selected = rows?.find((r) => r.product.id === selectedId) ?? null
 
   useEffect(() => {
-    if (!selected) return
-    let alive = true
-    unwrap(window.ajuan.opening.get(selected.product.defaultSku.id))
-      .then((o) => alive && setOpening(o))
-      .catch(() => alive && setOpening(null))
-    return () => {
-      alive = false
+    void loadData()
+  }, [loadData])
+
+  // #endregion
+
+  // #region 抽屉唤起交互
+
+  // 抽屉里写入成功后（编辑、调整、期初、导入）刷新列表
+  useDataChanged(() => void loadData())
+
+  // #endregion
+
+  // #region 预警值双击就地保存
+
+  const handleStartEditThreshold = (e: React.MouseEvent, p: Product): void => {
+    e.stopPropagation()
+    setEditingThresholdId(p.id)
+    setThresholdDraft(p.lowStockThreshold)
+  }
+
+  const handleSaveThreshold = async (p: Product): Promise<void> => {
+    try {
+      await unwrap(
+        window.ajuan.products.update(p.id, {
+          code: p.code,
+          name: p.name,
+          unit: p.unit,
+          defaultCostCents: p.defaultCostCents,
+          defaultPriceCents: p.defaultPriceCents,
+          lowStockThreshold: thresholdDraft,
+          isActive: p.isActive
+        })
+      )
+      toast(`预警值已更新为 ${thresholdDraft}`, 'success')
+      setEditingThresholdId(null)
+      await loadData()
+    } catch (err) {
+      toast(errorMessage(err), 'error')
     }
-  }, [selected])
+  }
 
-  const patchProduct = (p: Product): void =>
-    setRows((rs) => rs?.map((r) => (r.product.id === p.id ? { ...r, product: p } : r)) ?? rs)
+  // #endregion
 
-  if (error)
-    return (
-      <>
-        <PageHeader title="商品" />
-        <p className={styles.error}>读取失败：{error}</p>
-      </>
-    )
+  // #region 过滤与数据计算
 
-  const master = (
-    <div className={table.wrap}>
-      <table className={`${table.table} ${table.clickable} ${table.fixed} ${table.tall}`}>
-        <colgroup>
-          <col />
-          <col style={{ width: 160 }} />
-          <col style={{ width: 110 }} />
-          <col style={{ width: 110 }} />
-          <col style={{ width: 110 }} />
-          <col style={{ width: 96 }} />
-        </colgroup>
-        <thead>
-          <tr>
-            <th>商品</th>
-            <th>SKU</th>
-            <th className={table.num}>库存</th>
-            <th className={table.num}>平均成本</th>
-            <th className={table.num}>预警值</th>
-            <th>状态</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows && rows.length === 0 && <TableEmpty cols={6} title="还没有商品" description="点击右上角「新建商品」" />}
-          {rows?.map((r) => {
-            const url = productImageUrl(r.product)
-            return (
-              <tr
-                key={r.product.id}
-                onClick={() => setSelectedId(r.product.id)}
-                aria-selected={r.product.id === selectedId}
-                className={r.product.id === selectedId ? table.selected : ''}
-              >
-                <td>
-                  <div className={styles.cell}>
-                    <span className={styles.thumb}>
-                      {url ? <img src={url} alt="" /> : <ImageIcon size={14} strokeWidth={1.5} />}
-                    </span>
-                    <span className={styles.cellText}>
-                      <span className={`${styles.cellName} ${r.product.isActive ? '' : styles.inactive}`}>
-                        {r.product.name}
-                      </span>
-                      <span className={styles.cellCode}>{r.product.code}</span>
-                    </span>
-                  </div>
-                </td>
-                <td className={table.mono}>{r.product.defaultSku.code}</td>
-                <td className={table.num}>
-                  {formatQty(r.stock.quantity)} {r.product.unit}
-                </td>
-                <td className={table.num}>{r.stock.quantity > 0 ? `¥${formatCents(r.stock.avgCostCents)}` : '—'}</td>
-                <td className={table.num}>
-                  {formatQty(r.product.lowStockThreshold)} {r.product.unit}
-                </td>
-                <td>
-                  {!r.product.isActive ? (
-                    <Badge>已停用</Badge>
-                  ) : !r.hasOpening ? (
-                    <Badge>未期初</Badge>
-                  ) : r.lowStock ? (
-                    <Badge tone="danger">预警</Badge>
-                  ) : (
-                    <Badge tone="success">正常</Badge>
-                  )}
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
-    </div>
-  )
+  const filteredRows = useMemo(() => {
+    if (!rows) return []
+    const q = search.trim().toLowerCase()
+    return rows.filter((r) => {
+      if (!showInactive && !r.product.isActive) return false
+      if (!q) return true
+      return (
+        r.product.name.toLowerCase().includes(q) ||
+        r.product.code.toLowerCase().includes(q) ||
+        r.product.defaultSku.code.toLowerCase().includes(q)
+      )
+    })
+  }, [rows, search, showInactive])
 
-  const detail = selected ? (
-    <>
-      <section className={`${styles.card} ${styles.flat}`}>
-        <div className={styles.detailHead}>
-          <div className={styles.profile}>
-            <ProductImage product={selected.product} onChanged={patchProduct} size={120} />
-            <div>
-              <div className={styles.name}>
-                {selected.product.name}
-                {!selected.product.isActive && <Badge>已停用</Badge>}
-              </div>
-              <div className={`${styles.code} selectable`}>{selected.product.code}</div>
-              <dl className={`${styles.meta} selectable`}>
-                <dt>SKU</dt>
-                <dd>{selected.product.defaultSku.code}</dd>
-                <dt>单位</dt>
-                <dd>{selected.product.unit}</dd>
-                <dt>当前库存</dt>
-                <dd>
-                  {formatQty(selected.stock.quantity)} {selected.product.unit}
-                  {selected.lowStock && <span className={styles.error}>（低于预警值）</span>}
-                </dd>
-                <dt>平均成本</dt>
-                <dd>{selected.stock.quantity > 0 ? `¥${formatCents(selected.stock.avgCostCents)}` : '—'}</dd>
-              </dl>
-            </div>
-          </div>
-          <div className={styles.detailActions}>
-            <Button onClick={() => setEditing('edit')}>
-              <Pencil size={16} /> 编辑
-            </Button>
-            {selected.hasOpening && selected.product.isActive && (
-              <Button onClick={() => setAdjustOpen(true)}>
-                <Scale size={16} /> 库存调整
-              </Button>
-            )}
-          </div>
-        </div>
-        <div className={styles.stats}>
-          <div className={styles.stat}>
-            <div className={styles.statLabel}>默认进价</div>
-            <div className={styles.statValue}>¥{formatCents(selected.product.defaultCostCents)}</div>
-          </div>
-          <div className={styles.stat}>
-            <div className={styles.statLabel}>默认售价</div>
-            <div className={styles.statValue}>¥{formatCents(selected.product.defaultPriceCents)}</div>
-          </div>
-          <div className={styles.stat}>
-            <div className={styles.statLabel}>库存预警值</div>
-            <div className={styles.statValue}>
-              {formatQty(selected.product.lowStockThreshold)} {selected.product.unit}
-            </div>
-          </div>
-        </div>
-      </section>
+  // 导出全量变动流水
+  const handleExportAllMovements = async (): Promise<void> => {
+    setExporting(true)
+    try {
+      const p = await unwrap(window.ajuan.csv.exportMovements({}))
+      if (p) toast(`已导出全部流水到: ${p}`, 'success')
+    } catch (err) {
+      toast(errorMessage(err), 'error')
+    } finally {
+      setExporting(false)
+    }
+  }
 
-      <section className={`${styles.card} ${styles.openingCard}`}>
-        <h2 className={styles.sectionTitle}>
-          期初库存
-          {!selected.hasOpening && selected.product.isActive && (
-            <Button variant="primary" onClick={() => setOpeningOpen(true)}>
-              <PackagePlus size={16} /> 录入期初库存
-            </Button>
-          )}
-        </h2>
-        {selected.hasOpening && opening ? (
-          <div className={`${styles.openingRow} selectable`}>
-            <div className={styles.stat}>
-              <div className={styles.statLabel}>单号</div>
-              <div className={styles.statValue}>
-                <button
-                  type="button"
-                  className={styles.link}
-                  onClick={() => navigate('documents', { documents: { view: 'detail', id: opening.id } })}
-                >
-                  {opening.docNo}
-                </button>
-              </div>
-            </div>
-            <div className={styles.stat}>
-              <div className={styles.statLabel}>日期</div>
-              <div className={styles.statValue}>{opening.docDate}</div>
-            </div>
-            <div className={styles.stat}>
-              <div className={styles.statLabel}>数量</div>
-              <div className={styles.statValue}>
-                {formatQty(opening.totalQuantity)} {selected.product.unit}
-              </div>
-            </div>
-            <div className={styles.stat}>
-              <div className={styles.statLabel}>成本总额</div>
-              <div className={styles.statValue}>¥{formatCents(opening.totalAmountCents)}</div>
-            </div>
-          </div>
-        ) : (
-          <div className={styles.openingEmpty}>
-            <strong>还没有期初库存</strong>
-            <span>首次使用时，请录入当前实际库存数量和单位成本，作为库存账的起点。</span>
-          </div>
-        )}
-      </section>
+  const moreMenuItems = [
+    {
+      key: 'import-csv',
+      label: '导入 CSV',
+      icon: <Upload size={14} />,
+      onClick: openImport
+    },
+    {
+      key: 'export-all-movements',
+      label: exporting ? '正在导出…' : '导出全部流水 CSV',
+      icon: <Download size={14} />,
+      disabled: exporting,
+      onClick: handleExportAllMovements
+    }
+  ]
 
-      <section className={styles.movements}>
-        <h2 className={styles.sectionTitle}>库存流水</h2>
-        <ProductMovements product={selected.product} />
-      </section>
-    </>
-  ) : null
+  // #endregion
 
   return (
-    <>
-      <PageHeader
-        title="商品"
-        actions={
-          <>
-            <Button onClick={() => setImportOpen(true)}>
-              <Upload size={16} /> 导入 CSV
-            </Button>
-            <Button
-              onClick={async () => {
-                setExporting(true)
-                try {
-                  const p = await unwrap(window.ajuan.csv.exportMovements({}))
-                  if (p) toast(`已导出到 ${p}`, 'success')
-                } catch (err) {
-                  toast(errorMessage(err), 'error')
-                } finally {
-                  setExporting(false)
-                }
-              }}
-              disabled={exporting}
-            >
-              <Download size={16} /> {exporting ? '导出中…' : '导出全部流水'}
-            </Button>
-            <Button variant="primary" onClick={() => setEditing('create')}>
-              <Plus size={16} /> 新建商品
-            </Button>
-          </>
-        }
-      />
-      {!rows ? <SkeletonTable cols={6} /> : master}
-      <Drawer open={selected !== null && editing === null} wide title="商品详情" onClose={() => setSelectedId(null)}>
-        {detail}
-      </Drawer>
+    <div className={styles.container}>
+      {/* 顶部页头与核心操作 */}
+      <header className={styles.headerRow}>
+        <h1 className={styles.headerTitle}>商品</h1>
+        <div className={styles.headerActions}>
+          <Button variant="primary" onClick={newProduct}>
+            <Plus size={16} /> 新建商品
+          </Button>
+          <Menu
+            trigger={<IconButton label="更多选项" icon={<MoreVertical size={16} />} variant="secondary" />}
+            items={moreMenuItems}
+          />
+        </div>
+      </header>
 
-      <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} onImported={() => void load()} />
-      <ProductEditDrawer
-        open={editing !== null}
-        product={editing === 'edit' ? (selected?.product ?? null) : null}
-        onClose={() => setEditing(null)}
-        onSubmit={async (input) => {
-          try {
-            if (editing === 'create') {
-              const p = await unwrap(window.ajuan.products.create(input))
-              toast(`商品 ${p.code} 已创建`, 'success')
-              setEditing(null)
-              await load()
-              setSelectedId(p.id)
-            } else if (selected) {
-              await unwrap(window.ajuan.products.update(selected.product.id, input))
-              toast('商品资料已保存', 'success')
-              setEditing(null)
-              await load()
-            }
-          } catch (err) {
-            toast(errorMessage(err), 'error')
-          }
-        }}
-      />
-      {selected && (
-        <>
-          <OpeningStockDrawer
-            open={openingOpen}
-            product={selected.product}
-            onClose={() => setOpeningOpen(false)}
-            onSubmit={async (input) => {
-              try {
-                const doc = await unwrap(window.ajuan.opening.create(input))
-                toast(`期初库存已确认：${doc.docNo}`, 'success')
-                setOpeningOpen(false)
-                await load()
-              } catch (err) {
-                toast(errorMessage(err), 'error')
-              }
-            }}
-          />
-          <AdjustmentDrawer
-            open={adjustOpen}
-            product={selected.product}
-            onClose={() => setAdjustOpen(false)}
-            onCreated={async (d) => {
-              setAdjustOpen(false)
-              toast(`库存调整已生效：${d.docNo}`, 'success')
-              await load()
-            }}
-          />
-        </>
-      )}
-    </>
+      {/* 主面板撑满视口高度 */}
+      <main className={styles.mainPanel}>
+        {/* 工具行 */}
+        <div className={styles.toolbar}>
+          <div className={styles.searchBox}>
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜索商品名称 / 编码 / SKU" />
+          </div>
+
+          <div className={styles.toolRight}>
+            <span className={styles.countText}>共 {filteredRows.length} 个商品</span>
+            <label className={styles.switchLabel}>
+              <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
+              <span>显示已停用</span>
+            </label>
+          </div>
+        </div>
+
+        {loadError && (
+          <div className={styles.loadError} role="alert">
+            <span>
+              <strong>读取失败</strong>商品与库存数据未能加载。
+            </span>
+            <Button size="sm" variant="secondary" onClick={() => void loadData()} disabled={loading}>
+              {loading ? '重试中…' : '重试'}
+            </Button>
+          </div>
+        )}
+
+        {/* 表格视口 */}
+        <div className={styles.tableWrap}>
+          <table className={styles.productTable}>
+            <colgroup>
+              <col className={styles.colProduct} />
+              <col className={styles.colSku} />
+              <col className={styles.colStock} />
+              <col className={styles.colDays} />
+              <col className={styles.colCost} />
+              <col className={styles.colPrice} />
+              <col className={styles.colThreshold} />
+              <col className={styles.colStatus} />
+            </colgroup>
+            <thead>
+              <tr>
+                <th>商品</th>
+                <th>SKU</th>
+                <th className={styles.num}>当前库存</th>
+                <th className={styles.num}>可售天数</th>
+                <th className={styles.num}>平均成本</th>
+                <th className={styles.num}>售价</th>
+                <th className={styles.num}>预警值</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              {!rows ? (
+                <TableEmpty
+                  cols={8}
+                  title={loadError ? '读取失败' : '正在读取商品…'}
+                  description={loadError ? '请重试以重新加载商品与库存数据。' : undefined}
+                />
+              ) : filteredRows.length === 0 ? (
+                <TableEmpty cols={8} title="暂无符合条件的商品记录" />
+              ) : (
+                filteredRows.map((r) => {
+                  const p = r.product
+                  const h = healthItems.find((item) => item.productId === p.id)
+                  const url = productImageUrl(p)
+                  const isSelected = currentDrawer?.id === `product-${p.id}`
+                  const isCritical = h?.status === 'out' || h?.status === 'critical'
+                  const isWarning = h?.status === 'low'
+                  const isEditingThreshold = editingThresholdId === p.id
+
+                  const rowClass = [
+                    styles.tableRow,
+                    isSelected ? styles.selected : '',
+                    isCritical ? styles.isCritical : isWarning ? styles.isWarning : '',
+                    !p.isActive ? styles.inactive : ''
+                  ]
+                    .filter(Boolean)
+                    .join(' ')
+
+                  return (
+                    <tr
+                      key={p.id}
+                      className={rowClass}
+                      onClick={() => void openProduct(p.id)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                          e.preventDefault()
+                          void openProduct(p.id)
+                        }
+                      }}
+                    >
+                      {/* 商品列（缩略图 + 品牌色名称 + 编码） */}
+                      <td>
+                        <div className={styles.productCell}>
+                          <span className={styles.thumb}>
+                            {url ? (
+                              <img src={url} alt="" />
+                            ) : (
+                              <ImageIcon size={14} className={styles.thumbPlaceholder} />
+                            )}
+                          </span>
+                          <span className={styles.nameMeta}>
+                            <span className={styles.productName} title={p.name}>
+                              {p.name}
+                            </span>
+                            <span className={styles.productCode}>{p.code}</span>
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* SKU */}
+                      <td className={styles.skuCell}>{p.defaultSku.code}</td>
+
+                      {/* 当前库存 */}
+                      <td className={styles.num}>
+                        {formatQty(r.stock.quantity)} {p.unit}
+                      </td>
+
+                      {/* 可售天数 */}
+                      <td className={styles.num}>
+                        {h?.daysOfSupply !== null && h?.daysOfSupply !== undefined ? `约 ${h.daysOfSupply} 天` : '—'}
+                      </td>
+
+                      {/* 平均成本 */}
+                      <td className={styles.num}>
+                        {r.stock.quantity > 0 ? `¥${formatCents(r.stock.avgCostCents)}` : '—'}
+                      </td>
+
+                      {/* 售价 */}
+                      <td className={styles.num}>
+                        {p.defaultPriceCents > 0 ? `¥${formatCents(p.defaultPriceCents)}` : '—'}
+                      </td>
+
+                      {/* 预警值（双击就地编辑） */}
+                      <td className={styles.num} onClick={(e) => e.stopPropagation()}>
+                        {isEditingThreshold ? (
+                          <NumberInput
+                            value={thresholdDraft}
+                            autoFocus
+                            onChange={(val) => setThresholdDraft(val ?? 0)}
+                            min={0}
+                            step={1}
+                            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                              if (e.key === 'Enter' && !e.repeat) {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                void handleSaveThreshold(p)
+                              }
+                              if (e.key === 'Escape') {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                setThresholdDraft(p.lowStockThreshold)
+                                setEditingThresholdId(null)
+                              }
+                            }}
+                          />
+                        ) : (
+                          <span
+                            className={styles.editableThreshold}
+                            onDoubleClick={(e) => handleStartEditThreshold(e, p)}
+                            title="双击就地修改预警值"
+                          >
+                            {formatQty(p.lowStockThreshold)} {p.unit}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* 状态徽标（异常时显示，正常留空） */}
+                      <td>
+                        {!p.isActive ? (
+                          <StockBadge status="inactive" />
+                        ) : h && isStockAlert(h.status) ? (
+                          <StockBadge status={h.status} />
+                        ) : null}
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </main>
+    </div>
   )
 }
+
+// #endregion

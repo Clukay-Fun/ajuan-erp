@@ -202,6 +202,85 @@ describe('stats.getProductHealth 库存健康度判定', () => {
     const p1 = health.find((item) => item.productId === 1)
     expect(p1?.status).toBe('inactive')
   })
+
+  const setThreshold = (db: ReturnType<typeof testDb>, threshold: number): void => {
+    updateProduct(db, 1, {
+      name: '电动车发光小饰品',
+      code: 'FG001',
+      unit: '件',
+      defaultCostCents: 0,
+      defaultPriceCents: 0,
+      lowStockThreshold: threshold,
+      isActive: true
+    })
+  }
+
+  it('空库：没有库存判定为 out，可售天数为 null', () => {
+    const p1 = getProductHealth(testDb(), 30, '2026-03-12').find((item) => item.productId === 1)
+    expect(p1?.stock).toBe(0)
+    expect(p1?.daysOfSupply).toBeNull()
+    expect(p1?.status).toBe('out')
+  })
+
+  it('只有期初：样本不足，可售天数为 null，状态 ok', () => {
+    const db = testDb()
+    createOpening(db, { skuId: 1, quantity: 100, unitCostCents: 1000, docDate: '2026-03-01', note: '' })
+    const p1 = getProductHealth(db, 30, '2026-03-12').find((item) => item.productId === 1)
+    expect(p1?.daysOfSupply).toBeNull()
+    expect(p1?.status).toBe('ok')
+  })
+
+  it('窗口内出库单少于 3 张时可售天数为 null', () => {
+    const db = testDb()
+    createOpening(db, { skuId: 1, quantity: 100, unitCostCents: 1000, docDate: '2026-03-01', note: '' })
+    for (const date of ['2026-03-05', '2026-03-06']) {
+      const d = createDraft(db, {
+        type: 'outbound',
+        docDate: date,
+        channelId: null,
+        externalOrderNo: '',
+        note: '',
+        items: [{ skuId: 1, quantity: 30, unitPriceCents: 2000 }]
+      })
+      confirmDocument(db, d.id)
+    }
+    const p1 = getProductHealth(db, 30, '2026-03-12').find((item) => item.productId === 1)
+    expect(p1?.windowOutDocCount).toBe(2)
+    expect(p1?.daysOfSupply).toBeNull()
+  })
+
+  it('可售天数不足 7 天判定为 critical，优先于低于预警', () => {
+    const db = testDb()
+    createOpening(db, { skuId: 1, quantity: 10, unitCostCents: 1000, docDate: '2026-03-01', note: '' })
+    for (const date of ['2026-03-05', '2026-03-06', '2026-03-07']) {
+      const d = createDraft(db, {
+        type: 'outbound',
+        docDate: date,
+        channelId: null,
+        externalOrderNo: '',
+        note: '',
+        items: [{ skuId: 1, quantity: 3, unitPriceCents: 2000 }]
+      })
+      confirmDocument(db, d.id)
+    }
+    setThreshold(db, 5)
+    // 日均出库 9 / 30 = 0.3，库存 1 → floor(1 / 0.3) = 3 天
+    const p1 = getProductHealth(db, 30, '2026-03-12').find((item) => item.productId === 1)
+    expect(p1?.daysOfSupply).toBe(3)
+    expect(p1?.status).toBe('critical')
+  })
+
+  it('库存不超过预警值判定为 low；作废单据不计入出库样本', () => {
+    const db = setupFixtureDb()
+    setThreshold(db, 200)
+    const p1 = getProductHealth(db, 30, '2026-03-12').find((item) => item.productId === 1)
+    // 期初 100 + 入库 50 − 出库 35 = 115；作废的 15 件已冲回
+    expect(p1?.stock).toBe(115)
+    expect(p1?.windowOutDocCount).toBe(3)
+    // 日均 35 / 30，floor(115 / (35 / 30)) = 98
+    expect(p1?.daysOfSupply).toBe(98)
+    expect(p1?.status).toBe('low')
+  })
 })
 
 // #endregion

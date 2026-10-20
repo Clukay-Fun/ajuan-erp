@@ -49,6 +49,11 @@
   border-color: var(--accent-hover);
 }
 
+.primary:active:not(:disabled):not([aria-disabled='true']) {
+  background-color: var(--accent-active);
+  border-color: var(--accent-active);
+}
+
 /* 变体：次要按钮（线框） */
 .secondary {
   background-color: var(--bg-surface);

@@ -7,11 +7,11 @@
 }
 
 .title {
-  font-size: 32px;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: 600;
   line-height: 1.2;
   letter-spacing: -0.01em;
-  color: var(--color-text);
+  color: var(--accent-text);
 }
 
 .subtitle {

@@ -117,7 +117,12 @@ export function DocStatusBadge({ status, className = '' }: DocStatusBadgeProps):
 
 // #region StockBadge 库存健康状态徽标
 
-export type StockStatus = 'critical' | 'warning' | 'normal' | 'inactive'
+export type StockStatus = 'out' | 'critical' | 'low' | 'ok' | 'inactive'
+
+/** 需要店主处理的健康状态（缺货、告急、低于预警） */
+export function isStockAlert(status: StockStatus | undefined): boolean {
+  return status === 'out' || status === 'critical' || status === 'low'
+}
 
 export interface StockBadgeProps {
   status: StockStatus
@@ -131,13 +136,16 @@ export interface StockBadgeProps {
  *   - status: 库存状态
  *   - label: 自定义文字（默认使用标准文案）
  * 功能:
- *   - 告急红色、低于预警琥珀色、停用灰色
+ *   - 缺货、告急红色，低于预警琥珀色，停用灰色
  */
 export function StockBadge({ status, label, className = '' }: StockBadgeProps): React.JSX.Element {
+  if (status === 'out') {
+    return <span className={`${styles.badge} ${styles.stockCritical} ${className}`}>{label || '缺货'}</span>
+  }
   if (status === 'critical') {
     return <span className={`${styles.badge} ${styles.stockCritical} ${className}`}>{label || '告急'}</span>
   }
-  if (status === 'warning') {
+  if (status === 'low') {
     return <span className={`${styles.badge} ${styles.stockWarning} ${className}`}>{label || '低于预警'}</span>
   }
   if (status === 'inactive') {

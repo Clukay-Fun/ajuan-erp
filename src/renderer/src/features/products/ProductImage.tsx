@@ -61,7 +61,7 @@ export function ProductImage({ product, onChanged, size = 160 }: Props): ReactEl
 
   return (
     <div
-      className={`${styles.box} ${dragging ? styles.dragging : ''}`}
+      className={`${styles.box} ${size <= 72 ? styles.compact : ''} ${dragging ? styles.dragging : ''}`}
       style={{ width: size, height: size }}
       onDragOver={(e) => {
         e.preventDefault()
@@ -78,7 +78,7 @@ export function ProductImage({ product, onChanged, size = 160 }: Props): ReactEl
       {url ? (
         <img src={url} alt={product.name} draggable={false} />
       ) : (
-        <ImageIcon size={32} strokeWidth={1.5} className={styles.placeholder} />
+        <ImageIcon size={size <= 72 ? 20 : 32} strokeWidth={1.5} className={styles.placeholder} />
       )}
       <div className={styles.overlay}>
         <button
@@ -87,8 +87,15 @@ export function ProductImage({ product, onChanged, size = 160 }: Props): ReactEl
           onClick={() => inputRef.current?.click()}
           disabled={busy}
           aria-label={url ? '更换图片' : '添加图片'}
+          title={url ? '更换图片' : '添加图片'}
         >
-          <ImagePlus size={16} /> {url ? '更换' : '添加图片'}
+          {size <= 72 ? (
+            <ImagePlus size={14} />
+          ) : (
+            <>
+              <ImagePlus size={16} /> {url ? '更换' : '添加图片'}
+            </>
+          )}
         </button>
         {url && (
           <button

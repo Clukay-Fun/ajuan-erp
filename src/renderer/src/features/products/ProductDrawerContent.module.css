@@ -1,0 +1,232 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+/* 查看模式头部 */
+.viewHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.profileInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.thumbWrap {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-md, 6px);
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.thumbWrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profileMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.productSub {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.badges {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+/* 6 格 StatCard 网格 */
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+}
+
+/* 期初信息卡片 */
+.openingCard {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 6px);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.openingHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+}
+
+.openingGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+.openingStat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.openingStatLabel {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.openingStatVal {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-medium);
+}
+
+.openingLink {
+  color: var(--accent-text);
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  font-family: var(--font-mono);
+  text-decoration: underline;
+  text-align: left;
+}
+
+.openingLink:hover {
+  color: var(--text-primary);
+}
+
+.openingEmpty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+/* 调整库存折叠段 */
+.adjustmentSection {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 6px);
+  overflow: hidden;
+}
+
+.adjustmentSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--bg-surface);
+}
+
+.adjustmentSectionTitle {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.adjustmentBody {
+  padding: 0 var(--space-3) var(--space-3);
+}
+
+/* 流水区域 */
+.movementSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.movementTitle {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+}
+
+/* 表单编辑模式 */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fieldLabel {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+}
+
+.fieldHint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.fieldError {
+  font-size: 11px;
+  color: var(--status-critical);
+}
+
+.switchRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.stickyFooter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+}

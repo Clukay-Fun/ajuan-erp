@@ -127,7 +127,7 @@ module.exports = async () => {
   await sleep(600)
   const check = new DatabaseSync(dbPath)
   eq(check.prepare('SELECT quantity FROM sku_stock WHERE sku_id = 1').get(), { quantity: 50 }, '磁盘上的库存与内存一致')
-  eq(check.prepare('SELECT MAX(version) AS v FROM schema_migrations').get(), { v: 3 }, 'schema 版本')
+  eq(check.prepare('SELECT MAX(version) AS v FROM schema_migrations').get(), { v: 5 }, 'schema 版本')
   check.close()
   const ws = JSON.parse(fs.readFileSync(path.join(t.ud, 'window-state.json'), 'utf8'))
   eq([ws.bounds.width, ws.bounds.height], [1100, 760], '窗口尺寸已记忆')

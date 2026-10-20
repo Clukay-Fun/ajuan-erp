@@ -20,9 +20,9 @@
 
 .title {
   margin: 0;
-  font-size: var(--font-size-lg, 20px);
+  font-size: 22px;
   font-weight: var(--font-weight-semibold);
-  color: var(--accent);
+  color: var(--accent-text);
   line-height: 1;
   white-space: nowrap;
 }

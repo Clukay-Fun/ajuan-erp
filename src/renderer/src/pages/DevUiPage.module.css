@@ -27,7 +27,7 @@
   margin: 0;
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .subtitle {

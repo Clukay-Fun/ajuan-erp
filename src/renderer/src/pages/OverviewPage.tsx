@@ -20,13 +20,15 @@ import {
   DocTypeBadge,
   DocStatusBadge,
   StockBadge,
+  isStockAlert,
   SegmentedControl,
   DateRangePicker,
   EmptyState,
   ConfirmDialog,
-  Button,
-  useDrawer
+  Select
 } from '@/components/ui'
+import { useEntityDrawers } from '@/app/entityDrawers'
+import { useDataChanged } from '@/lib/dataEvents'
 import { useToast } from '@/components/Toast'
 import { unwrap, errorMessage } from '@/lib/api'
 import { formatCents, formatQty, shiftDate, todayString } from '@/lib/format'
@@ -77,6 +79,14 @@ const PRESET_OPTIONS: { value: RangePreset; label: string }[] = [
 
 // #region OverviewPage 概览主页面
 
+/** 本次会话内记住的时间范围与商品筛选；重启应用后重新走默认逻辑 */
+let sessionView: {
+  preset: RangePreset
+  range: DateRange
+  shift: { originalFrom: string; originalTo: string } | null
+  productId: number
+} | null = null
+
 /**
  * 用处: 桌面端首页综合看板
  * 功能:
@@ -85,12 +95,18 @@ const PRESET_OPTIONS: { value: RangePreset; label: string }[] = [
 export function OverviewPage(): React.JSX.Element {
   const { navigate } = useNav()
   const toast = useToast()
-  const { openDrawer, closeDrawer } = useDrawer()
+  const { openProduct, openDocument, newProduct, newDocument, openImport } = useEntityDrawers()
 
   // 1. 时间范围状态
-  const [preset, setPreset] = useState<RangePreset>('30d')
-  const [range, setRange] = useState<DateRange>(() => calcPresetRange('30d'))
-  const [smartShiftInfo, setSmartShiftInfo] = useState<{ originalFrom: string; originalTo: string } | null>(null)
+  const [preset, setPreset] = useState<RangePreset>(() => sessionView?.preset ?? '30d')
+  const [range, setRange] = useState<DateRange>(() => sessionView?.range ?? calcPresetRange('30d'))
+  const [smartShiftInfo, setSmartShiftInfo] = useState<{ originalFrom: string; originalTo: string } | null>(
+    () => sessionView?.shift ?? null
+  )
+  const [filterProductId, setFilterProductId] = useState<number>(() => sessionView?.productId ?? 0)
+  useEffect(() => {
+    sessionView = { preset, range, shift: smartShiftInfo, productId: filterProductId }
+  }, [preset, range, smartShiftInfo, filterProductId])
 
   // 2. 业务数据状态
   const [summary, setSummary] = useState<StatsSummaryResult | null>(null)
@@ -101,7 +117,6 @@ export function OverviewPage(): React.JSX.Element {
   const [products, setProducts] = useState<Product[]>([])
 
   // 3. 交互与筛选状态
-  const [filterProductId] = useState<number>(0)
   const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart')
   const [loading, setLoading] = useState<boolean>(true)
   const [exporting, setExporting] = useState<boolean>(false)
@@ -128,8 +143,9 @@ export function OverviewPage(): React.JSX.Element {
     }
   }, [toast])
 
-  // 智能时间范围检测：若近 30 天无单据且最近单据早于 30 天前，自动设置范围
+  // 智能时间范围检测：若近 30 天无单据且最近单据早于 30 天前，自动设置范围（本次会话只检测一次）
   useEffect(() => {
+    if (sessionView) return
     let active = true
     async function checkSmartDate(): Promise<void> {
       try {
@@ -154,6 +170,13 @@ export function OverviewPage(): React.JSX.Element {
       active = false
     }
   }, [])
+
+  // 抽屉里写入后刷新列表与区间统计
+  const [refreshKey, setRefreshKey] = useState(0)
+  useDataChanged(() => {
+    void loadData()
+    setRefreshKey((k) => k + 1)
+  })
 
   // 初始全量数据载入
   useEffect(() => {
@@ -194,7 +217,7 @@ export function OverviewPage(): React.JSX.Element {
     return () => {
       active = false
     }
-  }, [range, filterProductId, toast])
+  }, [range, filterProductId, refreshKey, toast])
 
   // #endregion
 
@@ -230,7 +253,7 @@ export function OverviewPage(): React.JSX.Element {
         window.ajuan.csv.exportSummary({
           from: range.from,
           to: range.to,
-          skuId: filterProductId || undefined
+          skuId: products.find((item) => item.id === filterProductId)?.defaultSku.id
         })
       )
       if (p) toast(`已导出逐日汇总到: ${p}`, 'success')
@@ -253,102 +276,15 @@ export function OverviewPage(): React.JSX.Element {
     }
   }
 
-  // 打开商品查看抽屉
-  const handleOpenProduct = (productId: number): void => {
-    const item = productHealth.find((p) => p.productId === productId)
-    if (!item) {
-      navigate('products')
-      return
-    }
-
-    openDrawer({
-      id: `product-view-${productId}`,
-      title: item.name,
-      size: 'md',
-      content: (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-          <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
-            <div className={styles.stockThumb} style={{ width: 48, height: 48 }}>
-              <ImageIcon size={24} className={styles.stockThumbPlaceholder} />
-            </div>
-            <div>
-              <div style={{ fontWeight: 600 }}>{item.name}</div>
-              <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
-                {item.code} · SKU: {item.skuCode}
-              </div>
-            </div>
-          </div>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(2, 1fr)',
-              gap: 'var(--space-2)'
-            }}
-          >
-            <StatCard label="当前库存" value={`${formatQty(item.stock)} 件`} />
-            <StatCard label="可售天数" value={item.daysOfSupply !== null ? `${item.daysOfSupply} 天` : '—'} />
-            <StatCard label="平均成本" value={`¥${formatCents(item.avgCostCents)}`} />
-            <StatCard label="库存成本" value={`¥${formatCents(item.costValueCents)}`} />
-          </div>
-          <div style={{ marginTop: 'var(--space-2)' }}>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                closeDrawer()
-                navigate('products')
-              }}
-            >
-              前往商品列表管理详情 →
-            </Button>
-          </div>
-        </div>
-      )
-    })
-  }
-
-  // 打开单据查看抽屉
-  const handleOpenDocument = (docId: number): void => {
-    const doc = recentDocs.find((d) => d.id === docId)
-    openDrawer({
-      id: `doc-view-${docId}`,
-      title: doc ? `单据详情 ${doc.docNo}` : '单据详情',
-      size: 'md',
-      content: (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-          {doc && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-              <div>
-                单据编号: <strong>{doc.docNo}</strong>
-              </div>
-              <div>业务类型: {doc.type === 'inbound' ? '入库单' : '出库单'}</div>
-              <div>业务日期: {doc.docDate}</div>
-              <div>单据状态: {doc.status}</div>
-              <div>货品总件数: {formatQty(doc.totalQuantity)} 件</div>
-            </div>
-          )}
-          <Button
-            variant="secondary"
-            onClick={() => {
-              closeDrawer()
-              navigate('documents', { documents: { view: 'detail', id: docId } })
-            }}
-          >
-            打开完整单据单页 →
-          </Button>
-        </div>
-      )
-    })
-  }
+  const handleOpenProduct = (productId: number): void => void openProduct(productId)
+  const handleOpenDocument = openDocument
 
   // #endregion
 
   // #region 衍生指标与列表排序
 
-  // 异常商品数量（预警与告急）
-  const criticalProducts = useMemo(
-    () => productHealth.filter((p) => p.status === 'critical' || p.status === 'warning'),
-    [productHealth]
-  )
+  // 需要处理的商品（缺货、告急、低于预警）
+  const criticalProducts = useMemo(() => productHealth.filter((p) => isStockAlert(p.status)), [productHealth])
 
   // 最短可售天数计算
   const shortestSupplyItem = useMemo(() => {
@@ -357,15 +293,16 @@ export function OverviewPage(): React.JSX.Element {
     return [...valid].sort((a, b) => (a.daysOfSupply ?? 999999) - (b.daysOfSupply ?? 999999))[0]
   }, [productHealth])
 
-  // 库存卡片排序：异常优先置顶，其次按库存量从大到小
+  // 库存卡片：只列启用中的商品，异常优先置顶，其次按库存量从大到小
   const sortedStockItems = useMemo(() => {
-    return [...productHealth].sort((a, b) => {
-      const isAWarning = a.status === 'critical' || a.status === 'warning'
-      const isBWarning = b.status === 'critical' || b.status === 'warning'
-      if (isAWarning && !isBWarning) return -1
-      if (!isAWarning && isBWarning) return 1
-      return b.stock - a.stock
-    })
+    return productHealth
+      .filter((p) => p.status !== 'inactive')
+      .sort((a, b) => {
+        const alertA = isStockAlert(a.status)
+        const alertB = isStockAlert(b.status)
+        if (alertA !== alertB) return alertA ? -1 : 1
+        return b.stock - a.stock
+      })
   }, [productHealth])
 
   // 当前全局总库存量与总库存成本
@@ -393,12 +330,12 @@ export function OverviewPage(): React.JSX.Element {
             {
               label: '新建第一个商品',
               variant: 'primary',
-              onClick: () => navigate('products')
+              onClick: newProduct
             },
             {
               label: '导入 CSV',
               variant: 'secondary',
-              onClick: () => navigate('documents', { documents: { view: 'list' } })
+              onClick: openImport
             },
             {
               label: '载入示例数据',
@@ -434,8 +371,7 @@ export function OverviewPage(): React.JSX.Element {
             <div className={styles.smartRangeHint}>
               <Sparkles size={13} style={{ color: 'var(--accent)' }} />
               <span>
-                近 30 天无单据，已智能匹配至 {smartShiftInfo.originalFrom.slice(5)} ~{' '}
-                {smartShiftInfo.originalTo.slice(5)}
+                近 30 天无单据，已显示 {smartShiftInfo.originalFrom.slice(5)} 至 {smartShiftInfo.originalTo.slice(5)}
               </span>
               <button
                 type="button"
@@ -468,10 +404,14 @@ export function OverviewPage(): React.JSX.Element {
                 <button
                   type="button"
                   className={styles.pendingItem}
-                  onClick={() => navigate('documents', { documents: { view: 'list' } })}
+                  onClick={() =>
+                    draftCount === 1 && pending
+                      ? openDocument(pending.drafts[0].id)
+                      : navigate('documents', { documents: { view: 'list' } })
+                  }
                 >
-                  <FileEdit size={14} style={{ color: 'var(--status-out)' }} />
-                  <span>{draftCount} 张单据草稿待确认</span>
+                  <FileEdit size={14} style={{ color: 'var(--warning)' }} />
+                  <span>{draftCount} 张草稿待确认</span>
                 </button>
               )}
               {draftCount > 0 && criticalProducts.length > 0 && (
@@ -480,14 +420,14 @@ export function OverviewPage(): React.JSX.Element {
               {criticalProducts.length > 0 && (
                 <button type="button" className={styles.pendingItem} onClick={() => navigate('products')}>
                   <AlertTriangle size={14} style={{ color: 'var(--status-critical)' }} />
-                  <span>{criticalProducts.length} 个商品处于库存预警或告急</span>
+                  <span>{criticalProducts.length} 个商品库存告急或低于预警</span>
                 </button>
               )}
             </>
           ) : (
             <div className={styles.pendingOk}>
               <CheckCircle2 size={14} style={{ color: 'var(--text-tertiary)' }} />
-              <span>一切正常，当前暂无待处理草稿与库存告急</span>
+              <span>一切正常</span>
             </div>
           )}
         </div>
@@ -551,9 +491,17 @@ export function OverviewPage(): React.JSX.Element {
           {/* 面板 1：出入库趋势 */}
           <Panel
             title="出入库"
-            count={filterProductId ? products.find((p) => p.id === filterProductId)?.name : '全部商品'}
             actions={
               <div className={styles.trendTools}>
+                <Select
+                  className={styles.productFilter}
+                  value={String(filterProductId)}
+                  onChange={(v) => setFilterProductId(Number(v))}
+                  options={[
+                    { value: '0', label: '全部商品' },
+                    ...products.map((p) => ({ value: String(p.id), label: p.name }))
+                  ]}
+                />
                 {/* 视图切换 */}
                 <div className={styles.viewToggle} role="group" aria-label="图表或明细表格切换">
                   <button
@@ -610,7 +558,7 @@ export function OverviewPage(): React.JSX.Element {
             {viewMode === 'chart' ? (
               <TrendChart
                 data={dailySeries}
-                onNewOutbound={() => navigate('documents', { documents: { view: 'new', type: 'outbound' } })}
+                onNewOutbound={() => newDocument('outbound')}
                 onResetRange={handleResetToReal30Days}
               />
             ) : (
@@ -629,7 +577,7 @@ export function OverviewPage(): React.JSX.Element {
                   {dailySeries.filter((d) => d.inQty > 0 || d.outQty > 0).length === 0 ? (
                     <tr>
                       <td colSpan={6} className={styles.emptyBlock}>
-                        该区间没有已生效的出入库单据
+                        这段时间没有出入库记录
                       </td>
                     </tr>
                   ) : (
@@ -693,7 +641,8 @@ export function OverviewPage(): React.JSX.Element {
               {sortedStockItems.slice(0, 8).map((p) => {
                 const prod = products.find((item) => item.id === p.productId)
                 const imgUrl = prod ? productImageUrl(prod) : null
-                const isWarning = p.status === 'critical' || p.status === 'warning'
+                const isWarning = isStockAlert(p.status)
+                const isDanger = p.status === 'out' || p.status === 'critical'
                 const maxVal = Math.max(p.lowStockThreshold * 3, p.stock, 1)
                 const fillPercent = Math.min(100, Math.round((p.stock / maxVal) * 100))
                 const thresholdPercent =
@@ -702,7 +651,7 @@ export function OverviewPage(): React.JSX.Element {
                 return (
                   <div
                     key={p.productId}
-                    className={`${styles.stockItem} ${isWarning ? styles.isWarning : ''}`}
+                    className={`${styles.stockItem} ${isDanger ? styles.isDanger : isWarning ? styles.isWarning : ''}`}
                     onClick={() => handleOpenProduct(p.productId)}
                     role="button"
                     tabIndex={0}
@@ -729,7 +678,7 @@ export function OverviewPage(): React.JSX.Element {
 
                       <div className={styles.stockNumbers}>
                         <span className={`${styles.stockQty} ${isWarning ? styles.critical : ''}`}>
-                          {formatQty(p.stock)} 件
+                          {formatQty(p.stock)} {prod?.unit ?? '件'}
                         </span>
                         <span className={styles.stockDays}>
                           {p.daysOfSupply !== null ? `约 ${p.daysOfSupply} 天` : '—'}

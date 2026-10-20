@@ -44,6 +44,8 @@ export interface StatCardProps {
   changePercentage?: number | null
   /** 点击回调 */
   onClick?: () => void
+  /** 尺寸：md 概览 KPI（28px），sm 抽屉内概要（20px） */
+  size?: 'md' | 'sm'
   /** 自定义类名 */
   className?: string
 }
@@ -66,13 +68,14 @@ export function StatCard({
   subtext,
   changePercentage,
   onClick,
+  size = 'md',
   className = ''
 }: StatCardProps): React.JSX.Element {
   const isClickable = Boolean(onClick)
 
   return (
     <div
-      className={`${styles.statCard} ${isClickable ? styles.clickable : ''} ${className}`}
+      className={`${styles.statCard} ${size === 'sm' ? styles.small : ''} ${isClickable ? styles.clickable : ''} ${className}`}
       onClick={onClick}
       role={isClickable ? 'button' : undefined}
       tabIndex={isClickable ? 0 : undefined}

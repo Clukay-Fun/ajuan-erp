@@ -71,7 +71,10 @@ export function Select<T extends string = string>({
         disabled={disabled}
       >
         <BaseSelect.Trigger id={id} className={triggerClasses}>
-          <BaseSelect.Value placeholder={placeholder} />
+          {/* 显示选项文字而不是原始 value；空字符串也是合法选项（例如「全部」） */}
+          <BaseSelect.Value placeholder={placeholder}>
+            {(v: T | null) => options.find((opt) => opt.value === v)?.label ?? placeholder}
+          </BaseSelect.Value>
           <BaseSelect.Icon className={styles.icon}>
             <ChevronDown size={14} />
           </BaseSelect.Icon>
