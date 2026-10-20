@@ -1,0 +1,374 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 100%;
+}
+
+/* 步骤提示 */
+.steps {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+}
+.steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.steps li + li::before {
+  content: '→';
+  margin-right: var(--space-2);
+  color: var(--border-bold);
+}
+.steps li[data-active] {
+  color: var(--accent-text);
+  font-weight: var(--font-weight-medium);
+}
+.stepNo {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 模板选择 */
+.templateRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.rowLabel {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+.templateSelect {
+  flex: 0 0 280px;
+}
+.muted {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+}
+.danger {
+  font-size: var(--font-size-sm);
+  color: var(--danger);
+}
+.link {
+  margin-left: var(--space-1);
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+/* 主区：位置 60% / 素材库 40% */
+.split {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-3);
+  min-height: 0;
+  align-content: start;
+  align-items: start;
+}
+
+.slotsPanel {
+  min-width: 0;
+}
+.slotsEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: 220px;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+}
+.slotsEmpty p {
+  margin: 0;
+}
+.slotGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-3);
+}
+.slotCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition-fast);
+}
+.slotCard[data-selected] {
+  border-color: var(--accent);
+}
+.slotCard[data-incomplete] {
+  border-color: var(--warning-border);
+}
+.slotHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+.slotName {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--accent-text);
+}
+.check {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.drops {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+.drop {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  min-width: 0;
+}
+.drop > :first-child {
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+}
+.dropEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: var(--space-2);
+  border: 1px dashed var(--border-default);
+  color: var(--text-tertiary);
+  font-size: 11px;
+  text-align: center;
+  transition:
+    border-color var(--transition-fast),
+    color var(--transition-fast);
+}
+.drop:hover .dropEmpty,
+.drop:focus-visible .dropEmpty {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+.dropImg {
+  display: block;
+  width: 100%;
+  object-fit: contain;
+  background-color: var(--checker-bg);
+  background-image: var(--checker-pattern);
+  border: 1px solid var(--border-subtle);
+}
+.dropLabel {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.menuThumb {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  border-radius: 3px;
+}
+
+/* 素材库 */
+.library {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  align-self: start;
+}
+.libHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.libHint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+.libEmpty {
+  margin: var(--space-6) 0;
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+}
+.libGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.libItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  cursor: grab;
+}
+.libItem:active {
+  cursor: grabbing;
+}
+.libThumb {
+  position: relative;
+  aspect-ratio: 1;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background-color: var(--checker-bg);
+  background-image: var(--checker-pattern);
+}
+.libThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+.libBadge {
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.libBadge[data-status='ready'] {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+.libBadge[data-status='failed'] {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.libName {
+  margin-top: 2px;
+  font-size: var(--font-size-xs);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.libMeta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.libActions {
+  display: flex;
+  gap: 2px;
+}
+.libError {
+  font-size: 11px;
+  color: var(--danger);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* 吸底生成栏 */
+.bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: auto;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+.barRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.titleInput {
+  flex: 0 0 260px;
+}
+.formatSelect {
+  flex: 0 0 96px;
+}
+.info {
+  display: inline-flex;
+  color: var(--text-tertiary);
+  cursor: help;
+}
+.tip {
+  display: block;
+  max-width: 320px;
+  line-height: 1.5;
+}
+.spacer {
+  flex: 1;
+}
+.blocker {
+  font-size: var(--font-size-xs);
+  color: var(--warning-text);
+  white-space: nowrap;
+}
+.rule {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+@media (max-width: 1100px) {
+  .split {
+    grid-template-columns: 1fr;
+  }
+  .titleInput {
+    flex-basis: 200px;
+  }
+}

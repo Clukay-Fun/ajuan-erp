@@ -14,6 +14,8 @@ export interface DocumentsView {
 
 export interface RouteParams {
   documents?: DocumentsView
+  psd?: { view?: 'production' | 'templates' }
+  settings?: { section?: string }
 }
 
 export interface Location {
@@ -33,9 +35,17 @@ interface Nav {
 const NavContext = createContext<Nav | null>(null)
 
 export function NavProvider({ children }: { children: ReactNode }): ReactElement {
-  const [location, setLocation] = useState<Location>({ key: 'overview', params: {}, seq: 0 })
+  const [location, setLocation] = useState<Location>({
+    key: 'overview',
+    params: {},
+    seq: 0
+  })
   const guardRef = useRef<(() => string | null) | null>(null)
-  const [pending, setPending] = useState<{ key: RouteKey; params: RouteParams; message: string } | null>(null)
+  const [pending, setPending] = useState<{
+    key: RouteKey
+    params: RouteParams
+    message: string
+  } | null>(null)
 
   const go = useCallback((key: RouteKey, params: RouteParams) => {
     guardRef.current = null

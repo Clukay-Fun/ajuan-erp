@@ -46,6 +46,32 @@ async function run(): Promise<void> {
     })
     await sleep(600)
 
+    // 定制：用一个占位 PSD 建三位置模板；文件对话框在主进程里打桩，导入一张狗狗图和一张名字图
+    if (!ONLY || ONLY.some((o) => o.startsWith('psd'))) {
+      const psdPath = path.join(ud, '示例六宫格.psd')
+      fs.writeFileSync(psdPath, '8BPS placeholder')
+      const icon = path.join(ROOT, 'build/icon.png')
+      await page.evaluate(async (p) => {
+        // @ts-expect-error preload
+        const api = window.ajuan.psd
+        const board = (await api.createTemplate({ name: '六宫格', sourcePath: p })).data
+        const id = Math.max(...board.templates.map((t: { id: number }) => t.id))
+        for (const n of [1, 2, 3]) {
+          const key = `slot_0${n}`
+          await api.addSlot({ templateId: id, slotKey: key, dogLayer: `${key}_dog`, nameLayer: `${key}_name` })
+        }
+      }, psdPath)
+      await app.evaluate(({ dialog }, file) => {
+        dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [file] })) as typeof dialog.showOpenDialog
+      }, icon)
+      await page.evaluate(async () => {
+        // @ts-expect-error preload
+        await window.ajuan.psd.importAsset('dog')
+        // @ts-expect-error preload
+        await window.ajuan.psd.importAsset('name')
+      })
+    }
+
     for (const size of SIZES) {
       await page.setViewportSize(size)
       for (const theme of THEMES) {
@@ -90,6 +116,20 @@ async function run(): Promise<void> {
         if (want('psd')) {
           await nav(page, 4)
           await shot('psd')
+          await page.locator('main article input[type=checkbox]').first().check()
+          await page.getByRole('button', { name: '第 1 位狗狗图' }).click()
+          await sleep(250)
+          await page.getByRole('menuitem').first().click()
+          await sleep(250)
+          await shot('psd-picked')
+          await page.getByRole('tab', { name: '模板' }).click()
+          await sleep(400)
+          await shot('psd-templates')
+          await page.getByRole('button', { name: '新建模板' }).first().click()
+          await sleep(500)
+          await shot('psd-wizard')
+          await closeDialog(page)
+          await page.getByRole('tab', { name: '生产' }).click()
         }
 
         if (want('settings')) {

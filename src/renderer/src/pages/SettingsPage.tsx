@@ -6,12 +6,19 @@ import { BackupSettings } from '@/features/settings/BackupSettings'
 import { AppearanceSettings } from '@/features/settings/AppearanceSettings'
 import { DemoDataSettings } from '@/features/settings/DemoDataSettings'
 import { UpdateSettings } from '@/features/settings/UpdateSettings'
+import { PhotoshopSettings } from '@/features/psd/PhotoshopSettings'
+import { useNav } from '@/app/navigation'
 import { unwrap, errorMessage } from '@/lib/api'
 import styles from './SettingsPage.module.css'
 
 export function SettingsPage(): ReactElement {
   const [info, setInfo] = useState<AppInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const section = useNav().location.params.settings?.section
+
+  useEffect(() => {
+    if (section) document.getElementById(`settings-${section}`)?.scrollIntoView({ block: 'start' })
+  }, [section])
 
   useEffect(() => {
     unwrap(window.ajuan.app.getInfo())
@@ -24,6 +31,10 @@ export function SettingsPage(): ReactElement {
       <PageHeader title="设置" />
       <AppearanceSettings />
       <ChannelSettings />
+      <section id="settings-photoshop" className={styles.card}>
+        <h2 className={styles.cardTitle}>Photoshop 连接</h2>
+        <PhotoshopSettings />
+      </section>
       <BackupSettings />
       <DemoDataSettings />
       <UpdateSettings />
