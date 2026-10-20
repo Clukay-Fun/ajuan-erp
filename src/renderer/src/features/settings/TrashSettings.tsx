@@ -2,8 +2,7 @@ import type { ReactElement } from 'react'
 import { useCallback, useEffect, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import type { TrashEntry } from '@shared/types'
-import { Button } from '@/components/Button'
-import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { Button, ConfirmDialog } from '@/components/ui'
 import { useToast } from '@/components/Toast'
 import { unwrap, errorMessage } from '@/lib/api'
 import styles from './SettingsCard.module.css'
@@ -51,7 +50,8 @@ export function TrashSettings(): ReactElement | null {
         danger
         title="清空回收目录？"
         confirmText="永久删除"
-        busy={busy}
+        loading={busy}
+        onOpenChange={(o) => !o && setConfirm(false)}
         description={`${items.length} 份旧数据（${fmtSize(total)}）将被永久删除，无法找回。`}
         onCancel={() => setConfirm(false)}
         onConfirm={async () => {

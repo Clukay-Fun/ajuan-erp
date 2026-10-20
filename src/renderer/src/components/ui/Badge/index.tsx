@@ -49,7 +49,7 @@ export interface DocTypeBadgeProps {
   className?: string
 }
 
-const docTypeLabels: Record<DocType, string> = {
+export const TYPE_LABEL: Record<DocType, string> = {
   inbound: '入库',
   outbound: '出库',
   adjustment: '调整',
@@ -73,7 +73,7 @@ const docTypeStyles: Record<DocType, string> = {
 export function DocTypeBadge({ type, className = '' }: DocTypeBadgeProps): React.JSX.Element {
   return (
     <span className={`${styles.badge} ${docTypeStyles[type] || styles.inbound} ${className}`}>
-      {docTypeLabels[type] || type}
+      {TYPE_LABEL[type] || type}
     </span>
   )
 }

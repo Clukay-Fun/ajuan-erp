@@ -195,7 +195,7 @@ export function DocumentsPage(): React.JSX.Element {
                       <td className={`${styles.num} ${profit !== null && profit < 0 ? styles.negative : ''}`}>
                         {profit === null ? '—' : `¥${formatCents(profit)}`}
                       </td>
-                      <td className={styles.secondary} title={d.note}>
+                      <td className={`${styles.secondary} ${styles.noteCell}`} title={d.note}>
                         {d.note || '—'}
                       </td>
                     </tr>

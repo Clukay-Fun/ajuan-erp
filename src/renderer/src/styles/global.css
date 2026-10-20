@@ -17,13 +17,13 @@ body {
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.5;
-  color: var(--color-text);
-  background: var(--color-bg);
+  color: var(--text-primary);
+  background: var(--bg-app);
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
   user-select: none;
-  caret-color: var(--color-primary);
-  accent-color: var(--color-primary);
+  caret-color: var(--accent);
+  accent-color: var(--accent);
 }
 
 button {
@@ -44,12 +44,12 @@ p {
 }
 
 ::selection {
-  background: var(--color-selection);
+  background: var(--accent-subtle);
 }
 
 /* 键盘焦点环：只在键盘导航时出现，鼠标点击不出现 */
 :focus-visible {
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
@@ -72,13 +72,13 @@ textarea:focus-visible {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border-strong);
+  background: var(--border-default);
   border-radius: 999px;
   border: 3px solid transparent;
   background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-muted);
+  background: var(--text-tertiary);
   background-clip: padding-box;
   border: 3px solid transparent;
 }
@@ -92,4 +92,16 @@ table {
 input[type='date']::-webkit-calendar-picker-indicator {
   opacity: 0.55;
   cursor: pointer;
+}
+
+/* 系统开启「减少动态效果」时关闭所有过渡与动画（加载转圈也停住，状态靠文字表达） */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

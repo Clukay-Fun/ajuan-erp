@@ -109,7 +109,8 @@ export function DrawerHost({ children }: DrawerHostProps): React.JSX.Element {
 
   const openDrawer = useCallback(
     (options: DrawerOptions) => {
-      if (document.activeElement instanceof HTMLElement) {
+      // 只记最外层的触发元素；弹窗内再打开下一层时不覆盖
+      if (!currentDrawer && document.activeElement instanceof HTMLElement) {
         triggerElementRef.current = document.activeElement
       }
       if (currentDrawer) {
@@ -217,7 +218,9 @@ export function DrawerHost({ children }: DrawerHostProps): React.JSX.Element {
         >
           <Dialog.Portal>
             <Dialog.Backdrop className={styles.backdrop} />
+            {/* 焦点归还由上面的 effect 负责；不让 Base UI 再把焦点移走 */}
             <Dialog.Popup
+              finalFocus={false}
               className={`${styles.popup} ${
                 currentDrawer.size === 'sm' ? styles.sm : currentDrawer.size === 'lg' ? styles.lg : styles.md
               }`}

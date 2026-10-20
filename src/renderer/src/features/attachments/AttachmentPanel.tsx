@@ -2,7 +2,7 @@ import type { DragEvent, ReactElement } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ImagePlus, X } from 'lucide-react'
 import type { Attachment } from '@shared/types'
-import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { ConfirmDialog } from '@/components/ui'
 import { useToast } from '@/components/Toast'
 import { unwrap, errorMessage } from '@/lib/api'
 import styles from './AttachmentPanel.module.css'
@@ -180,10 +180,11 @@ export function AttachmentPanel({
         danger
         title="删除这张图片？"
         confirmText="删除"
-        busy={busy}
+        loading={busy}
+        onOpenChange={(o) => !o && setPendingRemove(null)}
         description={pendingRemove ? `${pendingRemove.fileName} 将从单据中移除并删除文件。` : ''}
         onCancel={() => setPendingRemove(null)}
-        onConfirm={() => pendingRemove && remove(pendingRemove)}
+        onConfirm={() => (pendingRemove ? remove(pendingRemove) : undefined)}
       />
     </div>
   )

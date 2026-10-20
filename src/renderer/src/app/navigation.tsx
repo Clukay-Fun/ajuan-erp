@@ -2,7 +2,7 @@ import type { ReactElement, ReactNode } from 'react'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { RouteKey } from './routes'
 import type { DocumentStatus, DocumentType } from '@shared/types'
-import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { ConfirmDialog } from '@/components/ui'
 
 /** 单据页的初始筛选（概览 KPI、待处理条跳过来时带上） */
 export interface DocumentsView {
@@ -73,7 +73,8 @@ export function NavProvider({ children }: { children: ReactNode }): ReactElement
         open={pending !== null}
         danger
         title="离开当前页面？"
-        description={pending?.message}
+        description={pending?.message ?? ''}
+        onOpenChange={(o) => !o && setPending(null)}
         confirmText="放弃修改并离开"
         onCancel={() => setPending(null)}
         onConfirm={() => {

@@ -1,6 +1,6 @@
 .wrap {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
   overflow: hidden;
@@ -23,7 +23,7 @@
   text-align: left;
   font-weight: 500;
   font-size: 13px;
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
   height: 40px;
   padding: 0 14px;
   background: var(--table-header);
@@ -58,7 +58,7 @@
   font-size: 12.5px;
 }
 .muted {
-  color: var(--color-text-muted);
+  color: var(--text-tertiary);
 }
 /* 表格内空状态：保留表头，让用户知道这里以后是什么 */
 .emptyRow td {
@@ -76,11 +76,11 @@
 }
 .emptyTitle {
   font-weight: 500;
-  color: var(--color-text);
+  color: var(--text-primary);
 }
 .emptyDesc {
   font-size: 13px;
-  color: var(--color-text-muted);
+  color: var(--text-tertiary);
 }
 
 .selected td {

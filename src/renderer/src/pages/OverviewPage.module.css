@@ -160,6 +160,7 @@
 
 .viewToggle {
   display: flex;
+  flex-shrink: 0;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm, 4px);
   overflow: hidden;
@@ -173,6 +174,7 @@
   color: var(--text-secondary);
   cursor: pointer;
   font-family: inherit;
+  white-space: nowrap;
   transition:
     background-color var(--transition-fast),
     color var(--transition-fast);

@@ -44,7 +44,7 @@
 }
 .row[data-inactive] .name {
   color: var(--text-tertiary);
-  font-weight: var(--font-weight-regular);
+  font-weight: var(--font-weight-normal);
 }
 .editInput {
   max-width: 240px;

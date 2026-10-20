@@ -16,8 +16,8 @@
   pointer-events: auto;
   padding: 10px 16px;
   border-radius: var(--radius-md);
-  background: var(--color-text);
-  color: var(--color-bg);
+  background: var(--text-primary);
+  color: var(--bg-app);
   box-shadow: var(--shadow-md);
   font-size: 13px;
   opacity: 1;
@@ -33,12 +33,12 @@
   }
 }
 .error {
-  background: var(--color-danger);
+  background: var(--danger);
   color: var(--accent-fg);
 }
 .success {
-  background: var(--color-primary);
-  color: var(--color-text-on-primary);
+  background: var(--accent);
+  color: var(--accent-fg);
 }
 
 .toast[data-leaving] {

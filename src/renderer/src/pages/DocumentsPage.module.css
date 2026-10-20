@@ -184,3 +184,11 @@
 .voided .docNo {
   color: var(--text-tertiary);
 }
+
+/* 窄窗口下备注列让位给渠道列 */
+@media (max-width: 1100px) {
+  .colNote,
+  .noteCell {
+    display: none;
+  }
+}

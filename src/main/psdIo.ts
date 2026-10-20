@@ -185,7 +185,7 @@ function assertCurrentCepInstalled(): void {
     if (!existsSync(join(target, file)) || !sameFileContents(join(source, file), join(target, file))) {
       throw new ServiceError(
         'VALIDATION',
-        'Windows CEP 面板版本与当前 ERP 不一致。请完全退出 Photoshop，再到“定制 → 设置”安装 CEP 面板'
+        'Windows CEP 面板版本与当前 ERP 不一致。请完全退出 Photoshop，再到“设置 › Photoshop 连接”安装 CEP 面板'
       )
     }
   }

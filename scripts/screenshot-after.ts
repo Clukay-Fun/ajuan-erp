@@ -76,8 +76,8 @@ async function run(): Promise<void> {
       await page.setViewportSize(size)
       for (const theme of THEMES) {
         await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), theme)
+        // 文件名与 docs/redesign/before 一一对应；新增的视图用新名字
         const shot = async (name: string): Promise<void> => {
-          if (ONLY && !ONLY.some((o) => name.startsWith(o))) return
           await sleep(300)
           await page.screenshot({ path: path.join(OUT_DIR, `${name}-${size.width}x${size.height}-${theme}.png`) })
         }
@@ -85,56 +85,74 @@ async function run(): Promise<void> {
 
         if (want('overview')) {
           await nav(page, 1)
-          await shot('overview')
+          await shot('page-overview')
         }
 
         if (want('products')) {
           await nav(page, 2)
-          await shot('products')
+          await shot('page-products')
           await page.locator('main tbody tr').first().click()
           await sleep(500)
-          await shot('products-dialog')
+          await shot('modal-product-detail')
+          await page.getByRole('dialog').getByRole('button', { name: '编辑', exact: true }).click()
+          await sleep(400)
+          await shot('modal-product-edit')
+          await closeDialog(page)
           await closeDialog(page)
         }
 
         if (want('documents')) {
           await nav(page, 3)
-          await shot('documents')
+          await shot('page-documents')
+          await page.locator('main tbody tr', { hasText: '已生效' }).first().click()
+          await sleep(500)
+          await shot('modal-document-detail')
+          await closeDialog(page)
           const draft = page.locator('main tbody tr', { hasText: '草稿' }).first()
           if (await draft.count()) {
             await draft.click()
             await sleep(500)
-            await shot('documents-draft')
+            await shot('modal-document-draft')
             await closeDialog(page)
           }
           await page.keyboard.press(`${mod}+n`)
           await sleep(700)
-          await shot('documents-new-outbound')
+          await shot('modal-document-new-outbound')
+          await closeDialog(page)
+          await page.keyboard.press(`${mod}+Shift+n`)
+          await sleep(700)
+          await shot('modal-document-new-inbound')
+          await closeDialog(page)
+          await page.getByRole('button', { name: '更多', exact: true }).click()
+          await sleep(250)
+          await page.getByRole('menuitem', { name: '导入 CSV' }).click()
+          await sleep(500)
+          await shot('modal-csv-import')
           await closeDialog(page)
         }
 
         if (want('psd')) {
           await nav(page, 4)
-          await shot('psd')
+          await shot('page-psd')
           await page.locator('main article input[type=checkbox]').first().check()
           await page.getByRole('button', { name: '第 1 位狗狗图' }).click()
           await sleep(250)
           await page.getByRole('menuitem').first().click()
           await sleep(250)
-          await shot('psd-picked')
+          await shot('page-psd-picked')
           await page.getByRole('tab', { name: '模板' }).click()
           await sleep(400)
-          await shot('psd-templates')
+          await shot('page-psd-templates')
           await page.getByRole('button', { name: '新建模板' }).first().click()
           await sleep(500)
-          await shot('psd-wizard')
+          await shot('modal-psd-template-wizard')
           await closeDialog(page)
           await page.getByRole('tab', { name: '生产' }).click()
         }
 
         if (want('settings')) {
           await nav(page, 5)
-          await shot('settings')
+          await shot('page-settings')
           for (const [label, name] of [
             ['销售渠道', 'channels'],
             ['Photoshop 连接', 'photoshop'],
@@ -143,7 +161,7 @@ async function run(): Promise<void> {
           ]) {
             await page.getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: label }).click()
             await sleep(300)
-            await shot(`settings-${name}`)
+            await shot(name === 'photoshop' ? 'drawer-psd-settings' : `page-settings-${name}`)
           }
         }
       }

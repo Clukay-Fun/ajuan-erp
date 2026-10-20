@@ -1,5 +1,6 @@
 .container {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   background-color: var(--bg-subtle);
   border: 1px solid var(--border-subtle);
@@ -12,6 +13,7 @@
 
 .item {
   box-sizing: border-box;
+  white-space: nowrap;
   display: inline-flex;
   align-items: center;
   justify-content: center;
