@@ -34,6 +34,8 @@ export interface ConfirmDialogProps {
   onConfirm: () => void | Promise<void>
   /** 取消回调（纯点击取消或按 Esc 时触发，不触发 onConfirm） */
   onCancel?: () => void
+  /** 说明下方的附加内容，例如作废原因输入框 */
+  children?: ReactNode
 }
 
 // #region ConfirmDialog 核心组件
@@ -59,7 +61,8 @@ export function ConfirmDialog({
   danger = false,
   loading = false,
   onConfirm,
-  onCancel
+  onCancel,
+  children
 }: ConfirmDialogProps): React.JSX.Element {
   const handleCancel = (): void => {
     onCancel?.()
@@ -85,6 +88,7 @@ export function ConfirmDialog({
           </div>
 
           <AlertDialog.Description className={styles.description}>{description}</AlertDialog.Description>
+          {children}
 
           <div className={styles.actions}>
             <Button variant="secondary" size="md" disabled={loading} onClick={handleCancel}>

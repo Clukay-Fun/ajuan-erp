@@ -1,8 +1,8 @@
 .host {
   position: fixed;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
+  right: 16px;
+  bottom: 16px;
+  align-items: flex-end;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -10,6 +10,10 @@
   pointer-events: none;
 }
 .toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  pointer-events: auto;
   padding: 10px 16px;
   border-radius: var(--radius-md);
   background: var(--color-text);
@@ -25,7 +29,7 @@
 @starting-style {
   .toast {
     opacity: 0;
-    transform: translateY(calc(-8px * var(--motion)));
+    transform: translateY(calc(8px * var(--motion)));
   }
 }
 .error {
@@ -39,8 +43,20 @@
 
 .toast[data-leaving] {
   opacity: 0;
-  transform: translateY(calc(-4px * var(--motion)));
+  transform: translateY(calc(4px * var(--motion)));
   transition:
     opacity var(--dur-exit) ease,
     transform var(--dur-exit) ease;
+}
+
+.action {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
 }

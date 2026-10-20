@@ -99,7 +99,8 @@ export function getPresetDateRange(preset: DateRangePreset): DateRange {
     }
     case 'all':
     default:
-      return { from: '2020-01-01', to: todayStr }
+      // 空区间表示不限日期
+      return { from: '', to: '' }
   }
 }
 
@@ -150,7 +151,7 @@ export function DateRangePicker({
           <CalendarIcon size={14} />
         </span>
         <span className={styles.rangeText}>
-          {value.from} ~ {value.to}
+          {value.from || value.to ? `${value.from || '最早'} ~ ${value.to || '今天'}` : '全部日期'}
         </span>
       </Popover.Trigger>
 

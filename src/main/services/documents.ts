@@ -30,6 +30,7 @@ interface DocRow {
   external_order_no: string | null
   total_qty: number | null
   total_amount: number | null
+  total_cost_e4: number | bigint | null
 }
 
 interface ItemRow {
@@ -46,7 +47,8 @@ interface ItemRow {
 const SUMMARY_SELECT = `
   SELECT d.id, d.doc_no, d.type, d.status, d.doc_date, d.note, d.confirmed_at, d.voided_at, d.void_reason,
          d.adjust_direction, d.channel_id, c.name AS channel_name, d.external_order_no,
-         SUM(i.quantity) AS total_qty, SUM(i.quantity * i.unit_price_cents) AS total_amount
+         SUM(i.quantity) AS total_qty, SUM(i.quantity * i.unit_price_cents) AS total_amount,
+         SUM(i.quantity * i.cost_snapshot_e4) AS total_cost_e4
   FROM documents d
   LEFT JOIN sales_channels c ON c.id = d.channel_id
   LEFT JOIN document_items i ON i.document_id = d.id`
@@ -63,7 +65,10 @@ function toSummary(r: DocRow): DocumentSummary {
     channelName: r.channel_name,
     externalOrderNo: r.external_order_no ?? '',
     totalQuantity: Number(r.total_qty ?? 0),
-    totalAmountCents: Number(r.total_amount ?? 0)
+    totalAmountCents: Number(r.total_amount ?? 0),
+    // 只有已生效 / 已作废的出库单有成本快照；草稿与其他类型为 null
+    totalCostCents: r.type === 'outbound' && r.total_cost_e4 !== null ? e4ToCents(BigInt(r.total_cost_e4)) : null,
+    voidedAt: r.voided_at
   }
 }
 

@@ -1,0 +1,186 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  height: 100%;
+  width: 100%;
+  max-width: 1680px;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 40px;
+  flex-shrink: 0;
+}
+
+.headerTitle {
+  margin: 0;
+  font-size: 22px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+  color: var(--accent-text);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mainPanel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.search {
+  position: relative;
+  flex: 1;
+  min-width: 180px;
+  max-width: 300px;
+}
+.search input {
+  padding-left: 30px;
+}
+.searchIcon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.count {
+  margin-left: auto;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.error {
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  color: var(--danger);
+  font-size: var(--font-size-sm);
+}
+
+.tableWrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: var(--font-size-sm);
+}
+.table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 32px;
+  padding: 0 var(--space-2);
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+  white-space: nowrap;
+}
+.table td {
+  height: 38px;
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.table th:first-child,
+.table td:first-child {
+  padding-left: var(--space-4);
+}
+
+.colDate {
+  width: 116px;
+}
+.colType {
+  width: 64px;
+}
+.colNo {
+  width: 150px;
+}
+.colStatus {
+  width: 84px;
+}
+.colQty {
+  width: 64px;
+}
+.colMoney {
+  width: 100px;
+}
+.colNote {
+  width: 18%;
+}
+
+.row {
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+.row:hover {
+  background: var(--bg-subtle);
+}
+.selected {
+  background: var(--accent-subtle);
+}
+
+.num {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.date {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.docNo {
+  font-family: var(--font-mono);
+  color: var(--accent-text);
+}
+
+.secondary {
+  color: var(--text-secondary);
+}
+
+.negative {
+  color: var(--danger);
+}
+
+/* 已作废：整行文字置灰 */
+.voided td,
+.voided .docNo {
+  color: var(--text-tertiary);
+}

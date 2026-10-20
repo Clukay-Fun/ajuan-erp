@@ -45,6 +45,9 @@ export interface DocumentSummary {
   confirmedAt: string | null
   channelName: string | null
   externalOrderNo: string
+  /** 出库成本合计（成本快照），只有生效过的出库单有值 */
+  totalCostCents: number | null
+  voidedAt: string | null
 }
 
 export interface AppError {

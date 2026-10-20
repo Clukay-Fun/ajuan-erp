@@ -12,7 +12,13 @@
 import { describe, expect, it } from 'vitest'
 import { testDb } from './helpers'
 import { createOpening } from '../src/main/services/opening'
-import { createDraft, confirmDocument, voidDocument, getPendingSummary } from '../src/main/services/documents'
+import {
+  createDraft,
+  confirmDocument,
+  voidDocument,
+  getPendingSummary,
+  listDocuments
+} from '../src/main/services/documents'
 import {
   getStatsSummary,
   getStatsDailySeries,
@@ -317,3 +323,23 @@ describe('products.getLastPrices 历史价格获取', () => {
 })
 
 // #endregion
+
+describe('documents.list 出库成本合计', () => {
+  it('已生效出库单带成本快照合计，草稿为 null', () => {
+    const db = testDb()
+    createOpening(db, { skuId: 1, quantity: 100, unitCostCents: 1000, docDate: '2026-03-01', note: '' })
+    const input = {
+      type: 'outbound' as const,
+      docDate: '2026-03-02',
+      channelId: null,
+      externalOrderNo: '',
+      note: '',
+      items: [{ skuId: 1, quantity: 20, unitPriceCents: 2500 }]
+    }
+    const confirmed = confirmDocument(db, createDraft(db, input).id)
+    const draft = createDraft(db, input)
+    const rows = listDocuments(db)
+    expect(rows.find((r) => r.id === confirmed.id)?.totalCostCents).toBe(20000)
+    expect(rows.find((r) => r.id === draft.id)?.totalCostCents).toBeNull()
+  })
+})

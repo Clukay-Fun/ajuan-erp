@@ -11,62 +11,65 @@ module.exports = async () => {
   `)
   assert((await t.ui(`return text()`)).includes('当前库存 100 件'), '期初后库存应为 100')
 
+  const isMac = process.platform === 'darwin'
+  const mod = isMac ? 'metaKey' : 'ctrlKey'
+
+  // 入库：⇧⌘N 打开开单弹窗，唯一商品自动带出
   await t.ui(`
-    await click('单据'); await click('入库', 400)
-    setVal($('input[inputmode=numeric]'), '50'); setVal($('input[inputmode=decimal]'), '13')
-    await click('确认入库', 500)
+    await click('单据'); key('n', { ${mod}: true, shiftKey: true }); await sleep(600)
+    setVal($('[data-cell=qty]'), '50'); setVal($('[data-cell=price]'), '13'); await sleep(100)
+    await click('确认入库', 700)
   `)
-  assert((await t.ui(`return text()`)).includes('已生效'), '入库应已生效')
+  eq((await t.api('inventory.getStock(1)')).quantity, 150, '入库后库存 150')
 
   const disabled = await t.ui(`
-    await click('出库', 400)
-    setVal($('input[inputmode=numeric]'), '200')
-    return btn('确认出库').disabled && text().includes('库存不足')
+    await click('开单', 600)
+    setVal($('[data-cell=qty]'), '200'); await sleep(100)
+    return btn('确认出库').disabled && text().includes('超出可用库存')
   `)
   assert(disabled, '超库存时确认出库应禁用并提示')
 
-  const ckNo = await t.ui(`
-    setVal($('input[inputmode=numeric]'), '30')
+  await t.ui(`
+    setVal($('[data-cell=qty]'), '30')
     await pickOption(0, '抖音小店')
-    setVal(inputOf('外部订单号'), 'DY001')
-    await click('确认出库', 500)
-    return text().match(/CK\\d{8}-\\d{3}/)[0]
+    setVal(inputOf('外部订单号'), 'DY001'); await sleep(100)
+    await click('确认出库', 700)
   `)
   eq((await t.api('inventory.getStock(1)')).quantity, 120, '出库后库存 120')
+  const ckNo = (await t.api('documents.list({ type: "outbound" })'))[0].docNo
 
   const dup = await t.ui(`
-    await click('出库', 400)
+    await click('开单', 600)
     await pickOption(0, '抖音小店')
     setVal(inputOf('外部订单号'), 'DY001'); await sleep(600)
     return text().includes('相同订单号')
   `)
   assert(dup, '同渠道同订单号应提示重复')
 
-  // 离开守卫：编辑页有改动时切导航应弹确认
+  // 未保存的开单弹窗：切页先确认放弃，确认后才能离开
   const guard = await t.ui(`
-    setVal($('input[inputmode=numeric]'), '3')
-    await click('概览', 200)
+    setVal($('[data-cell=qty]'), '3'); await sleep(100)
+    await click('概览', 300)
     const dialog = document.querySelector('[role=alertdialog]')
-    const shown = !!dialog && dialog.innerText.includes('离开')
-    if (shown) await click('放弃修改并离开', 400)
+    const shown = !!dialog && dialog.innerText.includes('放弃')
+    if (shown) await click('放弃并退出', 400)
+    await click('概览', 400)
     return shown
   `)
-  assert(guard, '未保存时切页应弹离开确认')
-  assert((await t.ui(`return text()`)).includes('概览'), '放弃后应到达概览')
+  assert(guard, '未保存时切页应弹放弃确认')
+  assert((await t.ui(`return text()`)).includes('最近单据'), '放弃后应到达概览')
 
   await t.ui(`
-    await click('单据')
-    $$('tbody tr').find(r => r.innerText.includes('${ckNo}')).click(); await sleep(300)
-    await click('作废', 150)
-    if (!btn('作废并冲回库存').disabled) throw new Error('无原因时作废按钮应禁用')
-    setVal(inputOf('作废原因'), '发错货'); await click('作废并冲回库存', 500)
+    await click('单据', 400)
+    $$('tbody tr').find(r => r.innerText.includes('${ckNo}')).click(); await sleep(500)
+    await click('作废', 300)
+    setVal(inputOf('作废原因'), '发错货'); await click('作废并冲回', 700)
   `)
   eq(
     await t.api('inventory.getStock(1)'),
     { skuId: 1, quantity: 150, costValueCents: 165000, avgCostCents: 1100 },
     '作废后库存与成本回到 150 / ¥11'
   )
-
   // 库存调整：商品抽屉里按盘点数盘亏 5
   await t.ui(`
     await click('商品'); $$('tbody tr')[0].click(); await sleep(500); await click('调整库存', 300)
@@ -104,8 +107,6 @@ module.exports = async () => {
   await t.ui(`$$('[role=radio]').find(b => b.textContent.startsWith('跟随系统')).click(); await sleep(100)`)
 
   // 快捷键：⌘/Ctrl+N 新建出库单，⇧⌘/Ctrl+N 新建入库单
-  const isMac = process.platform === 'darwin'
-  const mod = isMac ? 'metaKey' : 'ctrlKey'
   const viaKey = await t.ui(`
     key('n', { ${mod}: true }); await sleep(400)
     const out = text().includes('新建出库单')

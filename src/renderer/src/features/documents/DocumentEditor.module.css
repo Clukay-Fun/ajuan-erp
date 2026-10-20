@@ -1,160 +1,269 @@
-.top {
+/* 开单弹窗：内容区自己滚动，吸底栏固定在弹窗底部 */
+.editor {
+  display: flex;
+  flex-direction: column;
+  height: calc(100% + 2 * var(--space-4));
+  margin: calc(-1 * var(--space-4));
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.loading,
+.error {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+.error {
+  color: var(--danger);
+}
+
+.docNo {
+  margin: calc(-1 * var(--space-1)) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+/* 表头字段一行 */
+.fields {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: var(--space-3);
+}
+.fields4 {
+  grid-template-columns: 160px 160px minmax(0, 1fr) minmax(0, 1fr);
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.field > span {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.dup {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  color: var(--warning);
+  font-size: var(--font-size-xs);
+}
+
+/* 明细表 */
+.tableWrap {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+.table th {
+  height: 32px;
+  padding: 0 var(--space-2);
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+  white-space: nowrap;
+}
+.table th:first-child {
+  border-top-left-radius: var(--radius-md);
+}
+.table th:last-child {
+  border-top-right-radius: var(--radius-md);
+}
+.table th:nth-child(2) {
+  width: 84px;
+}
+.table th:nth-child(3) {
+  width: 120px;
+}
+.table th:nth-child(4) {
+  width: 130px;
+}
+.table th:nth-child(5) {
+  width: 110px;
+}
+.table th:nth-child(6) {
+  width: 40px;
+}
+.table td {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: top;
+}
+
+.num {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+}
+.table td.num {
+  padding-top: 15px;
+}
+
+.productCell {
+  min-width: 220px;
+}
+
+.cellInput {
+  box-sizing: border-box;
+  width: 100%;
+  height: 32px;
+  margin-top: -7px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-control);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font: inherit;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+.cellInput:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+.cellInvalid {
+  border-color: var(--danger);
+}
+
+.short,
+.priceSource {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.short {
+  color: var(--danger);
+}
+.priceSource {
+  color: var(--text-tertiary);
+}
+
+.subtotal {
+  color: var(--accent-text);
+  font-weight: var(--font-weight-medium);
+}
+
+.removeCell {
+  text-align: center;
+}
+.remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-top: -5px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+.remove:hover:not(:disabled) {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.remove:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.addLine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  height: 34px;
+  padding: 0 var(--space-3);
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.addLine:hover {
+  background: var(--bg-subtle);
+}
+
+/* 附件：默认折叠成一行 */
+.attach {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.attachToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.attachHint {
+  margin-left: var(--space-2);
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+}
+
+/* 吸底栏 */
+.footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--space-5);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
 }
-.back {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 0;
-  background: transparent;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  padding: 6px 8px 6px 0;
+.totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
 }
-.back:hover {
-  color: var(--color-text);
+.totals strong {
+  color: var(--accent-text);
+  font-weight: var(--font-weight-semibold);
 }
-.title {
-  font-size: 20px;
-  font-weight: 600;
+.totals strong.negative {
+  color: var(--danger);
 }
-.actions {
+.buttons {
   display: flex;
   gap: var(--space-2);
 }
-.section {
-  margin-bottom: var(--space-5);
-}
-.sectionTitle {
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: var(--space-3);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  padding: var(--space-5);
-}
-.grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-4);
-}
-.full {
-  grid-column: 1 / -1;
-}
-.productSelect {
-  border-color: transparent;
-  background: transparent;
-  box-shadow: none;
-}
-.productSelect:hover,
-.productSelect:focus-visible,
-.productSelect.open {
-  border-color: transparent;
-  background: var(--color-surface-raised);
-  box-shadow: none;
-}
-.productCellInput {
-  border-color: transparent;
-  background: transparent;
-  box-shadow: none;
-}
-.productCellInput:focus {
-  border-color: transparent;
-  box-shadow: none;
-  background: var(--color-surface-raised);
-}
-.productCellInput.cellInvalid {
-  border-color: var(--color-danger);
-}
-.dup {
-  grid-column: 1 / -1;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--color-warning-soft);
-  color: var(--color-warning-soft-text);
-  font-size: 13px;
-}
-.dup button {
-  border: 0;
-  background: transparent;
-  color: inherit;
-  text-decoration: underline;
-  cursor: pointer;
-  padding: 0;
-  font: inherit;
-}
-.cellInput {
-  width: 100%;
-  height: 32px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: 0 8px;
-  font: inherit;
-  text-align: right;
-  user-select: text;
-}
-.cellInput {
-  background: var(--color-surface);
-  color: var(--color-text);
-  transition:
-    border-color var(--dur-fast) ease,
-    box-shadow var(--dur-fast) ease;
-}
-.cellInput:focus {
-  outline: 0;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-ring);
-}
-.cellInvalid {
-  border-color: var(--color-danger);
-}
-.remove {
-  border: 0;
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: var(--radius-sm);
-  display: inline-flex;
-}
-.remove:hover {
-  color: var(--color-danger);
-  background: var(--color-danger-soft);
-}
-.remove:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-.total {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-6);
-  padding: var(--space-3) var(--space-4);
-  color: var(--color-text-secondary);
-}
-.total strong {
-  color: var(--color-text);
-  font-size: 15px;
-}
-.formError {
-  color: var(--color-danger);
-  font-size: 13px;
-  margin-top: var(--space-2);
-}
-.muted {
-  color: var(--color-text-muted);
-}
-.short {
-  color: var(--color-danger);
-  font-size: 12px;
+
+@media (max-width: 900px) {
+  .fields4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

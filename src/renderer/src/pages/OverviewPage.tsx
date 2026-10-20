@@ -407,7 +407,7 @@ export function OverviewPage(): React.JSX.Element {
                   onClick={() =>
                     draftCount === 1 && pending
                       ? openDocument(pending.drafts[0].id)
-                      : navigate('documents', { documents: { view: 'list' } })
+                      : navigate('documents', { documents: { status: 'draft' } })
                   }
                 >
                   <FileEdit size={14} style={{ color: 'var(--warning)' }} />
@@ -441,7 +441,7 @@ export function OverviewPage(): React.JSX.Element {
           value={summary ? `¥${formatCents(summary.current.outAmountCents)}` : '—'}
           subtext={summary ? `${summary.current.outQty} 件 · ${summary.current.outDocCount} 单` : '无出库记录'}
           changePercentage={summary?.changes.outAmount}
-          onClick={() => navigate('documents', { documents: { view: 'list' } })}
+          onClick={() => navigate('documents', { documents: { type: 'outbound', from: range.from, to: range.to } })}
         />
 
         {/* 毛利 */}
@@ -458,7 +458,7 @@ export function OverviewPage(): React.JSX.Element {
           }
           subtext={summary ? `毛利率 ${(summary.current.profitRate * 100).toFixed(1)}%` : '售价 − 成本快照'}
           changePercentage={summary?.changes.profit}
-          onClick={() => navigate('documents', { documents: { view: 'list' } })}
+          onClick={() => navigate('documents', { documents: { type: 'outbound', from: range.from, to: range.to } })}
         />
 
         {/* 库存成本 */}
@@ -711,11 +711,7 @@ export function OverviewPage(): React.JSX.Element {
           <Panel
             title="最近单据"
             actions={
-              <button
-                type="button"
-                className={styles.allLink}
-                onClick={() => navigate('documents', { documents: { view: 'list' } })}
-              >
+              <button type="button" className={styles.allLink} onClick={() => navigate('documents')}>
                 全部 <ChevronRight size={14} />
               </button>
             }

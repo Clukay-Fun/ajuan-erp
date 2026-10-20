@@ -1,11 +1,16 @@
 import type { ReactElement, ReactNode } from 'react'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { RouteKey } from './routes'
-import type { DocumentType } from '@shared/types'
+import type { DocumentStatus, DocumentType } from '@shared/types'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 
-export type DocumentsView =
-  { view: 'list' } | { view: 'new'; type: DocumentType } | { view: 'edit'; id: number } | { view: 'detail'; id: number }
+/** 单据页的初始筛选（概览 KPI、待处理条跳过来时带上） */
+export interface DocumentsView {
+  type?: DocumentType
+  status?: DocumentStatus
+  from?: string
+  to?: string
+}
 
 export interface RouteParams {
   documents?: DocumentsView

@@ -12,10 +12,10 @@ import { useToast } from '@/components/Toast'
 import { unwrap, errorMessage } from '@/lib/api'
 import { emitDataChanged } from '@/lib/dataEvents'
 import { ProductDrawerContent } from '@/features/products/ProductDrawerContent'
-import { DocumentDetailView } from '@/features/documents/DocumentDetailView'
+import { DocumentDrawerContent } from '@/features/documents/DocumentDrawerContent'
+import { DocumentEditor } from '@/features/documents/DocumentEditor'
 import { AdjustmentDrawerContent } from '@/features/adjustments/AdjustmentDrawerContent'
 import { ImportDialog } from '@/features/csv/ImportDialog'
-import { useNav } from './navigation'
 
 export interface NewDocumentOptions {
   /** 预先带出的商品（命令面板 ⌘Enter、商品抽屉） */
@@ -33,8 +33,7 @@ export interface EntityDrawers {
 }
 
 export function useEntityDrawers(): EntityDrawers {
-  const { openDrawer, closeDrawer } = useDrawer()
-  const { navigate } = useNav()
+  const { openDrawer } = useDrawer()
   const toast = useToast()
 
   const openProduct = useCallback(
@@ -69,39 +68,34 @@ export function useEntityDrawers(): EntityDrawers {
         id: `document-${documentId}`,
         title: '单据',
         size: 'md',
-        content: ({ close }) => (
-          <DocumentDetailView
-            id={documentId}
-            onChanged={(changedId) => {
-              emitDataChanged()
-              if (changedId === null) close(true)
-            }}
-            onEdit={(editId) => {
-              close(true)
-              navigate('documents', { documents: { view: 'edit', id: editId } })
-            }}
-          />
-        )
+        content: <DocumentDrawerContent id={documentId} />
       })
     },
-    [openDrawer, navigate]
+    [openDrawer]
   )
 
   const newDocument = useCallback(
-    // 阶段 7 改为开单抽屉；在此之前沿用单据页的开单表单
-    (type: Extract<DocumentType, 'inbound' | 'outbound'>, _options: NewDocumentOptions = {}) => {
-      closeDrawer(true)
-      navigate('documents', { documents: { view: 'new', type } })
+    (type: Extract<DocumentType, 'inbound' | 'outbound'>, options: NewDocumentOptions = {}) => {
+      openDrawer({
+        id: `document-new-${type}`,
+        title: type === 'outbound' ? '新建出库单' : '新建入库单',
+        size: 'lg',
+        content: <DocumentEditor mode={{ kind: 'new', type, productId: options.productId }} />
+      })
     },
-    [closeDrawer, navigate]
+    [openDrawer]
   )
 
   const editDocument = useCallback(
     (documentId: number) => {
-      closeDrawer(true)
-      navigate('documents', { documents: { view: 'edit', id: documentId } })
+      openDrawer({
+        id: `document-edit-${documentId}`,
+        title: '编辑单据',
+        size: 'lg',
+        content: <DocumentEditor mode={{ kind: 'edit', id: documentId }} />
+      })
     },
-    [closeDrawer, navigate]
+    [openDrawer]
   )
 
   const openAdjustment = useCallback(

@@ -43,7 +43,7 @@ module.exports = async () => {
 
   // 导入对话框可打开并显示模板说明
   const dlg = await t.ui(
-    `await click('单据'); await click('导入 CSV', 200); return text().includes('期初 / 入库 / 出库')`
+    `await click('单据'); $('button[aria-label=更多]').click(); await sleep(200); $$('[role=menuitem]').find(m => m.textContent.includes('导入 CSV')).click(); await sleep(400); return text().includes('期初 / 入库 / 出库')`
   )
   assert(dlg, '导入对话框应打开')
   await t.shot('csv-import-dialog.png')
