@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Shell } from '@/components/Shell'
 import { ToastProvider } from '@/components/Toast'
 import { NavProvider, useNav } from './navigation'
@@ -9,6 +10,12 @@ import { ProductsPage } from '@/pages/ProductsPage'
 import { DocumentsPage } from '@/pages/DocumentsPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { PsdPage } from '@/pages/PsdPage'
+
+const isDevUiEnabled = Boolean(import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEV_UI === 'true')
+
+const DevUiPage = isDevUiEnabled
+  ? lazy(() => import('@/pages/DevUiPage').then((m) => ({ default: m.DevUiPage })))
+  : null
 
 const PAGES: Record<RouteKey, () => ReactElement> = {
   overview: OverviewPage,
@@ -30,6 +37,25 @@ function Routed(): ReactElement {
 }
 
 export function App(): ReactElement {
+  const [isDevUi, setIsDevUi] = useState(() => isDevUiEnabled && window.location.hash === '#/dev/ui')
+
+  useEffect(() => {
+    if (!isDevUiEnabled) return
+    const handleHash = (): void => {
+      setIsDevUi(window.location.hash === '#/dev/ui')
+    }
+    window.addEventListener('hashchange', handleHash)
+    return () => window.removeEventListener('hashchange', handleHash)
+  }, [])
+
+  if (isDevUiEnabled && isDevUi && DevUiPage) {
+    return (
+      <Suspense fallback={null}>
+        <DevUiPage />
+      </Suspense>
+    )
+  }
+
   return (
     <ToastProvider>
       <NavProvider>

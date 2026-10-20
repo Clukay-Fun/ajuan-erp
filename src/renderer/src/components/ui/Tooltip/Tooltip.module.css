@@ -1,0 +1,26 @@
+.popup {
+  box-sizing: border-box;
+  max-width: 280px;
+  padding: 4px 8px;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-tight);
+  color: var(--text-primary);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-overlay);
+  z-index: var(--z-popover);
+  pointer-events: none;
+  animation: fadeIn 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

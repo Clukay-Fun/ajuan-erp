@@ -1,0 +1,91 @@
+.badge {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  height: 20px;
+  padding: 0 var(--space-1-5);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* 单据类型 (DocTypeBadge) */
+.inbound {
+  background-color: var(--status-in-bg);
+  color: var(--status-in);
+  border: 1px solid transparent;
+}
+
+.outbound {
+  background-color: var(--status-out-bg);
+  color: var(--status-out);
+  border: 1px solid transparent;
+}
+
+.adjustment {
+  background-color: var(--status-adjust-bg);
+  color: var(--status-adjust);
+  border: 1px solid transparent;
+}
+
+.opening {
+  background-color: var(--status-opening-bg);
+  color: var(--status-opening);
+  border: 1px solid transparent;
+}
+
+/* 单据状态 (DocStatusBadge) */
+.draft {
+  background-color: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+}
+
+.confirmed {
+  background-color: var(--bg-subtle);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+}
+
+.voided {
+  background-color: transparent;
+  color: var(--text-tertiary);
+  text-decoration: line-through;
+  border: 1px solid transparent;
+}
+
+/* 库存状态 (StockBadge) */
+.stockCritical {
+  background-color: var(--danger-bg);
+  color: var(--danger);
+  border: 1px solid transparent;
+}
+
+.stockWarning {
+  background-color: var(--warning-bg);
+  color: var(--warning);
+  border: 1px solid transparent;
+}
+
+.stockInactive {
+  background-color: var(--bg-subtle);
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-subtle);
+}
+
+.stockNormal {
+  background-color: var(--bg-subtle);
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+}

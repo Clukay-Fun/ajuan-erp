@@ -186,3 +186,62 @@
 - `npm test`：82 项测试全数通过。
 - `npm run build`：构建成功无异常。
 
+---
+
+## 阶段 2：基础组件（Base UI）
+
+### 1. 依赖安装与版本锁定
+- 按照设计计划严格要求，安装 `@base-ui/react` 并精确锁定版本号为 `1.9.0`。
+- 遵循依赖最小化原则，未引入任何非必需第三方包。
+
+### 2. 标准组件库实现 (src/renderer/src/components/ui/)
+共实现 18 类符合紧凑单人工作台风格的基础交互组件：
+- **Button**：提供 `primary`（墨绿实心）、`secondary`（细描边）、`ghost`（幽灵态）、`danger`（红色描边）及 `danger-solid`；规范 `sm` (28px) 与 `md` (32px) 双尺寸；支持 `loading` 动画与 `disabledReason` 悬停提示。
+- **IconButton**：强制 `label` 属性以确保 ARIA 无障碍访问，自动作为悬停 Tooltip 呈现。
+- **Input / Textarea**：32px 高度规范，只读态自动应用 `--bg-subtle`，校验错误于底部提示 `--danger` 文本；支持前缀 (prefix) 与后缀 (suffix)。
+- **NumberInput**：等宽数字靠右排版（`.num` / `.mono`），支持前缀（¥）与后缀（件），监听键盘上下键（↑/↓）进行受控步进微调与极值约束。
+- **Select**：基于 Base UI Select 原语封装，具备完整的键盘上下切换与回车选中体验。
+- **Combobox**：专用于商品检索，抽取并导出纯函数 `filterComboboxItems`，支持按名称、编码 (SPU)、SKU 与自定义关键字模糊匹配；选项支持缩略图与库存徽标。
+- **DateInput / DateRangePicker**：单日采用统一样式原生日期框；区间选择基于 Base UI Popover 封装，内置「今天、近 7 天、近 30 天、本月、上月、全部」等预设与自定义起止区间。
+- **SegmentedControl**：32px 紧凑分段切换器，选项支持携带微型数字胶囊徽标（如「草稿 1」）。
+- **Badge**：
+  - `DocTypeBadge`：入库（蓝）、出库（琥珀）、调整（紫）、期初（灰蓝）；
+  - `DocStatusBadge`：草稿（灰色描边）、已生效（中性实心加 ✓）、已作废（中划线文本）；
+  - `StockBadge`：告急（红）、低于预警（琥珀）、正常（中性）、已停用（灰）。
+- **Drawer & DrawerHost**：
+  - 从右侧滑出，提供 `sm` (420px)、`md` (600px)、`lg` (760px) 三种规范尺寸，并在小视口下自适应铺满；
+  - 全局单例宿主 `DrawerHost`：打开新抽屉自动替换当前抽屉，并维持最多 5 级返回历史栈，顶部提供「← 返回 <上一个抽屉标题>」；
+  - 抽屉关闭时自动将焦点归还给触发元素；
+  - `dirtyGuard`：未保存时按 Esc 或点击关闭会触发确认弹窗拦截。
+- **ConfirmDialog**：基于 Base UI AlertDialog 封装，作为系统唯一允许使用的模态对话框；强制指明具体动作（如「作废并冲回」而非「确定」）。
+- **Menu**：基于 Base UI Menu 原语，提供紧凑下拉菜单项，右侧呈现快捷键徽记（如 `⌘N`），支持危险项红色高亮。
+- **Tooltip**：基于 Base UI Tooltip 原语，设置 400ms 防误触延迟。
+- **Toast & ToastViewport**：右下角堆叠通知队列，默认 3 秒自动淡出，支持「查看」等动作按钮与命令式 `toast.success/error/info`。
+- **Table**：提供 36px 紧凑行高、吸顶表头（`--bg-subtle`）、数值右对齐、整行悬停高亮与指针光标样式。
+- **Card / StatCard**：细边框无阴影卡片；StatCard 呈现 28px 等宽品牌色数字与 ▲▼ 环比变动百分比。
+- **EmptyState**：居中微型灰度图元、一句话原因阐述与最多 3 个引导操作按钮。
+- **PageHeader**：56px 高度标准顶栏，左侧 20px 品牌色大标题与计数，右侧操作区。
+
+### 3. 开发环境组件预览画板 (/dev/ui)
+- 在 `src/renderer/src/pages/DevUiPage.tsx` 实现全量组件画板，集中呈现所有变体与交互状态。
+- 通过 `isDevUiEnabled` 与路由哈希 `#/dev/ui` 挂接，生产构建时自动排除。
+- 画板内置实时浅色 / 深色主题无缝切换开关。
+
+### 4. 自动化测试与产物
+- 编写 `tests/ui-components.test.ts`，涵盖：
+  - Combobox 多维模糊过滤与大小写不敏感匹配；
+  - ConfirmDialog 点击取消不触发 onConfirm；
+  - DrawerHost 全局单例、抽屉替换、5 级历史栈截断与 dirtyGuard 拦截。
+- 编写 Playwright 组件截图脚本 `scripts/screenshot-components.ts`，产出组件截图并归档至 `docs/redesign/components/`：
+  - `dev-ui-1280x800-light.png`（浅色画板全景）
+  - `dev-ui-1280x800-dark.png`（深色画板全景）
+  - `drawer-open-light.png`（中抽屉滑出交互）
+  - `confirm-dialog-light.png`（模态确认框拦截）
+
+### 5. 验收情况
+- `npm run lint`：通过（52 个 CSS Modules 100% 遵守设计 Token，无裸色值）。
+- `npm run typecheck`：通过（TypeScript 0 错误）。
+- `npm test`：93 项单元测试全部通过。
+- `npm run build`：构建成功无异常。
+
+
