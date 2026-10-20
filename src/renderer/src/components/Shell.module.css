@@ -17,18 +17,10 @@
   border-right: 1px solid var(--border-subtle);
   height: 100vh;
   flex-shrink: 0;
-  transition: width var(--transition-normal);
+  width: max-content;
   overflow: hidden;
   position: relative;
   z-index: 10;
-}
-
-.sidebar.expanded {
-  width: 208px;
-}
-
-.sidebar.collapsed {
-  width: 56px;
 }
 
 /* macOS 顶部红绿灯占位拖拽区 */
@@ -53,7 +45,7 @@
 .splitButton {
   display: flex;
   align-items: center;
-  width: 100%;
+  width: max-content;
   border-radius: var(--radius-control);
   overflow: hidden;
   background-color: var(--accent);
@@ -221,44 +213,6 @@
   flex-direction: column;
   gap: 2px;
   -webkit-app-region: no-drag;
-}
-
-.collapseButton {
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  height: 32px;
-  padding: 0 var(--space-2);
-  border: none;
-  border-radius: var(--radius-control);
-  background-color: transparent;
-  color: var(--text-tertiary);
-  font-family: inherit;
-  font-size: var(--font-size-xs);
-  cursor: pointer;
-  outline: none;
-  width: 100%;
-  transition:
-    background-color var(--transition-fast),
-    color var(--transition-fast);
-}
-
-.collapseButton:hover {
-  background-color: var(--bg-subtle);
-  color: var(--text-primary);
-}
-
-.collapseLabel {
-  margin-left: var(--space-2);
-  font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
-}
-
-.shortcutHint {
-  margin-left: auto;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-tertiary);
 }
 
 /* 主内容视窗 */
