@@ -135,6 +135,16 @@ async function run(): Promise<void> {
         if (want('settings')) {
           await nav(page, 5)
           await shot('settings')
+          for (const [label, name] of [
+            ['销售渠道', 'channels'],
+            ['Photoshop 连接', 'photoshop'],
+            ['数据', 'data'],
+            ['更新与关于', 'about']
+          ]) {
+            await page.getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: label }).click()
+            await sleep(300)
+            await shot(`settings-${name}`)
+          }
         }
       }
     }

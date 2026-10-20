@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { unwrap } from '@/lib/api'
 import type { RouteKey } from '@/app/routes'
+import { SETTINGS_SECTIONS } from '@/pages/settingsSections'
 import type { Product, DocumentSummary } from '@shared/types'
 import styles from './CommandPalette.module.css'
 
@@ -238,9 +239,20 @@ export function CommandPalette({
           onNavigate('settings')
           onOpenChange(false)
         }
-      }
+      },
+      ...SETTINGS_SECTIONS.map((s): CommandItem => ({
+        id: `settings-${s.key}`,
+        group: '跳转',
+        title: `设置 › ${s.label}`,
+        subtitle: s.hint,
+        icon: <Settings size={16} />,
+        onSelect: () => {
+          onAction?.('settings-section', s.key)
+          onOpenChange(false)
+        }
+      }))
     ],
-    [onNavigate, onOpenChange]
+    [onNavigate, onOpenChange, onAction]
   )
 
   // 过滤后的全量结果集合

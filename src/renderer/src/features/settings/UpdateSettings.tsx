@@ -4,6 +4,7 @@ import { Check, Download, ExternalLink, RefreshCw } from 'lucide-react'
 import type { IpcResult, UpdateState } from '@shared/types'
 import { Button } from '@/components/Button'
 import { errorMessage, unwrap } from '@/lib/api'
+import card from './SettingsCard.module.css'
 import styles from './UpdateSettings.module.css'
 
 function statusText(state: UpdateState): string {
@@ -98,9 +99,9 @@ export function UpdateSettings(): ReactElement {
           : RefreshCw
 
   return (
-    <section className={styles.card}>
-      <h2 className={styles.title}>更新</h2>
-      <p className={styles.hint}>检查稳定版更新。下载完成后会在你选择重启时安装。</p>
+    <section className={card.card}>
+      <h2 className={card.title}>更新</h2>
+      <p className={card.hint}>检查稳定版更新。下载完成后会在你选择重启时安装。</p>
 
       <div className={styles.meta}>
         <div>

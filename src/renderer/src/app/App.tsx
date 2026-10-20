@@ -75,6 +75,9 @@ function Routed(): ReactElement {
         return
       case 'psd-production':
         return navigate('psd')
+      case 'settings-section':
+        if (currentDrawer) closeDrawer(true)
+        return navigate('settings', { settings: { section: String(payload) } })
     }
   }
 

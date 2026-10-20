@@ -6,7 +6,7 @@ import { Button } from '@/components/Button'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useToast } from '@/components/Toast'
 import { unwrap, errorMessage } from '@/lib/api'
-import styles from './BackupSettings.module.css'
+import styles from './SettingsCard.module.css'
 
 function fmtSize(b: number): string {
   if (b < 1024) return `${b} B`

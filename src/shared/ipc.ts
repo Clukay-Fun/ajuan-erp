@@ -48,6 +48,7 @@ import type {
 
 export const IPC = {
   appGetInfo: 'app:getInfo',
+  appRevealPath: 'app:revealPath',
   windowState: 'window:state',
   windowSetTitleBarOverlay: 'window:setTitleBarOverlay',
   updateGetState: 'update:getState',
@@ -149,6 +150,8 @@ export interface AppInfo {
 export interface AjuanApi {
   app: {
     getInfo(): Promise<IpcResult<AppInfo>>
+    /** 在 Finder / 资源管理器中显示数据目录或数据库文件；只接受这两个固定位置 */
+    revealPath(target: 'data' | 'db'): Promise<IpcResult<void>>
     onState(handler: (state: { maximized: boolean }) => void): () => void
     setTitleBarOverlay(overlay: { color: string; symbolColor: string; height?: number }): Promise<IpcResult<void>>
   }

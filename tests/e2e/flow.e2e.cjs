@@ -87,10 +87,13 @@ module.exports = async () => {
   // 设置：添加渠道、切换外观
   const settings = await t.ui(`
     await click('设置')
-    setVal($('input[placeholder=新渠道名称]'), '小红书'); await click('添加', 300)
     $$('[role=radio]').find(b => b.textContent.startsWith('深色')).click(); await sleep(100)
+    await click('销售渠道')
+    setVal($('input[placeholder=新渠道名称]'), '小红书'); await click('添加', 300)
+    const channel = text().includes('小红书')
+    await click('更新与关于')
     return {
-      channel: text().includes('小红书'),
+      channel,
       theme: document.documentElement.getAttribute('data-theme'),
       updateSettings: text().includes('启动时自动检查')
     }
@@ -104,7 +107,9 @@ module.exports = async () => {
     `$$('h2').find(h => h.textContent.trim() === '更新').scrollIntoView({ block: 'center' }); await sleep(500)`
   )
   await t.shot('flow-settings-update.png')
-  await t.ui(`$$('[role=radio]').find(b => b.textContent.startsWith('跟随系统')).click(); await sleep(100)`)
+  await t.ui(
+    `await click('外观'); $$('[role=radio]').find(b => b.textContent.startsWith('跟随系统')).click(); await sleep(100)`
+  )
 
   // 快捷键：⌘/Ctrl+N 新建出库单，⇧⌘/Ctrl+N 新建入库单
   const viaKey = await t.ui(`

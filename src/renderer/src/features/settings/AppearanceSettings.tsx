@@ -2,6 +2,7 @@ import type { ReactElement } from 'react'
 import { useState } from 'react'
 import { Monitor, Sun, Moon } from 'lucide-react'
 import { applyTheme, readThemePreference, type ThemePreference } from '@/lib/theme'
+import card from './SettingsCard.module.css'
 import styles from './AppearanceSettings.module.css'
 
 const OPTIONS: { value: ThemePreference; label: string; desc: string; icon: typeof Sun }[] = [
@@ -13,9 +14,9 @@ const OPTIONS: { value: ThemePreference; label: string; desc: string; icon: type
 export function AppearanceSettings(): ReactElement {
   const [pref, setPref] = useState<ThemePreference>(readThemePreference)
   return (
-    <section className={styles.card}>
-      <h2 className={styles.title}>外观</h2>
-      <p className={styles.hint}>两套主题结构与操作完全一致，只换视觉语言。</p>
+    <section className={card.card}>
+      <h2 className={card.title}>外观</h2>
+      <p className={card.hint}>两套主题结构与操作完全一致，只换视觉语言。</p>
       <div className={styles.options} role="radiogroup" aria-label="外观">
         {OPTIONS.map(({ value, label, desc, icon: Icon }) => (
           <button

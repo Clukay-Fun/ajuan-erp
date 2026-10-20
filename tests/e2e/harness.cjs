@@ -38,7 +38,11 @@ function bind(win) {
       `const r = await window.ajuan.${expr}; if (!r.ok) throw new Error(r.error.code + ': ' + r.error.message); return r.data`
     )
   const apiErr = (expr) => js(`const r = await window.ajuan.${expr}; return r.ok ? null : r.error`)
-  const ui = (code) => js(`${UI_HELPERS}\n${code}`)
+  const ui = (code) =>
+    js(`${UI_HELPERS}\n${code}`).catch((err) => {
+      console.error('失败步骤：' + code.trim().split('\n')[0])
+      throw err
+    })
   const shot = async (name) => {
     fs.mkdirSync(ARTIFACTS, { recursive: true })
     fs.writeFileSync(path.join(ARTIFACTS, name), (await current().webContents.capturePage()).toPNG())

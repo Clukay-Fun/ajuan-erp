@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
 import { IPC, type AppInfo } from '@shared/ipc'
 import type { IpcResult } from '@shared/types'
 import { state } from './appState'
@@ -116,6 +116,10 @@ export function registerIpc(): void {
     userDataPath: app.getPath('userData'),
     dbPath: state.dbPath
   }))
+  handle(IPC.appRevealPath, (target: 'data' | 'db') => {
+    if (target === 'db') shell.showItemInFolder(state.dbPath)
+    else void shell.openPath(app.getPath('userData'))
+  })
   handle(IPC.windowSetTitleBarOverlay, (overlay: { color: string; symbolColor: string; height?: number }) => {
     const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
     if (win && process.platform === 'win32' && typeof win.setTitleBarOverlay === 'function') {
