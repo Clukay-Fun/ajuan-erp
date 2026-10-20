@@ -25,10 +25,20 @@ function createWindow(): BrowserWindow {
     minHeight: 640,
     show: false,
     title: '阿卷 ERP',
-    // macOS 使用系统原生标题栏，应用名称和交通灯由系统统一管理。
-    ...(isMac ? { titleBarStyle: 'default' as const } : {}),
-    // Windows 使用系统标题栏；菜单栏默认收起，按 Alt 可临时显示。
-    ...(isWindows ? { autoHideMenuBar: true } : {}),
+    // macOS：保留系统红绿灯按钮，侧栏顶部留出 44px 拖拽区
+    ...(isMac ? { titleBarStyle: 'hiddenInset' as const } : {}),
+    // Windows：无边框标题栏并挂载原生控制按钮 overlay
+    ...(isWindows
+      ? {
+          titleBarStyle: 'hidden' as const,
+          titleBarOverlay: {
+            color: nativeTheme.shouldUseDarkColors ? '#101114' : '#f6f7f8',
+            symbolColor: nativeTheme.shouldUseDarkColors ? '#9ba1a6' : '#6b7280',
+            height: 40
+          },
+          autoHideMenuBar: true
+        }
+      : {}),
     // 与 tokens.css 的 --color-bg 一致，避免启动白闪 / 黑闪
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#101114' : '#f6f7f8',
     webPreferences: {

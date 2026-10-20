@@ -29,8 +29,27 @@ function Routed(): ReactElement {
   const { location, navigate } = useNav()
   useShortcuts()
   const Page = PAGES[location.key]
+
+  const handleAction = (actionId: string, payload?: any): void => {
+    if (actionId === 'new-outbound') {
+      navigate('documents', { documents: { view: 'new', type: 'outbound' } })
+    } else if (actionId === 'new-inbound') {
+      navigate('documents', { documents: { view: 'new', type: 'inbound' } })
+    } else if (actionId === 'open-document' && typeof payload === 'number') {
+      navigate('documents', { documents: { view: 'detail', id: payload } })
+    } else if (actionId === 'open-product') {
+      navigate('products')
+    } else if (actionId === 'new-product') {
+      navigate('products')
+    } else if (actionId === 'import-csv') {
+      navigate('documents')
+    } else if (actionId === 'new-outbound-for-product') {
+      navigate('documents', { documents: { view: 'new', type: 'outbound' } })
+    }
+  }
+
   return (
-    <Shell route={location.key} seq={location.seq} onNavigate={(key) => navigate(key)}>
+    <Shell route={location.key} seq={location.seq} onNavigate={(key) => navigate(key)} onAction={handleAction}>
       <Page key={location.seq} />
     </Shell>
   )

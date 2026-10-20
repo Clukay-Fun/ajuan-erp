@@ -21,4 +21,16 @@ export function applyTheme(pref: ThemePreference): void {
   } catch {
     /* 私密模式等情况下忽略 */
   }
+
+  // Windows 平台同步更新原生控制按钮 overlay 颜色
+  try {
+    const isDark = pref === 'dark' || (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    window.ajuan?.app?.setTitleBarOverlay?.({
+      color: isDark ? '#121417' : '#f8fafc',
+      symbolColor: isDark ? '#9ba1a6' : '#64748b',
+      height: 40
+    })
+  } catch {
+    /* 忽略非桌面环境异常 */
+  }
 }

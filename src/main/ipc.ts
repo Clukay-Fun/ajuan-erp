@@ -1,4 +1,4 @@
-import { app, ipcMain, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron'
 import { IPC, type AppInfo } from '@shared/ipc'
 import type { IpcResult } from '@shared/types'
 import { state } from './appState'
@@ -106,6 +106,12 @@ export function registerIpc(): void {
     userDataPath: app.getPath('userData'),
     dbPath: state.dbPath
   }))
+  handle(IPC.windowSetTitleBarOverlay, (overlay: { color: string; symbolColor: string; height?: number }) => {
+    const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+    if (win && process.platform === 'win32' && typeof win.setTitleBarOverlay === 'function') {
+      win.setTitleBarOverlay(overlay)
+    }
+  })
   handle(IPC.updateGetState, () => updateApi.getState())
   handle(IPC.updateSetAutoCheck, (enabled: boolean) => updateApi.setAutoCheck(enabled))
   handle(IPC.updateCheck, () => updateApi.check())

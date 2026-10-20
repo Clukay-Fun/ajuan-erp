@@ -4,6 +4,7 @@ import { IPC, type AjuanApi } from '@shared/ipc'
 const api: AjuanApi = {
   app: {
     getInfo: () => ipcRenderer.invoke(IPC.appGetInfo),
+    setTitleBarOverlay: (overlay) => ipcRenderer.invoke(IPC.windowSetTitleBarOverlay, overlay),
     onState: (handler) => {
       const listener = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof handler>[0]) => handler(payload)
       ipcRenderer.on(IPC.windowState, listener)

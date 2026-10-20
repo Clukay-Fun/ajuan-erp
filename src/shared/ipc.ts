@@ -41,6 +41,7 @@ import type {
 export const IPC = {
   appGetInfo: 'app:getInfo',
   windowState: 'window:state',
+  windowSetTitleBarOverlay: 'window:setTitleBarOverlay',
   updateGetState: 'update:getState',
   updateSetAutoCheck: 'update:setAutoCheck',
   updateCheck: 'update:check',
@@ -135,6 +136,7 @@ export interface AjuanApi {
   app: {
     getInfo(): Promise<IpcResult<AppInfo>>
     onState(handler: (state: { maximized: boolean }) => void): () => void
+    setTitleBarOverlay(overlay: { color: string; symbolColor: string; height?: number }): Promise<IpcResult<void>>
   }
   update: {
     getState(): Promise<IpcResult<UpdateState>>
