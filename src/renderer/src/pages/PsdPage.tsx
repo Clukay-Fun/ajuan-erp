@@ -3,7 +3,7 @@
  * 主要功能:
  *   - 三个平级选项卡：生产 / 模板 / 素材库
  *   - 页头：Photoshop 状态胶囊（去设置检查）、打开 PS、任务记录
- *   - 看板每 1.5 秒轮询（仅当前页生效）；任务完成 / 失败弹 Toast
+ *   - 看板来自共享轮询源（lib/psdBoardFeed）：本页在前台时提速到 1.5 秒；任务完成 / 失败的 Toast 由外壳负责
  *   - 素材删除前检查排队中任务与生产页选择；抠白底结果自动弹出确认
  */
 
@@ -15,6 +15,7 @@ import { useToast } from '@/components/Toast'
 import { useNav } from '@/app/navigation'
 import { usePageActive } from '@/app/usePageActive'
 import { unwrap, errorMessage } from '@/lib/api'
+import { usePsdBoard } from '@/lib/psdBoardFeed'
 import { ProductionView } from '@/features/psd/ProductionView'
 import { TemplatesView } from '@/features/psd/TemplatesView'
 import { AssetLibraryView } from '@/features/psd/AssetLibraryView'
@@ -42,7 +43,7 @@ export function PsdPage(): ReactElement {
   const { openDrawer } = useDrawer()
   const { active } = usePageActive('psd')
   const [view, setView] = useState<View>(location.params.psd?.view ?? 'production')
-  const [board, setBoard] = useState<PsdBoard | null>(null)
+  const [board, setBoard, refreshBoard] = usePsdBoard(active)
   const [templateId, setTemplateId] = useState<number | null>(readStoredTemplateId)
   const [busy, setBusy] = useState(false)
   const [deletingAsset, setDeletingAsset] = useState<PsdAsset | null>(null)
@@ -51,18 +52,11 @@ export function PsdPage(): ReactElement {
   const [dismissed, setDismissed] = useState<Set<number>>(() => new Set())
   const selection = useRef<{ ids: Set<number>; clear: () => void }>({ ids: new Set(), clear: () => {} })
 
-  const load = useCallback(async () => {
-    setBoard(await unwrap(window.ajuan.psd.getBoard()))
-  }, [])
-
-  // 只在定制页是当前页时轮询看板；切走暂停，切回来立即补拉一次
+  // 切到定制页时立即补拉一次；之后由共享轮询源按 1.5 秒刷新，切走后回落到低频
   useEffect(() => {
     if (!active) return
-    load().catch((err: unknown) => toast(errorMessage(err), 'error'))
-    // 后台刷新失败不打断操作；「同步结果」仍会显示错误
-    const timer = window.setInterval(() => void load().catch(() => {}), 1500)
-    return () => window.clearInterval(timer)
-  }, [active, load, toast])
+    refreshBoard().catch((err: unknown) => toast(errorMessage(err), 'error'))
+  }, [active, refreshBoard, toast])
 
   // 其他页面带过来的选项卡指令（生产 / 模板 / 素材库）
   const appliedViewSeq = useRef(-1)
@@ -110,7 +104,7 @@ export function PsdPage(): ReactElement {
         setBusy(false)
       }
     },
-    [toast]
+    [setBoard, toast]
   )
 
   const importAsset = useCallback(

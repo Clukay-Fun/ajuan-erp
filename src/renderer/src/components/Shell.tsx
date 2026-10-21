@@ -11,8 +11,9 @@
 import React, { useState, useEffect, useRef, type ReactNode } from 'react'
 import { LayoutDashboard, Package, FileText, Layers, Settings, Plus, ChevronDown } from 'lucide-react'
 import { unwrap } from '@/lib/api'
+import { refreshPsdBoard, subscribePsdBoard } from '@/lib/psdBoardFeed'
 import { useToast } from '@/components/Toast'
-import type { PsdJobStatus } from '@shared/psd'
+import type { PsdBoard, PsdJobStatus } from '@shared/psd'
 import { Menu, type MenuItemOption } from '@/components/ui'
 import { CommandPalette } from '@/components/CommandPalette'
 import { SettingsNav } from '@/components/SettingsNav'
@@ -59,54 +60,36 @@ export function Shell({
   const toast = useToast()
   const jobStatus = useRef<Map<number, PsdJobStatus> | null>(null)
 
-  // 拉取单据草稿数与定制生产失败任务数
+  // 拉取单据草稿数
   useEffect(() => {
-    unwrap(window.ajuan.documents.list({ status: 'draft' }))
-      .then((docs) => setDraftCount(docs.length))
+    unwrap(window.ajuan.documents.count({ status: 'draft' }))
+      .then(setDraftCount)
       .catch(() => setDraftCount(0))
-
-    unwrap(window.ajuan.psd.getBoard())
-      .then((board) => {
-        const failed = (board.jobs || []).filter((j) => j.status === 'failed').length
-        setFailedJobsCount(failed)
-      })
-      .catch(() => setFailedJobsCount(0))
   }, [seq, route])
 
-  // 全局轻量轮询任务状态：无论当前在哪一页，任务完成 / 失败都会弹 Toast，角标同步更新。
-  // 定制页自己的 1.5 秒轮询只负责刷新页面数据，不再重复弹提示。
+  // 订阅共享看板（lib/psdBoardFeed，全应用唯一的轮询）：无论当前在哪一页，任务完成 / 失败都会弹 Toast，角标同步更新。
   useEffect(() => {
-    let alive = true
-    const poll = async (): Promise<void> => {
-      try {
-        const board = await unwrap(window.ajuan.psd.getBoard())
-        if (!alive) return
-        setFailedJobsCount((board.jobs || []).filter((job) => job.status === 'failed').length)
-        const prev = jobStatus.current
-        jobStatus.current = new Map(board.jobs.map((job) => [job.id, job.status]))
-        if (!prev) return
-        for (const job of board.jobs) {
-          const before = prev.get(job.id)
-          if (before !== 'queued' && before !== 'running') continue
-          if (job.status === 'done') {
-            toast(`「${job.title}」已生成`, 'success', {
-              label: '显示文件',
-              onClick: () => void window.ajuan.psd.revealJob(job.id)
-            })
-          } else if (job.status === 'failed') {
-            toast(`「${job.title}」生成失败：${job.error ?? '原因未知'}`, 'error')
-          }
+    const onBoard = (board: PsdBoard): void => {
+      setFailedJobsCount(board.jobs.filter((job) => job.status === 'failed').length)
+      const prev = jobStatus.current
+      jobStatus.current = new Map(board.jobs.map((job) => [job.id, job.status]))
+      if (!prev) return
+      for (const job of board.jobs) {
+        const before = prev.get(job.id)
+        if (before !== 'queued' && before !== 'running') continue
+        if (job.status === 'done') {
+          toast(`「${job.title}」已生成`, 'success', {
+            label: '显示文件',
+            onClick: () => void window.ajuan.psd.revealJob(job.id)
+          })
+        } else if (job.status === 'failed') {
+          toast(`「${job.title}」生成失败：${job.error ?? '原因未知'}`, 'error')
         }
-      } catch {
-        // 后台轮询失败不打断当前操作
       }
     }
-    void poll()
-    const timer = window.setInterval(() => void poll(), 2500)
-    return () => {
-      alive = false
-      window.clearInterval(timer)
-    }
+    const unsubscribe = subscribePsdBoard(onBoard, false)
+    refreshPsdBoard().catch(() => setFailedJobsCount(0))
+    return unsubscribe
   }, [toast])
 
   // 全局快捷键监听 (⌘K, ⌘1~5, ⌘N, ⇧⌘N)

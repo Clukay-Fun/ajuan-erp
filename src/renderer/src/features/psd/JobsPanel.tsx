@@ -3,15 +3,16 @@
  * 主要功能:
  *   - 在「任务」弹窗里列出生成任务：状态、标题、时间、模板与位置
  *   - 完成：在 Finder / 资源管理器中显示；失败：显示原因并可重试；排队中可取消
- *   - 顶部「同步结果」；弹窗内容不随页面重渲染，所以自己每 1.5 秒拉一次
+ *   - 顶部「同步结果」；弹窗内容不随页面重渲染，所以自己订阅共享看板，打开期间按 1.5 秒刷新
  */
 
-import { useCallback, useEffect, useState, type ReactElement } from 'react'
+import { useEffect, useState, type ReactElement } from 'react'
 import { CheckCircle2, Clock, Loader2, XCircle, MinusCircle, RefreshCw } from 'lucide-react'
 import type { PsdBoard, PsdJob, PsdJobStatus } from '@shared/psd'
 import { Button } from '@/components/ui'
 import { useToast } from '@/components/Toast'
 import { unwrap, errorMessage } from '@/lib/api'
+import { usePsdBoard } from '@/lib/psdBoardFeed'
 import { JOB_STATUS_LABEL, shortTime, slotLabel } from './psdLabels'
 import styles from './JobsPanel.module.css'
 
@@ -27,17 +28,11 @@ const STATUS_ICON: Record<PsdJobStatus, ReactElement> = {
 
 export function JobsPanel(): ReactElement {
   const toast = useToast()
-  const [board, setBoard] = useState<PsdBoard | null>(null)
+  const [board, setBoard, load] = usePsdBoard(true)
   const [busy, setBusy] = useState(false)
-
-  const load = useCallback(async () => {
-    setBoard(await unwrap(window.ajuan.psd.getBoard()))
-  }, [])
 
   useEffect(() => {
     void load().catch(() => {})
-    const timer = window.setInterval(() => void load().catch(() => {}), 1500)
-    return () => window.clearInterval(timer)
   }, [load])
 
   async function act(fn: () => Promise<PsdBoard | null>, ok?: string): Promise<void> {
