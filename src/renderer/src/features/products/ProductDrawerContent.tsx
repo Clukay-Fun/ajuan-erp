@@ -1,7 +1,7 @@
 /**
  * 描述: 商品右侧抽屉流核心组件 (ProductDrawerContent)
  * 主要功能:
- *   - 查看模式：64px 缩略图、商品信息、6 格 StatCard 财务概要、期初信息条与就地补录
+ *   - 查看模式：166px 主图、商品信息、5 格 StatCard 财务概要、期初信息条与就地补录
  *   - 调整库存：内嵌统一 AdjustmentForm 折叠表单，支持动态计算与差额盘点
  *   - 变动流水：嵌入多维筛选与分页的 ProductMovements 变动记录
  *   - 编辑与新建模式：集成于右侧抽屉内，支持编码 SKU 动态关联、脏状态离开二次确认
@@ -427,8 +427,9 @@ export function ProductDrawerContent({
       {/* 1. 头部画像卡 */}
       <div className={styles.viewHeader}>
         <div className={styles.profileInfo}>
-          <ProductImage product={product} onChanged={(p) => setProduct(p)} size={64} />
+          <ProductImage product={product} onChanged={(p) => setProduct(p)} size={166} />
           <div className={styles.profileMeta}>
+            <span className={styles.productName}>{product.name}</span>
             <span className={styles.productSub}>
               {product.code} · <span className="mono">{product.defaultSku.code}</span> · {product.unit}
             </span>
@@ -464,7 +465,7 @@ export function ProductDrawerContent({
         </div>
       </div>
 
-      {/* 2. 6 格核心 StatCard 概览网格 */}
+      {/* 2. 5 格核心 StatCard 概览网格（可售天数不在指标区） */}
       <div className={styles.statGrid}>
         <StatCard
           size="sm"
@@ -478,16 +479,6 @@ export function ProductDrawerContent({
           value={stock && stock.quantity > 0 ? `¥${formatCents(stock.avgCostCents)}` : '—'}
         />
         <StatCard size="sm" label="库存成本" value={`¥${formatCents(stock?.costValueCents ?? 0)}`} />
-        <StatCard
-          size="sm"
-          label="可售天数"
-          value={
-            currentHealthItem?.daysOfSupply !== null && currentHealthItem?.daysOfSupply !== undefined
-              ? `约 ${currentHealthItem.daysOfSupply} 天`
-              : '—'
-          }
-          subtext={currentHealthItem?.daysOfSupply === null ? '出库样本不足' : undefined}
-        />
         <StatCard size="sm" label="默认进价" value={`¥${formatCents(product.defaultCostCents)}`} />
         <StatCard size="sm" label="默认售价" value={`¥${formatCents(product.defaultPriceCents)}`} />
       </div>

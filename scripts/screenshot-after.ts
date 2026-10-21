@@ -91,7 +91,7 @@ async function run(): Promise<void> {
         if (want('products')) {
           await nav(page, 2)
           await shot('page-products')
-          await page.locator('main tbody tr').first().click()
+          await page.locator('main [data-product-card]').first().click()
           await sleep(500)
           await shot('modal-product-detail')
           await page.getByRole('dialog').getByRole('button', { name: '编辑', exact: true }).click()

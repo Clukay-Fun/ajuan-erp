@@ -62,7 +62,7 @@ module.exports = async () => {
   await t.ui(`
     ${go}
     await go('商品')
-    rows().find(r => r.innerText.includes('电动车发光小饰品')).click(); await sleep(600)
+    $$('[data-product-card]').find(c => c.innerText.includes('电动车发光小饰品')).click(); await sleep(600)
     await click('调整库存', 300)
     setVal(inputOf('实际盘点数'), '${before - 3}'); setVal(inputOf('原因'), '冒烟：盘点少 1 件'); await sleep(100)
     await click('确认盘亏 1 件', 700)

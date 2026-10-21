@@ -33,7 +33,7 @@ module.exports = async () => {
     for (const name of ['概览', '商品', '单据', '定制', '设置']) {
       await go(name); out[name] = unnamed()
     }
-    await go('商品'); rows()[0].click(); await sleep(600); out['商品弹窗'] = unnamed(); key('Escape'); await sleep(300)
+    await go('商品'); $('[data-product-card]').click(); await sleep(600); out['商品弹窗'] = unnamed(); key('Escape'); await sleep(300)
     await go('单据'); rows()[0].click(); await sleep(600); out['单据弹窗'] = unnamed(); key('Escape'); await sleep(300)
     key('n', { ${process.platform === 'darwin' ? 'metaKey' : 'ctrlKey'}: true }); await sleep(600); out['开单弹窗'] = unnamed(); key('Escape'); await sleep(300)
     return Object.fromEntries(Object.entries(out).filter(([, v]) => v.length))
