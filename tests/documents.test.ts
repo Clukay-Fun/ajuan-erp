@@ -95,6 +95,18 @@ describe('单据草稿', () => {
     expect(listAllDocuments(db, { q: 'CK' })).toHaveLength(1)
   })
 
+  it('搜索按字面量处理 %、_ 和反斜杠', () => {
+    createDraft(db, { ...inbound(1, 1), note: '折扣 50%' })
+    createDraft(db, { ...inbound(1, 1), note: 'a_b' })
+    createDraft(db, { ...inbound(1, 1), note: '普通备注' })
+    expect(countDocuments(db)).toBe(3)
+    expect(countDocuments(db, { q: '%' })).toBe(1)
+    expect(countDocuments(db, { q: '_' })).toBe(1)
+    expect(countDocuments(db, { q: '50%' })).toBe(1)
+    expect(countDocuments(db, { q: 'a_b' })).toBe(1)
+    expect(listDocuments(db, { q: '%' }).map((d) => d.note)).toEqual(['折扣 50%'])
+  })
+
   it('超过 1000 张时列表截断、总数与导出查询不截断', () => {
     const base = Date.UTC(2024, 0, 1)
     for (let i = 0; i < 1001; i++) {

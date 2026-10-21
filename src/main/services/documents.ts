@@ -106,11 +106,13 @@ function documentWhere(filter: DocumentListFilter): { sql: string; params: (stri
   }
   const q = filter.q?.trim().toLowerCase()
   if (q) {
+    // 用户输入按字面量匹配：转义 LIKE 的 % / _ / 反斜杠，避免搜 "%" 时匹配全部单据
+    const literal = q.replace(/[\\%_]/g, '\\$&')
     where.push(
-      `(LOWER(d.doc_no) LIKE ? OR LOWER(COALESCE(d.external_order_no, '')) LIKE ?
-        OR LOWER(COALESCE(c.name, '')) LIKE ? OR LOWER(d.note) LIKE ?)`
+      `(LOWER(d.doc_no) LIKE ? ESCAPE '\\' OR LOWER(COALESCE(d.external_order_no, '')) LIKE ? ESCAPE '\\'
+        OR LOWER(COALESCE(c.name, '')) LIKE ? ESCAPE '\\' OR LOWER(d.note) LIKE ? ESCAPE '\\')`
     )
-    const like = `%${q}%`
+    const like = `%${literal}%`
     params.push(like, like, like, like)
   }
   return { sql: where.length ? `WHERE ${where.join(' AND ')}` : '', params }

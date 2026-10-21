@@ -86,6 +86,7 @@
 - 保留 9 列；窗口不足时表格横向滚动。
 - 「更多」含导出当前列表 CSV 与清除筛选条件；导出由主进程按同一筛选条件生成，不受列表 1000 张上限影响。
 - 筛选交给主进程；列表最多显示最近 1000 张，超过时页面提示「共 N 张，只显示最近 1000 张」，导出仍包含全部 N 张。
+- 搜索按字面量匹配，`%` / `_` / 反斜杠会转义为普通字符，不会意外匹配全部单据。
 - 详情弹窗宽 960px、最大 90vh、内部滚动；金额汇总按 出库 / 入库 / 调整 / 期初 区分；附件、导出、作废规则不变。
 
 ### 定制
@@ -113,7 +114,7 @@
 | --- | --- |
 | `npm run typecheck` | 通过 |
 | `npm run lint` | 通过（颜色合规、CSS 变量、ESLint、Prettier） |
-| `npm test` | 14 个文件 / 116 项通过 |
+| `npm test` | 14 个文件 / 117 项通过 |
 | `npm run build` | 通过 |
 | `npm run e2e`（`ELECTRON_DISABLE_SANDBOX=1`） | 9 个场景通过：a11y、appearance、backup、csv、export-limit、flow、keepalive、psd、smoke |
 

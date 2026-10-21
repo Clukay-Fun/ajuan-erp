@@ -29,14 +29,17 @@ module.exports = async () => {
   assert(scrolled.before > 0, '表格可滚动 ' + JSON.stringify(scrolled))
   eq(scrolled.before, scrolled.after, '切页后表格滚动位置保留')
 
-  // 单据筛选
+  // 单据筛选（保留足够行数，让筛选后的表格仍可滚动）
   const filtered = await t.ui(`
     // step2-filter
-    setVal($('input[placeholder="单号 / 订单号 / 渠道 / 备注"]'), 'CK')
-    $$('[role=tab]').find(b => b.textContent.trim() === '出库').click(); await sleep(400)
-    return { count: text().match(/共 (\\d+) 张/)?.[1], scroll: $$('main table').find(t => t.checkVisibility()).parentElement.scrollTop }
+    setVal($('input[placeholder="单号 / 订单号 / 渠道 / 备注"]'), '2026')
+    await sleep(600)
+    const wrap = $$('main table').find(t => t.checkVisibility()).parentElement
+    wrap.scrollTop = 200; await sleep(150)
+    return { count: text().match(/共 (\\d+) 张/)?.[1], scroll: wrap.scrollTop }
   `)
   assert(filtered.count && Number(filtered.count) > 0, '单据筛选后有结果')
+  assert(filtered.scroll > 0, '筛选后的表格仍可滚动 ' + JSON.stringify(filtered))
 
   // 进设置再返回，筛选和滚动都不丢
   const back = await t.ui(`
@@ -44,23 +47,18 @@ module.exports = async () => {
     try {
       ${go}
       await go('设置', 500)
-      const buttons = $$('aside button').map(b => b.textContent.trim())
       const backBtn = $$('aside button').find(b => b.textContent.trim().startsWith('返回应用'))
       const settingsNav = !!backBtn
       if (backBtn) { backBtn.click(); await sleep(600) }
       return {
         settingsNav,
         query: $('input[placeholder="单号 / 订单号 / 渠道 / 备注"]')?.value,
-        outbound: $$('[role=tab]').find(b => b.textContent.trim() === '出库')?.getAttribute('aria-selected'),
         scroll: $$('main table').find(t => t.checkVisibility())?.parentElement.scrollTop
       }
     } catch (e) { return { error: String(e), buttons: $$('aside button').map(b => b.textContent.trim()) } }
   `)
-  eq(
-    { settingsNav: back.settingsNav, query: back.query, outbound: back.outbound },
-    { settingsNav: true, query: 'CK', outbound: 'true' },
-    '返回应用不丢筛选'
-  )
+  eq({ settingsNav: back.settingsNav, query: back.query }, { settingsNav: true, query: '2026' }, '返回应用不丢筛选')
+  assert(back.scroll > 0, '返回应用后表格仍在滚动位置 ' + JSON.stringify(back))
   eq(back.scroll, filtered.scroll, '返回应用后表格滚动位置一致')
 
   // 隐藏的单据页不响应 ⌘F
