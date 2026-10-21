@@ -61,6 +61,20 @@ module.exports = async () => {
   assert(back.scroll > 0, '返回应用后表格仍在滚动位置 ' + JSON.stringify(back))
   eq(back.scroll, filtered.scroll, '返回应用后表格滚动位置一致')
 
+  // 类型选项卡也是常驻状态：筛到出库后进设置再返回，选项卡仍选中
+  const tab = await t.ui(`
+    // step3b-tab
+    ${go}
+    $$('[role=tab]').find(b => b.textContent.trim() === '出库').click(); await sleep(400)
+    await go('设置', 400)
+    $$('aside button').find(b => b.textContent.trim().startsWith('返回应用')).click(); await sleep(600)
+    return {
+      query: $('input[placeholder="单号 / 订单号 / 渠道 / 备注"]').value,
+      outbound: $$('[role=tab]').find(b => b.textContent.trim() === '出库')?.getAttribute('aria-selected')
+    }
+  `)
+  eq(tab, { query: '2026', outbound: 'true' }, '返回应用不丢类型选项卡')
+
   // 隐藏的单据页不响应 ⌘F
   const shortcut = await t.ui(`
     // step4-shortcut
