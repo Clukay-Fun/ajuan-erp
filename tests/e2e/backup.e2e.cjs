@@ -93,6 +93,15 @@ module.exports = async () => {
     }
   }
   walk(path.join(t.ud, 'attachments'), '')
+  // 外观偏好随备份一起恢复：备份里是 16px 字号的紫色强调色
+  add(
+    'preferences.json',
+    Buffer.from(
+      JSON.stringify({
+        appearance: { version: 1, separate: true, fontUi: 16, dark: { theme: 'custom', accent: '#8844cc' } }
+      })
+    )
+  )
   zip.addFile(
     'manifest.json',
     Buffer.from(
@@ -117,6 +126,26 @@ module.exports = async () => {
   await sleep(1500)
   eq((await t.api('inventory.getStock(1)')).quantity, 50, '恢复后库存回到 50')
   eq((await t.api(`attachments.list(${d.id})`)).length, 1, '附件恢复')
+  const pref = await t.js(`return JSON.parse(localStorage.getItem('ajuan.appearance') || 'null')`)
+  eq([pref && pref.fontUi, pref && pref.dark && pref.dark.accent], [16, '#8844cc'], '外观偏好随备份恢复')
+
+  // 真实创建备份：外观偏好写进 preferences.json 并登记哈希
+  const { dialog } = require('electron')
+  const created = path.join(t.ud, 'created.zip')
+  const original = dialog.showSaveDialog
+  dialog.showSaveDialog = async () => ({ canceled: false, filePath: created })
+  try {
+    await t.api(`backup.create({ appearance: JSON.parse(localStorage.getItem('ajuan.appearance')) })`)
+  } finally {
+    dialog.showSaveDialog = original
+  }
+  const cz = new AdmZip(created)
+  const manifest = JSON.parse(cz.readAsText('manifest.json'))
+  assert(
+    manifest.files.some((f) => f.path === 'preferences.json'),
+    '备份 manifest 登记了 preferences.json'
+  )
+  eq(JSON.parse(cz.readAsText('preferences.json')).appearance.fontUi, 16, '备份里带当前外观偏好')
   const trash = await t.api('backup.listTrash()')
   eq(trash.length, 1, '回收目录一份')
   await t.api('backup.clearTrash()')

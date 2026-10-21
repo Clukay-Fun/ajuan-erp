@@ -22,6 +22,9 @@ export const BACKUP_APP_ID = 'ajuan-inventory'
 export const BACKUP_FORMAT_VERSION = 1
 const DB_ENTRY = 'ajuan.db'
 const MANIFEST_ENTRY = 'manifest.json'
+/** 可选：界面偏好（外观配色等）。旧版应用会校验后忽略它，所以不提升 formatVersion */
+const PREFERENCES_ENTRY = 'preferences.json'
+const PREFERENCES_MAX_BYTES = 64 * 1024
 const ATTACH_PREFIX = 'attachments/'
 
 export interface DataPaths {
@@ -46,7 +49,13 @@ function walk(dir: string): string[] {
  * 生成备份 zip：manifest.json + 一致性数据库副本（VACUUM INTO）+ 附件目录。
  * 数据库副本在 WAL 模式下也能保证完整。
  */
-export function createBackup(db: Db, paths: DataPaths, appVersion: string, outPath: string): BackupManifest {
+export function createBackup(
+  db: Db,
+  paths: DataPaths,
+  appVersion: string,
+  outPath: string,
+  preferences?: Record<string, unknown> | null
+): BackupManifest {
   const tmpDb = `${outPath}.db-tmp`
   if (existsSync(tmpDb)) unlinkSync(tmpDb)
   db.exec(`VACUUM INTO '${tmpDb.replaceAll("'", "''")}'`)
@@ -61,6 +70,13 @@ export function createBackup(db: Db, paths: DataPaths, appVersion: string, outPa
       const buf = readFileSync(full)
       zip.addFile(ATTACH_PREFIX + rel, buf)
       files.push({ path: ATTACH_PREFIX + rel, size: buf.length, sha256: sha256(buf) })
+    }
+    if (preferences) {
+      const buf = Buffer.from(JSON.stringify(preferences))
+      if (buf.length <= PREFERENCES_MAX_BYTES) {
+        zip.addFile(PREFERENCES_ENTRY, buf)
+        files.push({ path: PREFERENCES_ENTRY, size: buf.length, sha256: sha256(buf) })
+      }
     }
     const count = (sql: string): number => (db.prepare(sql).get() as { c: number }).c
     const manifest: BackupManifest = {
@@ -149,6 +165,18 @@ export function inspectBackup(path: string): BackupInspection {
     }
   }
   return { path, manifest, problems }
+}
+
+/** 读取备份里的界面偏好；没有或无法解析时返回 null（调用方应已通过 inspectBackup 校验哈希） */
+export function readBackupPreferences(path: string): Record<string, unknown> | null {
+  const entry = readZip(path).getEntry(PREFERENCES_ENTRY)
+  if (!entry || entry.header.size > PREFERENCES_MAX_BYTES) return null
+  try {
+    const value: unknown = JSON.parse(entry.getData().toString('utf8'))
+    return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
+  } catch {
+    return null
+  }
 }
 
 /**

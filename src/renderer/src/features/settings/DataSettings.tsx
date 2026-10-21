@@ -17,6 +17,7 @@ import { useToast } from '@/components/Toast'
 import { useNav } from '@/app/navigation'
 import { unwrap, errorMessage } from '@/lib/api'
 import { emitDataChanged } from '@/lib/dataEvents'
+import { backupPreferences } from '@/lib/appearance'
 import { TrashSettings } from './TrashSettings'
 import styles from './SettingsCard.module.css'
 
@@ -52,7 +53,7 @@ export function DataSettings(): ReactElement {
 
   const createBackup = (): Promise<void> =>
     run('backup', async () => {
-      const p = await unwrap(window.ajuan.backup.create())
+      const p = await unwrap(window.ajuan.backup.create(backupPreferences()))
       if (p) toast(`备份已保存到 ${p}`, 'success')
     })
 
@@ -108,7 +109,9 @@ export function DataSettings(): ReactElement {
     <>
       <section className={styles.card}>
         <h2 className={styles.title}>备份</h2>
-        <p className={styles.hint}>备份包含数据库和全部图片附件，是一个 zip 文件。建议定期备份到其他磁盘或网盘。</p>
+        <p className={styles.hint}>
+          备份包含数据库、全部图片附件和外观设置，是一个 zip 文件。建议定期备份到其他磁盘或网盘。
+        </p>
         <div className={styles.row}>
           <div>
             <div className={styles.label}>创建备份</div>
@@ -241,7 +244,7 @@ export function DataSettings(): ReactElement {
         onOpenChange={(o) => !o && setConfirm(null)}
         danger
         title="恢复备份？"
-        description="将用备份替换全部数据；当前数据会先移入回收目录。恢复后应用会重新加载。"
+        description="将用备份替换全部数据；备份里有外观设置时也会一并恢复。当前数据会先移入回收目录，恢复后应用会重新加载。"
         confirmText="恢复备份"
         loading={busy === 'restore'}
         onConfirm={restore}

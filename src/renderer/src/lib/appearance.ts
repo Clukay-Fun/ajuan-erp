@@ -52,6 +52,7 @@ const NEUTRAL_DARK: Palette = {
   foreground: '#e5e7eb'
 }
 
+// 主进程恢复备份时按这个键写回（src/main/backupIo.ts），改名需同步
 const KEY = 'ajuan.appearance'
 
 export function defaultAppearance(): AppearancePref {
@@ -94,6 +95,11 @@ function normalizeAppearance(input: Partial<AppearancePref>): AppearancePref {
     fontTable: clamp(Number(input.fontTable) || base.fontTable, 10, 15),
     reduceMotion: input.reduceMotion === 'on' || input.reduceMotion === 'off' ? input.reduceMotion : 'system'
   }
+}
+
+/** 随备份保存的界面偏好（preferences.json）；恢复时主进程把 appearance 写回 localStorage */
+export function backupPreferences(): Record<string, unknown> {
+  return { appearance: { ...readAppearance() } }
 }
 
 export function writeAppearance(pref: AppearancePref): void {

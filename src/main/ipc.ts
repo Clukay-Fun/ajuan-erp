@@ -184,7 +184,7 @@ export function registerIpc(): void {
     addAttachment(state.db, state.attachmentsDir, documentId, upload)
   )
   handle(IPC.attachmentsRemove, (id: number) => removeAttachment(state.db, state.attachmentsDir, id))
-  handle(IPC.backupCreate, () => createBackupInteractive())
+  handle(IPC.backupCreate, (preferences: unknown) => createBackupInteractive(preferences))
   handle(IPC.backupPick, () => pickBackupFile())
   handle(IPC.backupInspect, (path: string) => inspectBackupFile(path))
   handle(IPC.backupRestore, (path: string) => restoreBackupFile(path))

@@ -245,11 +245,11 @@ export interface AjuanApi {
     remove(id: number): Promise<IpcResult<void>>
   }
   backup: {
-    /** 保存对话框 → 生成备份，取消返回 null */
-    create(): Promise<IpcResult<string | null>>
+    /** 保存对话框 → 生成备份，取消返回 null；preferences 为界面偏好（外观配色等），随备份一起保存 */
+    create(preferences?: Record<string, unknown>): Promise<IpcResult<string | null>>
     pick(): Promise<IpcResult<string | null>>
     inspect(path: string): Promise<IpcResult<BackupInspection>>
-    /** 恢复成功后主进程会重新加载窗口 */
+    /** 恢复成功后主进程会重新加载窗口；备份里带界面偏好时先写回 renderer 再重载 */
     restore(path: string): Promise<IpcResult<void>>
     listTrash(): Promise<IpcResult<TrashEntry[]>>
     clearTrash(): Promise<IpcResult<void>>

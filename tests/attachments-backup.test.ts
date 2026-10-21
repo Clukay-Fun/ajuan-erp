@@ -13,7 +13,7 @@ import {
   removeAttachment,
   resolveAttachmentPath
 } from '../src/main/services/attachments'
-import { createBackup, inspectBackup, restoreBackup } from '../src/main/services/backup'
+import { createBackup, inspectBackup, readBackupPreferences, restoreBackup } from '../src/main/services/backup'
 import { getStock } from '../src/main/services/inventory'
 
 const PNG = new Uint8Array([
@@ -159,6 +159,28 @@ describe('备份与恢复', () => {
     expect(trash).toHaveLength(1)
     expect(existsSync(join(root, 'trash', trash[0], 'ajuan.db'))).toBe(true)
     db = openDatabase(paths.dbPath)
+  })
+
+  it('界面偏好随备份保存、计入哈希校验；没有偏好的旧备份照常恢复', () => {
+    const prefs = { appearance: { version: 1, separate: true, fontUi: 15 } }
+    const out = join(root, 'p.zip')
+    const m = createBackup(db, paths, '0.1.0', out, prefs)
+    expect(m.formatVersion).toBe(1)
+    expect(m.files.map((f) => f.path)).toContain('preferences.json')
+    expect(inspectBackup(out).problems).toEqual([])
+    expect(readBackupPreferences(out)).toEqual(prefs)
+
+    // 篡改偏好文件会被识别为损坏
+    const z = new AdmZip(out)
+    z.updateFile('preferences.json', Buffer.from('{"appearance":{}}'))
+    const tampered = join(root, 'pt.zip')
+    z.writeZip(tampered)
+    expect(inspectBackup(tampered).problems.join('\n')).toMatch(/preferences\.json/)
+
+    // 不带偏好的备份：没有该文件，读取返回 null
+    const plain = join(root, 'plain.zip')
+    createBackup(db, paths, '0.1.0', plain)
+    expect(readBackupPreferences(plain)).toBeNull()
   })
 
   it('非本应用 / 高版本 / 缺文件 的备份被识别', () => {

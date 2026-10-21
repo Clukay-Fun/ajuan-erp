@@ -14,6 +14,7 @@ import { DrawerHost, useDrawer } from '@/components/ui'
 import { NavProvider, useNav } from './navigation'
 import { useEntityDrawers } from './entityDrawers'
 import { unwrap, errorMessage } from '@/lib/api'
+import { backupPreferences } from '@/lib/appearance'
 import type { Product } from '@shared/types'
 import type { RouteKey } from './routes'
 import { OverviewPage } from '@/pages/OverviewPage'
@@ -98,7 +99,7 @@ function Routed(): ReactElement {
           .catch((err) => toast(errorMessage(err), 'error'))
         return
       case 'backup-create':
-        void unwrap(window.ajuan.backup.create())
+        void unwrap(window.ajuan.backup.create(backupPreferences()))
           .then((p) => p && toast(`备份已保存到: ${p}`, 'success'))
           .catch((err) => toast(errorMessage(err), 'error'))
         return
