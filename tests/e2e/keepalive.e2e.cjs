@@ -96,4 +96,15 @@ module.exports = async () => {
     return $('input[aria-label="定制标题"]').value
   `)
   eq(title, '还没提交的标题', '定制页未提交输入保留')
+
+  // 设置分类也记住上次位置
+  const section = await t.ui(`
+    ${go}
+    await go('设置', 500)
+    settingsNav('数据', 300)
+    $$('aside button').find(b => b.textContent.trim().startsWith('返回应用')).click(); await sleep(500)
+    await go('设置', 500)
+    return $$('aside button').find(b => b.getAttribute('aria-current') === 'page')?.textContent.trim()
+  `)
+  assert(section && section.startsWith('数据'), '设置分类保持在数据')
 }
