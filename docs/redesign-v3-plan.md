@@ -1,5 +1,7 @@
 # 阿卷 ERP 五页面改版（V3）实施计划
 
+> **状态（2026-10-21）**：阶段 1–7 已全部执行完成，交付说明与验证结果见 `docs/redesign-v3-notes.md`，截图见 `docs/redesign/v3/`。
+
 > 输入：
 > - 原型：`~/Desktop/综合页.html`（即「阿卷ERP_五页面整合版_V3」，五个页面以 JSON 字符串存在 `sources` 里，靠 iframe 切换）
 > - 需求：`~/Desktop/开发说明.md`（即「五页面改版_Codex开发说明_V1」）
