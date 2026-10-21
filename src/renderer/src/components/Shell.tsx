@@ -1,7 +1,7 @@
 /**
  * 描述: 工作台全局外壳组件 (Shell)
  * 主要功能:
- *   - 侧边栏宽度跟文字走，不提供收起
+ *   - 固定宽度主侧栏（不提供收起）；进入设置后整体替换为设置专属导航
  *   - macOS 沉浸式标题栏与安全红绿灯拖拽避让区
  *   - 「开单」分体按钮，支持出库单 (⌘N)、入库单 (⇧⌘N)、库存调整与 CSV 导入
  *   - 单据草稿数 (琥珀色) 与定制失败数 (红色) 实时角标统计
@@ -13,7 +13,9 @@ import { LayoutDashboard, Package, FileText, Layers, Settings, Plus, ChevronDown
 import { unwrap } from '@/lib/api'
 import { Menu, type MenuItemOption } from '@/components/ui'
 import { CommandPalette } from '@/components/CommandPalette'
+import { SettingsNav } from '@/components/SettingsNav'
 import type { RouteKey } from '@/app/routes'
+import type { SettingsSectionKey } from '@/pages/settingsSections'
 import styles from './Shell.module.css'
 
 export interface ShellProps {
@@ -21,6 +23,9 @@ export interface ShellProps {
   seq: number
   onNavigate: (key: RouteKey) => void
   onAction?: (actionId: string, payload?: any) => void
+  settingsSection?: SettingsSectionKey
+  onSelectSettingsSection?: (key: SettingsSectionKey) => void
+  onBackToApp?: () => void
   children: ReactNode
 }
 
@@ -35,10 +40,20 @@ export interface ShellProps {
  * 功能:
  *   - 红绿灯占位与全局命令面板
  */
-export function Shell({ route, seq, onNavigate, onAction, children }: ShellProps): React.JSX.Element {
+export function Shell({
+  route,
+  seq,
+  onNavigate,
+  onAction,
+  settingsSection = 'appearance',
+  onSelectSettingsSection,
+  onBackToApp,
+  children
+}: ShellProps): React.JSX.Element {
   const [draftCount, setDraftCount] = useState<number>(0)
   const [failedJobsCount, setFailedJobsCount] = useState<number>(0)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const isSettings = route === 'settings'
 
   // 拉取单据草稿数与定制生产失败任务数
   useEffect(() => {
@@ -144,7 +159,7 @@ export function Shell({ route, seq, onNavigate, onAction, children }: ShellProps
   ): React.JSX.Element => {
     const isActive = route === key
 
-    const navButton = (
+    return (
       <button
         type="button"
         className={`${styles.navItem} ${isActive ? styles.active : ''}`}
@@ -160,57 +175,66 @@ export function Shell({ route, seq, onNavigate, onAction, children }: ShellProps
         )}
       </button>
     )
-
-    return navButton
   }
 
   return (
     <div className={styles.shell}>
-      {/* 统一桌面侧栏 */}
-      <aside className={styles.sidebar}>
-        {/* macOS 红绿灯留白区 */}
-        <div className={styles.dragArea} />
-
-        {/* 开单分体按钮 */}
-        <div className={styles.actionArea}>
-          <div className={styles.splitButton}>
-            <button
-              type="button"
-              className={styles.splitMain}
-              onClick={() => onAction?.('new-outbound')}
-              title="新建出库单 (⌘N)"
-            >
-              <Plus size={14} />
-              <span>新建出库单</span>
-            </button>
-
-            <Menu
-              side="bottom"
-              align="end"
-              trigger={
-                <button type="button" className={styles.splitTrigger} aria-label="更多开单选项">
-                  <ChevronDown size={14} />
-                </button>
-              }
-              items={actionMenuItems}
+      {/* 统一桌面侧栏；设置模式下整体替换为设置导航 */}
+      <aside className={`${styles.sidebar} ${isSettings ? styles.settingsSidebar : ''}`}>
+        {isSettings ? (
+          <>
+            <div className={styles.dragArea} />
+            <SettingsNav
+              active={settingsSection}
+              onSelect={(key) => onSelectSettingsSection?.(key)}
+              onBack={() => onBackToApp?.()}
             />
-          </div>
-        </div>
+          </>
+        ) : (
+          <>
+            {/* macOS 红绿灯留白区 */}
+            <div className={styles.dragArea} />
 
-        {/* 主导航区 */}
-        <nav className={styles.nav} aria-label="应用主导航">
-          {renderNavItem('overview', '概览', <LayoutDashboard size={18} />)}
-          {renderNavItem('products', '商品', <Package size={18} />)}
-          {renderNavItem('documents', '单据', <FileText size={18} />, draftCount, 'draft')}
+            {/* 开单分体按钮 */}
+            <div className={styles.actionArea}>
+              <div className={styles.splitButton}>
+                <button
+                  type="button"
+                  className={styles.splitMain}
+                  onClick={() => onAction?.('new-outbound')}
+                  title="新建出库单 (⌘N)"
+                >
+                  <Plus size={14} />
+                  <span>新建出库单</span>
+                </button>
 
-          <div className={styles.navGroupTitle}>生产</div>
-          {renderNavItem('psd', '定制', <Layers size={18} />, failedJobsCount, 'error')}
-        </nav>
+                <Menu
+                  side="bottom"
+                  align="end"
+                  trigger={
+                    <button type="button" className={styles.splitTrigger} aria-label="更多开单选项">
+                      <ChevronDown size={14} />
+                    </button>
+                  }
+                  items={actionMenuItems}
+                />
+              </div>
+            </div>
 
-        <div className={styles.footerArea}>{renderNavItem('settings', '设置', <Settings size={18} />)}</div>
+            {/* 主导航区 */}
+            <nav className={styles.nav} aria-label="应用主导航">
+              {renderNavItem('overview', '概览', <LayoutDashboard size={18} />)}
+              {renderNavItem('products', '商品', <Package size={18} />)}
+              {renderNavItem('documents', '单据', <FileText size={18} />, draftCount, 'draft')}
+              {renderNavItem('psd', '定制', <Layers size={18} />, failedJobsCount, 'error')}
+            </nav>
+
+            <div className={styles.footerArea}>{renderNavItem('settings', '设置', <Settings size={18} />)}</div>
+          </>
+        )}
       </aside>
 
-      {/* 主视图内容视口 */}
+      {/* 主视图内容视口：页面层各自滚动，切换时保留滚动位置 */}
       <main className={styles.content}>
         <div className={styles.contentInner}>{children}</div>
       </main>

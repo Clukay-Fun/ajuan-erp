@@ -13,6 +13,7 @@ import type { PsdAsset, PsdBoard, PsdJobStatus, PsdTemplate } from '@shared/psd'
 import { Button, ConfirmDialog, SegmentedControl, useDrawer } from '@/components/ui'
 import { useToast } from '@/components/Toast'
 import { useNav } from '@/app/navigation'
+import { usePageActive } from '@/app/usePageActive'
 import { unwrap, errorMessage } from '@/lib/api'
 import { ProductionView } from '@/features/psd/ProductionView'
 import { TemplatesView } from '@/features/psd/TemplatesView'
@@ -27,6 +28,7 @@ type View = 'production' | 'templates'
 export function PsdPage(): ReactElement {
   const toast = useToast()
   const { location, navigate } = useNav()
+  const { active } = usePageActive('psd')
   const { openDrawer } = useDrawer()
   const [view, setView] = useState<View>(location.params.psd?.view ?? 'production')
   const [board, setBoard] = useState<PsdBoard | null>(null)
@@ -40,12 +42,23 @@ export function PsdPage(): ReactElement {
     setBoard(await unwrap(window.ajuan.psd.getBoard()))
   }, [])
 
+  // 只在定制页是当前页时轮询看板；切走暂停，切回来立即补拉一次
   useEffect(() => {
+    if (!active) return
     load().catch((err: unknown) => toast(errorMessage(err), 'error'))
     // 后台刷新失败不打断操作；「同步结果」仍会显示错误
     const timer = window.setInterval(() => void load().catch(() => {}), 1500)
     return () => window.clearInterval(timer)
-  }, [load, toast])
+  }, [active, load, toast])
+
+  // 其他页面带过来的选项卡指令（生产 / 模板）
+  const appliedViewSeq = useRef(-1)
+  useEffect(() => {
+    if (!active || appliedViewSeq.current === location.seq) return
+    appliedViewSeq.current = location.seq
+    const requested = location.params.psd?.view
+    if (requested) setView(requested)
+  }, [active, location.seq, location.params.psd?.view])
 
   // 任务从排队 / 生成中变为完成或失败时提示一次
   useEffect(() => {
@@ -126,7 +139,7 @@ export function PsdPage(): ReactElement {
     <div className={styles.container}>
       <header className={styles.header}>
         <div className={styles.headLeft}>
-          <h1 className={styles.title}>定制</h1>
+          <h1 className="srOnly">定制</h1>
           <SegmentedControl
             options={[
               { value: 'production', label: '生产' },

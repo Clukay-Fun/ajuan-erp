@@ -159,7 +159,10 @@ async function run(): Promise<void> {
             ['数据', 'data'],
             ['更新与关于', 'about']
           ]) {
-            await page.getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: label }).click()
+            await page
+              .getByRole('navigation', { name: '设置分类' })
+              .getByRole('button', { name: new RegExp(`^${label}`) })
+              .click()
             await sleep(300)
             await shot(name === 'photoshop' ? 'drawer-psd-settings' : `page-settings-${name}`)
           }

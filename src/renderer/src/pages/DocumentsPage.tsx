@@ -22,6 +22,7 @@ import {
   type DateRange
 } from '@/components/ui'
 import { useNav } from '@/app/navigation'
+import { usePageActive } from '@/app/usePageActive'
 import { useEntityDrawers } from '@/app/entityDrawers'
 import { unwrap, errorMessage } from '@/lib/api'
 import { useDataChanged } from '@/lib/dataEvents'
@@ -42,6 +43,7 @@ const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
 
 export function DocumentsPage(): React.JSX.Element {
   const { location } = useNav()
+  const { active, activation } = usePageActive('documents')
   const initial = location.params.documents ?? {}
   const { currentDrawer } = useDrawer()
   const { openDocument, openAdjustment, openImport } = useEntityDrawers()
@@ -69,8 +71,26 @@ export function DocumentsPage(): React.JSX.Element {
   }, [load])
   useDataChanged(() => void load())
 
-  // ⌘F 聚焦搜索框
+  // 从别的页面切回来时刷新
   useEffect(() => {
+    if (activation > 0) void load()
+  }, [activation, load])
+
+  // 页面已常驻：其他页面带过来的筛选作为「外部指令」，只改对应条件，不重置其余状态
+  const appliedSeq = useRef(-1)
+  useEffect(() => {
+    if (!active || appliedSeq.current === location.seq) return
+    appliedSeq.current = location.seq
+    const next = location.params.documents
+    if (!next) return
+    if (next.type) setType(next.type)
+    if (next.status) setStatus(next.status)
+    if (next.from || next.to) setRange({ from: next.from ?? '', to: next.to ?? '' })
+  }, [active, location.seq, location.params.documents])
+
+  // ⌘F 聚焦搜索框：只在单据页是当前页时生效
+  useEffect(() => {
+    if (!active) return
     const onKey = (e: KeyboardEvent): void => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault()
@@ -79,7 +99,7 @@ export function DocumentsPage(): React.JSX.Element {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [active])
 
   const draftCount = useMemo(() => docs?.filter((d) => d.status === 'draft').length ?? 0, [docs])
 
@@ -99,7 +119,7 @@ export function DocumentsPage(): React.JSX.Element {
   return (
     <div className={styles.container}>
       <header className={styles.headerRow}>
-        <h1 className={styles.headerTitle}>单据</h1>
+        <h1 className="srOnly">单据</h1>
         <div className={styles.headerActions}>
           <NewDocumentButton />
           <Menu

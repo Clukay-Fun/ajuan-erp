@@ -5,7 +5,7 @@ const { launch, assert, eq } = require('./harness.cjs')
 module.exports = async () => {
   const t = await launch()
   await t.ui(`
-    await click('商品'); $$('tbody tr')[0].click(); await sleep(500); await click('录入期初库存', 200)
+    await click('商品'); rows()[0].click(); await sleep(500); await click('录入期初库存', 200)
     setVal(inputOf('期初数量'), '100'); setVal(inputOf('单件成本 (元)'), '10')
     await click('确认期初', 600)
   `)
@@ -41,7 +41,7 @@ module.exports = async () => {
   const dup = await t.ui(`
     await click('开单', 600)
     await pickOption(0, '抖音小店')
-    setVal(inputOf('外部订单号'), 'DY001'); await sleep(600)
+    setVal(inputOf('外部订单号'), 'DY001'); await sleep(1200)
     return text().includes('相同订单号')
   `)
   assert(dup, '同渠道同订单号应提示重复')
@@ -61,7 +61,7 @@ module.exports = async () => {
 
   await t.ui(`
     await click('单据', 400)
-    $$('tbody tr').find(r => r.innerText.includes('${ckNo}')).click(); await sleep(500)
+    rows().find(r => r.innerText.includes('${ckNo}')).click(); await sleep(500)
     await click('作废', 300)
     setVal(inputOf('作废原因'), '发错货'); await click('作废并冲回', 700)
   `)
@@ -72,7 +72,7 @@ module.exports = async () => {
   )
   // 库存调整：商品抽屉里按盘点数盘亏 5
   await t.ui(`
-    await click('商品'); $$('tbody tr')[0].click(); await sleep(500); await click('调整库存', 300)
+    await click('商品'); rows()[0].click(); await sleep(500); await click('调整库存', 300)
     setVal(inputOf('实际盘点数'), '145'); setVal(inputOf('原因'), '月末盘点少 5 件'); await sleep(100)
     await click('确认盘亏 5 件', 600)
   `)
@@ -88,10 +88,10 @@ module.exports = async () => {
   const settings = await t.ui(`
     await click('设置')
     $$('[role=radio]').find(b => b.textContent.startsWith('深色')).click(); await sleep(100)
-    await click('销售渠道')
+    await settingsNav('销售渠道')
     setVal($('input[placeholder=新渠道名称]'), '小红书'); await click('添加', 300)
     const channel = text().includes('小红书')
-    await click('更新与关于')
+    await settingsNav('更新与关于')
     return {
       channel,
       theme: document.documentElement.getAttribute('data-theme'),
@@ -108,7 +108,7 @@ module.exports = async () => {
   )
   await t.shot('flow-settings-update.png')
   await t.ui(
-    `await click('外观'); $$('[role=radio]').find(b => b.textContent.startsWith('跟随系统')).click(); await sleep(100)`
+    `await settingsNav('外观'); $$('[role=radio]').find(b => b.textContent.startsWith('跟随系统')).click(); await sleep(100)`
   )
 
   // 快捷键：⌘/Ctrl+N 新建出库单，⇧⌘/Ctrl+N 新建入库单

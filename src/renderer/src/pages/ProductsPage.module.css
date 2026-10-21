@@ -29,6 +29,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  margin-left: auto;
 }
 
 /* 主面板撑满视口高度 */

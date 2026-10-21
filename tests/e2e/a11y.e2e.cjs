@@ -9,6 +9,10 @@ const UNNAMED = `const unnamed = () => $$('button, [role=button], a[href]')
   .map(b => (b.closest('[role=dialog]') ? '弹窗 ' : '') + b.outerHTML.slice(0, 120))`
 
 const GO = `const go = async (name, wait = 500) => {
+  if (name !== '设置') {
+    const back = $$('aside button').find(b => b.textContent.trim().startsWith('返回应用'))
+    if (back) { back.click(); await sleep(300) }
+  }
   const b = $$('nav button, aside button').find(b => b.textContent.trim().startsWith(name))
   if (!b) throw new Error('找不到侧栏：' + name); b.click(); await sleep(wait)
 }`
@@ -16,6 +20,10 @@ const GO = `const go = async (name, wait = 500) => {
 module.exports = async () => {
   const t = await launch()
   await t.api('demo.seed()')
+  // 无头环境下窗口不一定有焦点，:focus-visible 不会生效；用 CDP 强制页面保持焦点
+  const dbg = t.current().webContents.debugger
+  dbg.attach('1.3')
+  await dbg.sendCommand('Emulation.setFocusEmulationEnabled', { enabled: true })
 
   // 1. 每个页面与主要弹窗：图标按钮都有 aria-label
   const missing = await t.ui(`
@@ -25,8 +33,8 @@ module.exports = async () => {
     for (const name of ['概览', '商品', '单据', '定制', '设置']) {
       await go(name); out[name] = unnamed()
     }
-    await go('商品'); $$('tbody tr')[0].click(); await sleep(600); out['商品弹窗'] = unnamed(); key('Escape'); await sleep(300)
-    await go('单据'); $$('tbody tr')[0].click(); await sleep(600); out['单据弹窗'] = unnamed(); key('Escape'); await sleep(300)
+    await go('商品'); rows()[0].click(); await sleep(600); out['商品弹窗'] = unnamed(); key('Escape'); await sleep(300)
+    await go('单据'); rows()[0].click(); await sleep(600); out['单据弹窗'] = unnamed(); key('Escape'); await sleep(300)
     key('n', { ${process.platform === 'darwin' ? 'metaKey' : 'ctrlKey'}: true }); await sleep(600); out['开单弹窗'] = unnamed(); key('Escape'); await sleep(300)
     return Object.fromEntries(Object.entries(out).filter(([, v]) => v.length))
   `)
@@ -61,7 +69,7 @@ module.exports = async () => {
   const opened = await t.ui(`
     ${GO}
     await go('单据')
-    const row = $$('tbody tr')[1]; row.focus(); row.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await sleep(600)
+    const row = rows()[1]; row.focus(); row.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await sleep(600)
     window.__a11yRow = row
     return !!$('[role=dialog]')
   `)
@@ -70,8 +78,7 @@ module.exports = async () => {
   eq(back, { opened: true, restored: true }, '弹窗关闭后焦点回到原处')
 
   // 4. 减少动态效果：模拟系统设置后，过渡与动画时长为 0
-  await t.current().webContents.debugger.attach('1.3')
-  await t.current().webContents.debugger.sendCommand('Emulation.setEmulatedMedia', {
+  await dbg.sendCommand('Emulation.setEmulatedMedia', {
     features: [{ name: 'prefers-reduced-motion', value: 'reduce' }]
   })
   const motion = await t.ui(`

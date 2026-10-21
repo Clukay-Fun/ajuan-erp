@@ -29,6 +29,7 @@ import { formatCents, formatQty } from '@/lib/format'
 import { productImageUrl } from '@/features/products/ProductImage'
 import { useEntityDrawers } from '@/app/entityDrawers'
 import { useDataChanged } from '@/lib/dataEvents'
+import { usePageActive } from '@/app/usePageActive'
 import styles from './ProductsPage.module.css'
 
 // #region ProductsPage 组件实现
@@ -40,6 +41,7 @@ import styles from './ProductsPage.module.css'
  */
 export function ProductsPage(): React.JSX.Element {
   const toast = useToast()
+  const { activation } = usePageActive('products')
   const { currentDrawer } = useDrawer()
   const { openProduct, newProduct, openImport } = useEntityDrawers()
 
@@ -77,6 +79,11 @@ export function ProductsPage(): React.JSX.Element {
   useEffect(() => {
     void loadData()
   }, [loadData])
+
+  // 从别的页面切回来时刷新库存与健康度
+  useEffect(() => {
+    if (activation > 0) void loadData()
+  }, [activation, loadData])
 
   // #endregion
 
@@ -169,7 +176,7 @@ export function ProductsPage(): React.JSX.Element {
     <div className={styles.container}>
       {/* 顶部页头与核心操作 */}
       <header className={styles.headerRow}>
-        <h1 className={styles.headerTitle}>商品</h1>
+        <h1 className="srOnly">商品</h1>
         <div className={styles.headerActions}>
           <Button variant="primary" onClick={newProduct}>
             <Plus size={16} /> 新建商品

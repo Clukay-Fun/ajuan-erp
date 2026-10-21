@@ -8,3 +8,7 @@ export const SETTINGS_SECTIONS = [
 ] as const
 
 export type SettingsSectionKey = (typeof SETTINGS_SECTIONS)[number]['key']
+
+export function isSettingsSection(value: string | undefined): value is SettingsSectionKey {
+  return SETTINGS_SECTIONS.some((section) => section.key === value)
+}

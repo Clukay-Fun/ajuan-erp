@@ -33,6 +33,7 @@ import { useToast } from '@/components/Toast'
 import { unwrap, errorMessage } from '@/lib/api'
 import { formatCents, formatQty, shiftDate, todayString } from '@/lib/format'
 import { useNav } from '@/app/navigation'
+import { usePageActive } from '@/app/usePageActive'
 import { TrendChart } from '@/features/overview/TrendChart'
 import { productImageUrl } from '@/features/products/ProductImage'
 import styles from './OverviewPage.module.css'
@@ -94,6 +95,7 @@ let sessionView: {
  */
 export function OverviewPage(): React.JSX.Element {
   const { navigate } = useNav()
+  const { activation } = usePageActive('overview')
   const toast = useToast()
   const { openProduct, openDocument, newProduct, newDocument, openImport } = useEntityDrawers()
 
@@ -189,6 +191,13 @@ export function OverviewPage(): React.JSX.Element {
       active = false
     }
   }, [loadData])
+
+  // 从别的页面切回来时刷新（原先靠 seq 重新挂载实现）
+  useEffect(() => {
+    if (activation === 0) return
+    void loadData()
+    setRefreshKey((k) => k + 1)
+  }, [activation, loadData])
 
   // 当时间范围或商品筛选改变时，刷新区间统计与时序
   useEffect(() => {
@@ -320,7 +329,7 @@ export function OverviewPage(): React.JSX.Element {
     return (
       <div className={styles.container}>
         <div className={styles.headerRow}>
-          <h1 className={styles.headerTitle}>概览</h1>
+          <h1 className="srOnly">概览</h1>
         </div>
         <EmptyState
           icon={<PackageIconPlaceholder />}
@@ -366,7 +375,7 @@ export function OverviewPage(): React.JSX.Element {
       {/* 1. 顶部页头栏：标题、智能日期提示、时间范围选择器 */}
       <header className={styles.headerRow}>
         <div className={styles.headerLeft}>
-          <h1 className={styles.headerTitle}>概览</h1>
+          <h1 className="srOnly">概览</h1>
           {smartShiftInfo && (
             <div className={styles.smartRangeHint}>
               <Sparkles size={13} style={{ color: 'var(--accent)' }} />

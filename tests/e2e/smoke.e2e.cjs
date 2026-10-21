@@ -9,6 +9,10 @@ module.exports = async () => {
   const mod = process.platform === 'darwin' ? 'metaKey' : 'ctrlKey'
   // 侧栏按钮可能带角标（如「单据1」），按前缀找
   const go = `const go = async (name, wait = 500) => {
+    if (name !== '设置') {
+      const back = $$('aside button').find(b => b.textContent.trim().startsWith('返回应用'))
+      if (back) { back.click(); await sleep(300) }
+    }
     const b = $$('nav button, aside button').find(b => b.textContent.trim().startsWith(name))
     if (!b) throw new Error('找不到侧栏：' + name); b.click(); await sleep(wait)
   }`
@@ -23,7 +27,7 @@ module.exports = async () => {
     ${go}
     const out = []
     for (const name of ['概览', '商品', '单据', '定制', '设置']) {
-      await go(name); out.push($('main h1')?.textContent.trim())
+      await go(name); out.push([...$('main').querySelectorAll('h1')].find(h => h.offsetParent !== null)?.textContent.trim())
     }
     return out
   `)
@@ -58,7 +62,7 @@ module.exports = async () => {
   await t.ui(`
     ${go}
     await go('商品')
-    $$('tbody tr').find(r => r.innerText.includes('电动车发光小饰品')).click(); await sleep(600)
+    rows().find(r => r.innerText.includes('电动车发光小饰品')).click(); await sleep(600)
     await click('调整库存', 300)
     setVal(inputOf('实际盘点数'), '${before - 3}'); setVal(inputOf('原因'), '冒烟：盘点少 1 件'); await sleep(100)
     await click('确认盘亏 1 件', 700)
@@ -71,7 +75,7 @@ module.exports = async () => {
     ${confirmIn}
     ${go}
     await go('单据')
-    $$('tbody tr').find(r => r.innerText.includes('${newDoc.docNo}')).click(); await sleep(600)
+    rows().find(r => r.innerText.includes('${newDoc.docNo}')).click(); await sleep(600)
     await click('作废', 300)
     setVal(inputOf('作废原因'), '冒烟：作废'); await confirmIn('作废并冲回', 800)
     key('Escape'); await sleep(300)
@@ -83,7 +87,7 @@ module.exports = async () => {
   assert(draft, '示例数据里有草稿')
   await t.ui(`
     ${confirmIn}
-    $$('tbody tr').find(r => r.innerText.includes('${draft.docNo}')).click(); await sleep(600)
+    rows().find(r => r.innerText.includes('${draft.docNo}')).click(); await sleep(600)
     await click('确认出库', 400)
     await confirmIn('确认出库', 800)
     key('Escape'); await sleep(300)

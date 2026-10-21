@@ -17,10 +17,15 @@
   border-right: 1px solid var(--border-subtle);
   height: 100vh;
   flex-shrink: 0;
-  width: max-content;
+  width: 170px;
   overflow: hidden;
   position: relative;
   z-index: 10;
+}
+
+/* 设置模式：整栏换成设置导航，宽度略宽以容纳分类说明 */
+.sidebar.settingsSidebar {
+  width: 230px;
 }
 
 /* macOS 顶部红绿灯占位拖拽区 */
@@ -228,15 +233,8 @@
 
 .contentInner {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: var(--space-3) var(--space-6) var(--space-5);
-}
-
-@media (max-width: 1100px) {
-  .contentInner {
-    padding: var(--space-3) var(--space-4) var(--space-4);
-  }
+  overflow: hidden;
 }

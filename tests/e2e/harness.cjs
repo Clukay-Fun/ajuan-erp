@@ -59,12 +59,15 @@ const UI_HELPERS = `
   const click = async (text, wait = 300) => { const b = btn(text); if (!b) throw new Error('找不到按钮：' + text); b.click(); await sleep(wait) }
   const setVal = (el, v) => { const s = Object.getOwnPropertyDescriptor(el.__proto__, 'value').set; s.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })) }
   const setSel = (el, v) => { const s = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; s.call(el, v); el.dispatchEvent(new Event('change', { bubbles: true })) }
-  const pickOption = async (triggerIndex, text) => { const trig = $$('[aria-haspopup=listbox]')[triggerIndex]; trig.click(); await sleep(150); const opt = $$('[role=option]').find(o => o.textContent.trim().startsWith(text)); if (!opt) throw new Error('找不到选项：' + text); opt.click(); await sleep(200) }
+  const visible = (el) => el.offsetParent !== null
+  const rows = () => $$('tbody tr').filter(visible)
+  const pickOption = async (triggerIndex, text) => { const trig = $$('[aria-haspopup=listbox]').filter(visible)[triggerIndex]; trig.click(); await sleep(150); const opt = $$('[role=option]').find(o => o.textContent.trim().startsWith(text)); if (!opt) throw new Error('找不到选项：' + text); opt.click(); await sleep(200) }
   const label = (t) => $$('label').find(l => l.textContent.trim() === t)
   const inputOf = (t) => { const l = label(t); if (!l) throw new Error('找不到字段：' + t); return (l.htmlFor && document.getElementById(l.htmlFor)) || l.querySelector('input,textarea,select') || l.parentElement.querySelector('input,textarea,select') }
   // 主内容加上当前打开的抽屉 / 浮层（它们挂在 body 下的 portal 里）
   const text = () => [$('main'), ...$$('[role=dialog],[role=alertdialog]')].filter(Boolean).map(e => e.innerText).join(' ').replace(/\\s+/g, ' ')
   const drawer = () => $$('[role=dialog]').pop()
+  const settingsNav = async (name, wait = 300) => { const b = $$('aside button').find(b => b.textContent.trim().startsWith(name)); if (!b) throw new Error('找不到设置分类：' + name); b.click(); await sleep(wait) }
   const key = (k, opts = {}) => window.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, ...opts }))
 `
 
