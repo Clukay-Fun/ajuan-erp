@@ -43,7 +43,7 @@ const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
 
 export function DocumentsPage(): React.JSX.Element {
   const { location } = useNav()
-  const { active, activation } = usePageActive('documents')
+  const { active, visit } = usePageActive('documents')
   const initial = location.params.documents ?? {}
   const { currentDrawer } = useDrawer()
   const { openDocument, openAdjustment, openImport } = useEntityDrawers()
@@ -73,8 +73,8 @@ export function DocumentsPage(): React.JSX.Element {
 
   // 从别的页面切回来时刷新
   useEffect(() => {
-    if (activation > 0) void load()
-  }, [activation, load])
+    if (visit > 0) void load()
+  }, [visit, load])
 
   // 页面已常驻：其他页面带过来的筛选作为「外部指令」，只改对应条件，不重置其余状态
   const appliedSeq = useRef(-1)

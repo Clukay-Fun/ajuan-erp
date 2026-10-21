@@ -1,356 +1,177 @@
 /**
- * 描述: 概览工作台看板页面 (OverviewPage)
+ * 描述: 概览工作台页面 (OverviewPage)
  * 主要功能:
- *   - 顶部智能时间范围选择器与近 30 天无业务智能适配
- *   - 待处理事项条 (Pending Bar) 集中呈现待办草稿与告急库存
- *   - 4 组核心财务 KPI 磁贴 (出库额、毛利、库存成本、最短可售)
- *   - 出入库趋势双柱图与逐日明细无缝切换，支持快捷 CSV 导出
- *   - 紧凑库存状态列表，支持动态库存进度条与低库存置顶标红
- *   - 最近单据流与零商品新手引导空状态
+ *   - 草稿提醒条：一张直接打开，多张进入已筛选的草稿列表
+ *   - 四张 KPI：出库额、出库毛利、当前库存成本、最短可售天数
+ *   - 全宽出入库趋势双折线，拥有独立的近 7 天 / 近 30 天 / 自定义区间
+ *   - 全宽最近单据表格，日期筛选与趋势互不影响
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
-import { Download, AlertTriangle, FileEdit, CheckCircle2, ChevronRight, ImageIcon, Sparkles } from 'lucide-react'
-import type { Product, DocumentSummary } from '@shared/types'
-import type { StatsSummaryResult, DailySeriesItem, ProductHealthItem, PendingSummaryResult } from '@shared/schemas'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { AlertTriangle, CheckCircle2, ChevronRight, FileEdit, ImageIcon, RotateCw } from 'lucide-react'
+import type { DocumentSummary } from '@shared/types'
+import type { DailySeriesItem, ProductHealthItem, StatsSummaryResult } from '@shared/schemas'
 import {
-  IconButton,
-  StatCard,
-  Panel,
-  DocTypeBadge,
-  DocStatusBadge,
-  StockBadge,
-  isStockAlert,
-  SegmentedControl,
-  DateRangePicker,
-  EmptyState,
+  Button,
   ConfirmDialog,
-  Select
+  DocStatusBadge,
+  DocTypeBadge,
+  EmptyState,
+  Panel,
+  RangeFilter,
+  StatCard,
+  TableEmpty,
+  presetRange,
+  type DateRange
 } from '@/components/ui'
+import { useToast } from '@/components/Toast'
 import { useEntityDrawers } from '@/app/entityDrawers'
 import { useDataChanged } from '@/lib/dataEvents'
-import { useToast } from '@/components/Toast'
-import { unwrap, errorMessage } from '@/lib/api'
-import { formatCents, formatQty, shiftDate, todayString } from '@/lib/format'
 import { useNav } from '@/app/navigation'
 import { usePageActive } from '@/app/usePageActive'
+import { unwrap, errorMessage } from '@/lib/api'
+import { formatCents, formatQty } from '@/lib/format'
 import { TrendChart } from '@/features/overview/TrendChart'
-import { productImageUrl } from '@/features/products/ProductImage'
 import styles from './OverviewPage.module.css'
 
-// #region 时间范围与预设辅助函数
+/** KPI 固定统计口径：近 30 天（用户 2026-10-21 确认） */
+const KPI_RANGE = presetRange('30d')
 
-type RangePreset = 'today' | '7d' | '30d' | 'month' | 'lastMonth' | 'custom'
-
-interface DateRange {
-  from: string
-  to: string
-}
-
-function calcPresetRange(preset: Exclude<RangePreset, 'custom'>): DateRange {
-  const today = todayString()
-  switch (preset) {
-    case 'today':
-      return { from: today, to: today }
-    case '7d':
-      return { from: shiftDate(today, -6), to: today }
-    case '30d':
-      return { from: shiftDate(today, -29), to: today }
-    case 'month':
-      return { from: `${today.slice(0, 7)}-01`, to: today }
-    case 'lastMonth': {
-      const firstDayThisMonth = `${today.slice(0, 7)}-01`
-      const lastDayPrevMonth = shiftDate(firstDayThisMonth, -1)
-      const firstDayPrevMonth = `${lastDayPrevMonth.slice(0, 7)}-01`
-      return { from: firstDayPrevMonth, to: lastDayPrevMonth }
-    }
-  }
-}
-
-const PRESET_OPTIONS: { value: RangePreset; label: string }[] = [
-  { value: 'today', label: '今天' },
-  { value: '7d', label: '7天' },
-  { value: '30d', label: '30天' },
-  { value: 'month', label: '本月' },
-  { value: 'lastMonth', label: '上月' },
-  { value: 'custom', label: '自定义' }
-]
-
-// #endregion
-
-// #region OverviewPage 概览主页面
-
-/** 本次会话内记住的时间范围与商品筛选；重启应用后重新走默认逻辑 */
-let sessionView: {
-  preset: RangePreset
-  range: DateRange
-  shift: { originalFrom: string; originalTo: string } | null
-  productId: number
-} | null = null
-
-/**
- * 用处: 桌面端首页综合看板
- * 功能:
- *   - 先处理事（草稿/告急）、再看数（财务KPI、出入库、库存健康）
- */
 export function OverviewPage(): React.JSX.Element {
   const { navigate } = useNav()
-  const { activation } = usePageActive('overview')
+  const { visit } = usePageActive('overview')
   const toast = useToast()
-  const { openProduct, openDocument, newProduct, newDocument, openImport } = useEntityDrawers()
+  const { openProduct, openDocument, newProduct, openImport } = useEntityDrawers()
 
-  // 1. 时间范围状态
-  const [preset, setPreset] = useState<RangePreset>(() => sessionView?.preset ?? '30d')
-  const [range, setRange] = useState<DateRange>(() => sessionView?.range ?? calcPresetRange('30d'))
-  const [smartShiftInfo, setSmartShiftInfo] = useState<{ originalFrom: string; originalTo: string } | null>(
-    () => sessionView?.shift ?? null
-  )
-  const [filterProductId, setFilterProductId] = useState<number>(() => sessionView?.productId ?? 0)
-  useEffect(() => {
-    sessionView = { preset, range, shift: smartShiftInfo, productId: filterProductId }
-  }, [preset, range, smartShiftInfo, filterProductId])
-
-  // 2. 业务数据状态
+  // 基础数据：KPI 汇总、库存健康度、草稿、单据列表
   const [summary, setSummary] = useState<StatsSummaryResult | null>(null)
-  const [dailySeries, setDailySeries] = useState<DailySeriesItem[]>([])
-  const [productHealth, setProductHealth] = useState<ProductHealthItem[]>([])
-  const [pending, setPending] = useState<PendingSummaryResult | null>(null)
-  const [recentDocs, setRecentDocs] = useState<DocumentSummary[]>([])
-  const [products, setProducts] = useState<Product[]>([])
+  const [health, setHealth] = useState<ProductHealthItem[]>([])
+  const [pendingDrafts, setPendingDrafts] = useState<DocumentSummary[]>([])
+  const [allDocs, setAllDocs] = useState<DocumentSummary[] | null>(null)
+  const [baseError, setBaseError] = useState<string | null>(null)
+  const [baseLoading, setBaseLoading] = useState(true)
+  const [seedConfirmOpen, setSeedConfirmOpen] = useState(false)
 
-  // 3. 交互与筛选状态
-  const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart')
-  const [loading, setLoading] = useState<boolean>(true)
-  const [exporting, setExporting] = useState<boolean>(false)
-  const [seedConfirmOpen, setSeedConfirmOpen] = useState<boolean>(false)
+  // 趋势图与最近单据各自的日期区间
+  const [trendRange, setTrendRange] = useState<DateRange>(KPI_RANGE)
+  const [trendData, setTrendData] = useState<DailySeriesItem[] | null>(null)
+  const [trendError, setTrendError] = useState<string | null>(null)
+  const [trendLoading, setTrendLoading] = useState(true)
+  const [recentRange, setRecentRange] = useState<DateRange>(KPI_RANGE)
+  const [refreshKey, setRefreshKey] = useState(0)
 
-  // #region 数据载入逻辑
-
-  // 全量刷新核心数据
-  const loadData = useCallback(async () => {
+  const loadBase = useCallback(async () => {
     try {
-      const [ps, health, pendingData, docsList] = await Promise.all([
-        unwrap(window.ajuan.products.list()),
+      const [sum, healthRows, drafts, docs] = await Promise.all([
+        unwrap(window.ajuan.stats.getSummary(KPI_RANGE)),
         unwrap(window.ajuan.stats.getProductHealth()),
-        unwrap(window.ajuan.documents.getPendingSummary()),
-        unwrap(window.ajuan.documents.list({}))
+        unwrap(window.ajuan.documents.list({ status: 'draft', limit: 200 })),
+        unwrap(window.ajuan.documents.list({ limit: 200 }))
       ])
-
-      setProducts(ps.filter((p) => p.isActive))
-      setProductHealth(health)
-      setPending(pendingData)
-      setRecentDocs(docsList.slice(0, 5))
+      setSummary(sum)
+      setHealth(healthRows)
+      setPendingDrafts(drafts)
+      setAllDocs(docs)
+      setBaseError(null)
     } catch (err) {
-      toast(errorMessage(err), 'error')
-    }
-  }, [toast])
-
-  // 智能时间范围检测：若近 30 天无单据且最近单据早于 30 天前，自动设置范围（本次会话只检测一次）
-  useEffect(() => {
-    if (sessionView) return
-    let active = true
-    async function checkSmartDate(): Promise<void> {
-      try {
-        const latestDate = await unwrap(window.ajuan.stats.getLatestActivityDate())
-        if (!active || !latestDate) return
-
-        const today = todayString()
-        const thirtyDaysAgo = shiftDate(today, -29)
-
-        if (latestDate < thirtyDaysAgo) {
-          const newFrom = shiftDate(latestDate, -29)
-          setRange({ from: newFrom, to: latestDate })
-          setSmartShiftInfo({ originalFrom: newFrom, originalTo: latestDate })
-        }
-      } catch {
-        // 忽略智能检测失败
-      }
-    }
-
-    void checkSmartDate()
-    return () => {
-      active = false
+      setBaseError(errorMessage(err))
+    } finally {
+      setBaseLoading(false)
     }
   }, [])
 
-  // 抽屉里写入后刷新列表与区间统计
-  const [refreshKey, setRefreshKey] = useState(0)
+  useEffect(() => {
+    void loadBase()
+  }, [loadBase])
+
+  // 从其他页面切回来时刷新（页面常驻后不再靠重新挂载）
+  useEffect(() => {
+    if (visit === 0) return
+    void loadBase()
+    setRefreshKey((k) => k + 1)
+  }, [visit, loadBase])
+
   useDataChanged(() => {
-    void loadData()
+    void loadBase()
     setRefreshKey((k) => k + 1)
   })
 
-  // 初始全量数据载入
+  // 趋势数据：只统计已生效单据，失败时显示错误，不把失败当 0
   useEffect(() => {
-    let active = true
-    setLoading(true)
-    loadData().finally(() => {
-      if (active) setLoading(false)
-    })
-    return () => {
-      active = false
-    }
-  }, [loadData])
-
-  // 从别的页面切回来时刷新（原先靠 seq 重新挂载实现）
-  useEffect(() => {
-    if (activation === 0) return
-    void loadData()
-    setRefreshKey((k) => k + 1)
-  }, [activation, loadData])
-
-  // 当时间范围或商品筛选改变时，刷新区间统计与时序
-  useEffect(() => {
-    let active = true
-    if (!range.from || !range.to) return
-
-    Promise.all([
-      unwrap(window.ajuan.stats.getSummary(range)),
-      unwrap(
-        window.ajuan.stats.getDailySeries({
-          from: range.from,
-          to: range.to,
-          productId: filterProductId || undefined
-        })
-      )
-    ])
-      .then(([summaryRes, seriesRes]) => {
-        if (!active) return
-        setSummary(summaryRes)
-        setDailySeries(seriesRes)
+    let alive = true
+    setTrendLoading(true)
+    unwrap(window.ajuan.stats.getDailySeries({ from: trendRange.from, to: trendRange.to }))
+      .then((rows) => {
+        if (!alive) return
+        setTrendData(rows)
+        setTrendError(null)
       })
-      .catch((err) => {
-        if (active) toast(errorMessage(err), 'error')
+      .catch((err: unknown) => {
+        if (!alive) return
+        setTrendData(null)
+        setTrendError(errorMessage(err))
       })
-
+      .finally(() => {
+        if (alive) setTrendLoading(false)
+      })
     return () => {
-      active = false
+      alive = false
     }
-  }, [range, filterProductId, refreshKey, toast])
+  }, [trendRange, refreshKey])
 
-  // #endregion
+  const outboundDrafts = useMemo(() => pendingDrafts.filter((d) => d.type === 'outbound'), [pendingDrafts])
 
-  // #region 交互处理函数
+  const stockCostCents = useMemo(() => health.reduce((acc, item) => acc + item.costValueCents, 0), [health])
+  const stockQty = useMemo(() => health.reduce((acc, item) => acc + item.stock, 0), [health])
 
-  // 切换预设区间
-  const handleSelectPreset = (p: RangePreset): void => {
-    setPreset(p)
-    if (p !== 'custom') {
-      setRange(calcPresetRange(p))
-      setSmartShiftInfo(null)
-    }
-  }
+  const shortestSupply = useMemo(() => {
+    const valid = health.filter((p) => p.status !== 'inactive' && p.daysOfSupply !== null)
+    if (valid.length === 0) return null
+    return [...valid].sort(
+      (a, b) => (a.daysOfSupply ?? Number.MAX_SAFE_INTEGER) - (b.daysOfSupply ?? Number.MAX_SAFE_INTEGER)
+    )[0]
+  }, [health])
 
-  // 自定义区间变更
-  const handleCustomRangeChange = (newRange: { from: string; to: string }): void => {
-    setRange(newRange)
-    setSmartShiftInfo(null)
-  }
-
-  // 还原到默认真实近 30 天
-  const handleResetToReal30Days = (): void => {
-    setPreset('30d')
-    setRange(calcPresetRange('30d'))
-    setSmartShiftInfo(null)
-  }
-
-  // 导出逐日 CSV
-  const handleExportCsv = async (): Promise<void> => {
-    setExporting(true)
-    try {
-      const p = await unwrap(
-        window.ajuan.csv.exportSummary({
-          from: range.from,
-          to: range.to,
-          skuId: products.find((item) => item.id === filterProductId)?.defaultSku.id
-        })
+  const recentDocs = useMemo(() => {
+    if (!allDocs) return []
+    return allDocs
+      .filter(
+        (d) => (!recentRange.from || d.docDate >= recentRange.from) && (!recentRange.to || d.docDate <= recentRange.to)
       )
-      if (p) toast(`已导出逐日汇总到: ${p}`, 'success')
-    } catch (err) {
-      toast(errorMessage(err), 'error')
-    } finally {
-      setExporting(false)
-    }
+      .slice(0, 8)
+  }, [allDocs, recentRange])
+
+  const firstDraft = outboundDrafts[0] ?? null
+
+  const handleDraftClick = (): void => {
+    if (outboundDrafts.length === 1 && firstDraft) void openDocument(firstDraft.id)
+    else navigate('documents', { documents: { status: 'draft' } })
   }
 
-  // 载入示例数据
-  const handleConfirmSeed = async (): Promise<void> => {
+  const handleSeed = async (): Promise<void> => {
     try {
       await unwrap(window.ajuan.demo.seed())
-      toast('示例数据载入成功', 'success')
       setSeedConfirmOpen(false)
-      await loadData()
+      await loadBase()
+      setRefreshKey((k) => k + 1)
     } catch (err) {
       toast(errorMessage(err), 'error')
     }
   }
 
-  const handleOpenProduct = (productId: number): void => void openProduct(productId)
-  const handleOpenDocument = openDocument
-
-  // #endregion
-
-  // #region 衍生指标与列表排序
-
-  // 需要处理的商品（缺货、告急、低于预警）
-  const criticalProducts = useMemo(() => productHealth.filter((p) => isStockAlert(p.status)), [productHealth])
-
-  // 最短可售天数计算
-  const shortestSupplyItem = useMemo(() => {
-    const valid = productHealth.filter((p) => p.status !== 'inactive' && p.daysOfSupply !== null)
-    if (valid.length === 0) return null
-    return [...valid].sort((a, b) => (a.daysOfSupply ?? 999999) - (b.daysOfSupply ?? 999999))[0]
-  }, [productHealth])
-
-  // 库存卡片：只列启用中的商品，异常优先置顶，其次按库存量从大到小
-  const sortedStockItems = useMemo(() => {
-    return productHealth
-      .filter((p) => p.status !== 'inactive')
-      .sort((a, b) => {
-        const alertA = isStockAlert(a.status)
-        const alertB = isStockAlert(b.status)
-        if (alertA !== alertB) return alertA ? -1 : 1
-        return b.stock - a.stock
-      })
-  }, [productHealth])
-
-  // 当前全局总库存量与总库存成本
-  const totalStockQty = useMemo(() => productHealth.reduce((acc, cur) => acc + cur.stock, 0), [productHealth])
-  const totalCostValueCents = useMemo(
-    () => productHealth.reduce((acc, cur) => acc + cur.costValueCents, 0),
-    [productHealth]
-  )
-
-  // #endregion
-
-  // #region 首开空状态 (Zero Products Empty State)
-
-  if (!loading && products.length === 0) {
+  // 首次进入且没有任何商品时的空态
+  if (!baseLoading && !baseError && health.length === 0) {
     return (
       <div className={styles.container}>
-        <div className={styles.headerRow}>
-          <h1 className="srOnly">概览</h1>
-        </div>
+        <h1 className="srOnly">概览</h1>
         <EmptyState
-          icon={<PackageIconPlaceholder />}
+          icon={<ImageIcon size={32} className={styles.emptyIcon} />}
           title="还没有商品，从这里开始"
           description="建立你的第一份商品画像，或者快速载入示例数据体验工作台完整能力。"
           actions={[
-            {
-              label: '新建第一个商品',
-              variant: 'primary',
-              onClick: newProduct
-            },
-            {
-              label: '导入 CSV',
-              variant: 'secondary',
-              onClick: openImport
-            },
-            {
-              label: '载入示例数据',
-              variant: 'secondary',
-              onClick: () => setSeedConfirmOpen(true)
-            }
+            { label: '新建第一个商品', variant: 'primary', onClick: newProduct },
+            { label: '导入 CSV', variant: 'secondary', onClick: openImport },
+            { label: '载入示例数据', variant: 'secondary', onClick: () => setSeedConfirmOpen(true) }
           ]}
         />
         <ConfirmDialog
@@ -359,426 +180,208 @@ export function OverviewPage(): React.JSX.Element {
           title="载入示例数据"
           description="载入示例数据将生成预设商品、期初库存以及真实的出入库单据记录。确认载入吗？"
           confirmText="确认载入"
-          onConfirm={handleConfirmSeed}
+          onConfirm={() => void handleSeed()}
         />
       </div>
     )
   }
 
-  // #endregion
-
-  const draftCount = pending?.draftCount ?? 0
-  const hasPendingWork = draftCount > 0 || criticalProducts.length > 0
-
   return (
     <div className={styles.container}>
-      {/* 1. 顶部页头栏：标题、智能日期提示、时间范围选择器 */}
-      <header className={styles.headerRow}>
-        <div className={styles.headerLeft}>
-          <h1 className="srOnly">概览</h1>
-          {smartShiftInfo && (
-            <div className={styles.smartRangeHint}>
-              <Sparkles size={13} style={{ color: 'var(--accent)' }} />
-              <span>
-                近 30 天无单据，已显示 {smartShiftInfo.originalFrom.slice(5)} 至 {smartShiftInfo.originalTo.slice(5)}
-              </span>
-              <button
-                type="button"
-                className={styles.hintLink}
-                onClick={handleResetToReal30Days}
-                title="重置为当前自然日近 30 天"
-              >
-                回到近 30 天
-              </button>
-            </div>
-          )}
-        </div>
+      <h1 className="srOnly">概览</h1>
 
-        <div className={styles.headerRight}>
-          <SegmentedControl
-            options={PRESET_OPTIONS}
-            value={preset}
-            onChange={(val) => handleSelectPreset(val as RangePreset)}
-          />
-          {preset === 'custom' && <DateRangePicker value={range} onChange={handleCustomRangeChange} />}
+      {baseError && (
+        <div className={styles.baseError} role="alert">
+          <AlertTriangle size={14} />
+          <span>概览数据读取失败：{baseError}</span>
+          <Button size="sm" variant="secondary" onClick={() => void loadBase()}>
+            重试
+          </Button>
         </div>
-      </header>
+      )}
 
-      {/* 2. 待处理事项条 (Pending Bar) */}
-      <section className={`${styles.pendingBar} ${hasPendingWork ? styles.hasWork : ''}`} aria-label="待处理事项">
-        <div className={styles.pendingLeft}>
-          {hasPendingWork ? (
+      {/* 1. 草稿提醒 */}
+      <button
+        type="button"
+        className={`${styles.draftBar} ${outboundDrafts.length > 0 ? styles.draftActive : ''}`}
+        onClick={handleDraftClick}
+      >
+        <span className={styles.draftLeft}>
+          {outboundDrafts.length > 0 ? (
             <>
-              {draftCount > 0 && (
-                <button
-                  type="button"
-                  className={styles.pendingItem}
-                  onClick={() =>
-                    draftCount === 1 && pending
-                      ? openDocument(pending.drafts[0].id)
-                      : navigate('documents', { documents: { status: 'draft' } })
-                  }
-                >
-                  <FileEdit size={14} style={{ color: 'var(--warning)' }} />
-                  <span>{draftCount} 张草稿待确认</span>
-                </button>
-              )}
-              {draftCount > 0 && criticalProducts.length > 0 && (
-                <span style={{ color: 'var(--text-tertiary)' }}>·</span>
-              )}
-              {criticalProducts.length > 0 && (
-                <button type="button" className={styles.pendingItem} onClick={() => navigate('products')}>
-                  <AlertTriangle size={14} style={{ color: 'var(--status-critical)' }} />
-                  <span>{criticalProducts.length} 个商品库存告急或低于预警</span>
-                </button>
+              <FileEdit size={15} className={styles.draftIcon} />
+              <strong>{outboundDrafts.length} 张出库草稿待处理</strong>
+              {firstDraft && (
+                <span className={styles.draftMeta}>
+                  {firstDraft.docNo} · {formatQty(firstDraft.totalQuantity)} 件{outboundDrafts.length > 1 ? ' 等' : ''}
+                </span>
               )}
             </>
           ) : (
-            <div className={styles.pendingOk}>
-              <CheckCircle2 size={14} style={{ color: 'var(--text-tertiary)' }} />
-              <span>一切正常</span>
-            </div>
+            <>
+              <CheckCircle2 size={15} className={styles.draftOkIcon} />
+              <span>暂无待处理的出库草稿</span>
+            </>
           )}
-        </div>
-      </section>
+        </span>
+        <span className={styles.draftAction}>
+          查看并处理 <ChevronRight size={14} />
+        </span>
+      </button>
 
-      {/* 3. 4 张 KPI 核心指标卡 */}
-      <section className={styles.kpiGrid} aria-label="核心财务与库存指标">
-        {/* 出库额 */}
+      {/* 2. 四张 KPI，固定近 30 天口径 */}
+      <section className={styles.kpiGrid} aria-label="核心经营指标">
         <StatCard
           label="出库额"
-          value={summary ? `¥${formatCents(summary.current.outAmountCents)}` : '—'}
-          subtext={summary ? `${summary.current.outQty} 件 · ${summary.current.outDocCount} 单` : '无出库记录'}
-          changePercentage={summary?.changes.outAmount}
-          onClick={() => navigate('documents', { documents: { type: 'outbound', from: range.from, to: range.to } })}
+          extra={<span className={styles.scope}>近 30 天</span>}
+          value={summary ? `¥${formatCents(summary.current.outAmountCents)}` : baseLoading ? '…' : '—'}
+          subtext={
+            summary
+              ? `${formatQty(summary.current.outQty)} 件 · ${summary.current.outDocCount} 单`
+              : baseError
+                ? '数据读取失败'
+                : '近 30 天无出库记录'
+          }
+          onClick={() =>
+            navigate('documents', { documents: { type: 'outbound', from: KPI_RANGE.from, to: KPI_RANGE.to } })
+          }
         />
-
-        {/* 毛利 */}
         <StatCard
           label="出库毛利"
+          extra={<span className={styles.scope}>近 30 天</span>}
           value={
             summary ? (
-              <span style={{ color: summary.current.profitCents < 0 ? 'var(--status-critical)' : undefined }}>
+              <span className={summary.current.profitCents < 0 ? styles.negative : undefined}>
                 ¥{formatCents(summary.current.profitCents)}
               </span>
+            ) : baseLoading ? (
+              '…'
             ) : (
               '—'
             )
           }
-          subtext={summary ? `毛利率 ${(summary.current.profitRate * 100).toFixed(1)}%` : '售价 − 成本快照'}
-          changePercentage={summary?.changes.profit}
-          onClick={() => navigate('documents', { documents: { type: 'outbound', from: range.from, to: range.to } })}
+          subtext={
+            summary
+              ? summary.current.outAmountCents > 0
+                ? `毛利率 ${(summary.current.profitRate * 100).toFixed(1)}%`
+                : '近 30 天无出库记录'
+              : baseError
+                ? '数据读取失败'
+                : '售价 − 成本快照'
+          }
+          onClick={() =>
+            navigate('documents', { documents: { type: 'outbound', from: KPI_RANGE.from, to: KPI_RANGE.to } })
+          }
         />
-
-        {/* 库存成本 */}
         <StatCard
           label="当前库存成本"
-          value={`¥${formatCents(totalCostValueCents)}`}
-          subtext={`共 ${formatQty(totalStockQty)} 件 · ${products.length} 个商品`}
+          extra={<span className={styles.scope}>当前快照</span>}
+          value={baseLoading ? '…' : `¥${formatCents(stockCostCents)}`}
+          subtext={`${formatQty(stockQty)} 件 · ${health.length} 个商品`}
           onClick={() => navigate('products')}
         />
-
-        {/* 最短可售 */}
         <StatCard
           label="最短可售天数"
-          value={shortestSupplyItem ? `${shortestSupplyItem.daysOfSupply} 天` : '—'}
-          subtext={shortestSupplyItem ? shortestSupplyItem.name : '出库样本不足'}
-          onClick={() => {
-            if (shortestSupplyItem) {
-              handleOpenProduct(shortestSupplyItem.productId)
-            } else {
-              navigate('products')
-            }
-          }}
+          extra={<span className={styles.scope}>近 30 天</span>}
+          value={
+            shortestSupply && shortestSupply.daysOfSupply !== null
+              ? `${shortestSupply.daysOfSupply} 天`
+              : baseLoading
+                ? '…'
+                : '—'
+          }
+          subtext={shortestSupply ? shortestSupply.name : baseError ? '数据读取失败' : '近 30 天无出库样本'}
+          onClick={() => (shortestSupply ? void openProduct(shortestSupply.productId) : navigate('products'))}
         />
       </section>
 
-      {/* 4. 双栏主体内容区 (左栏 2/3 出入库与逐日明细，右栏 1/3 库存状态与最近单据) */}
-      <div className={styles.mainGrid}>
-        {/* 左栏 */}
-        <div className={styles.leftCol}>
-          {/* 面板 1：出入库趋势 */}
-          <Panel
-            title="出入库"
-            actions={
-              <div className={styles.trendTools}>
-                <Select
-                  className={styles.productFilter}
-                  value={String(filterProductId)}
-                  onChange={(v) => setFilterProductId(Number(v))}
-                  options={[
-                    { value: '0', label: '全部商品' },
-                    ...products.map((p) => ({ value: String(p.id), label: p.name }))
-                  ]}
-                />
-                {/* 视图切换 */}
-                <div className={styles.viewToggle} role="group" aria-label="图表或明细表格切换">
-                  <button
-                    type="button"
-                    className={`${styles.viewBtn} ${viewMode === 'chart' ? styles.active : ''}`}
-                    onClick={() => setViewMode('chart')}
-                  >
-                    图表
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.viewBtn} ${viewMode === 'table' ? styles.active : ''}`}
-                    onClick={() => setViewMode('table')}
-                  >
-                    明细
-                  </button>
-                </div>
+      {/* 3. 全宽趋势图 */}
+      <Panel
+        title="出入库趋势"
+        actions={<RangeFilter label="趋势统计区间" value={trendRange} onChange={setTrendRange} />}
+      >
+        {trendError ? (
+          <div className={styles.errorBlock} role="alert">
+            <span>趋势数据读取失败：{trendError}</span>
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<RotateCw size={13} />}
+              onClick={() => {
+                setTrendError(null)
+                setRefreshKey((k) => k + 1)
+              }}
+            >
+              重试
+            </Button>
+          </div>
+        ) : trendData === null ? (
+          <div className={styles.loadingBlock}>{trendLoading ? '正在读取趋势数据…' : '暂无趋势数据'}</div>
+        ) : (
+          <TrendChart data={trendData} />
+        )}
+      </Panel>
 
-                {/* 导出按钮 */}
-                <IconButton
-                  label="导出逐日明细 CSV"
-                  icon={<Download size={14} />}
-                  variant="ghost"
-                  size="sm"
-                  disabled={exporting || dailySeries.length === 0}
-                  onClick={handleExportCsv}
-                />
-              </div>
-            }
-            flush={viewMode === 'table'}
-          >
-            {/* 指标摘要条 */}
-            {summary && viewMode === 'chart' && (
-              <div className={styles.trendSummaryRow}>
-                <span className={styles.trendMetric}>
-                  入库: <span className={`${styles.trendVal} ${styles.in}`}>{formatQty(summary.current.inQty)} 件</span>
-                  <span className={styles.mutedText}>(¥{formatCents(summary.current.inAmountCents)})</span>
-                </span>
-                <span className={styles.trendMetric}>
-                  出库:{' '}
-                  <span className={`${styles.trendVal} ${styles.out}`}>{formatQty(summary.current.outQty)} 件</span>
-                  <span className={styles.mutedText}>(¥{formatCents(summary.current.outAmountCents)})</span>
-                </span>
-                <span className={styles.trendMetric}>
-                  毛利:{' '}
-                  <span className={`${styles.trendVal} ${styles.profit}`}>
-                    ¥{formatCents(summary.current.profitCents)}
-                  </span>
-                </span>
-              </div>
-            )}
-
-            {/* 视图渲染 */}
-            {viewMode === 'chart' ? (
-              <TrendChart
-                data={dailySeries}
-                onNewOutbound={() => newDocument('outbound')}
-                onResetRange={handleResetToReal30Days}
-              />
-            ) : (
-              <table className={styles.dailyTable}>
-                <thead>
-                  <tr>
-                    <th>日期</th>
-                    <th className={styles.num}>入库件数</th>
-                    <th className={styles.num}>入库金额</th>
-                    <th className={styles.num}>出库件数</th>
-                    <th className={styles.num}>出库金额</th>
-                    <th className={styles.num}>毛利</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dailySeries.filter((d) => d.inQty > 0 || d.outQty > 0).length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className={styles.emptyBlock}>
-                        这段时间没有出入库记录
-                      </td>
-                    </tr>
-                  ) : (
-                    dailySeries
-                      .filter((d) => d.inQty > 0 || d.outQty > 0)
-                      .slice()
-                      .reverse()
-                      .map((d) => (
-                        <tr key={d.date}>
-                          <td className={styles.dateCell}>{d.date}</td>
-                          <td className={styles.num}>
-                            {d.inQty > 0 ? formatQty(d.inQty) : <span className={styles.mutedText}>—</span>}
-                          </td>
-                          <td className={styles.num}>
-                            {d.inQty > 0 ? (
-                              `¥${formatCents(d.inAmountCents)}`
-                            ) : (
-                              <span className={styles.mutedText}>—</span>
-                            )}
-                          </td>
-                          <td className={styles.num}>
-                            {d.outQty > 0 ? formatQty(d.outQty) : <span className={styles.mutedText}>—</span>}
-                          </td>
-                          <td className={styles.num}>
-                            {d.outQty > 0 ? (
-                              `¥${formatCents(d.outAmountCents)}`
-                            ) : (
-                              <span className={styles.mutedText}>—</span>
-                            )}
-                          </td>
-                          <td className={styles.num}>
-                            {d.outQty > 0 ? (
-                              `¥${formatCents(d.profitCents)}`
-                            ) : (
-                              <span className={styles.mutedText}>—</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))
-                  )}
-                </tbody>
-              </table>
-            )}
-          </Panel>
-        </div>
-
-        {/* 右栏 */}
-        <div className={styles.rightCol}>
-          {/* 面板 2：库存状态 */}
-          <Panel
-            title="库存"
-            count={`${products.length} 个商品`}
-            actions={
-              <button type="button" className={styles.allLink} onClick={() => navigate('products')}>
-                全部 <ChevronRight size={14} />
-              </button>
-            }
-            flush
-          >
-            <div className={styles.stockList}>
-              {sortedStockItems.slice(0, 8).map((p) => {
-                const prod = products.find((item) => item.id === p.productId)
-                const imgUrl = prod ? productImageUrl(prod) : null
-                const isWarning = isStockAlert(p.status)
-                const isDanger = p.status === 'out' || p.status === 'critical'
-                const maxVal = Math.max(p.lowStockThreshold * 3, p.stock, 1)
-                const fillPercent = Math.min(100, Math.round((p.stock / maxVal) * 100))
-                const thresholdPercent =
-                  p.lowStockThreshold > 0 ? Math.min(100, Math.round((p.lowStockThreshold / maxVal) * 100)) : 0
-
-                return (
-                  <div
-                    key={p.productId}
-                    className={`${styles.stockItem} ${isDanger ? styles.isDanger : isWarning ? styles.isWarning : ''}`}
-                    onClick={() => handleOpenProduct(p.productId)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleOpenProduct(p.productId)
-                    }}
-                  >
-                    <div className={styles.stockRowTop}>
-                      <div className={styles.stockProductInfo}>
-                        <div className={styles.stockThumb}>
-                          {imgUrl ? (
-                            <img src={imgUrl} alt={p.name} />
-                          ) : (
-                            <ImageIcon size={14} className={styles.stockThumbPlaceholder} />
-                          )}
-                        </div>
-                        <div className={styles.stockMeta}>
-                          <span className={styles.stockName} title={p.name}>
-                            {p.name}
-                          </span>
-                          <span className={styles.stockCode}>{p.code}</span>
-                        </div>
-                      </div>
-
-                      <div className={styles.stockNumbers}>
-                        <span className={`${styles.stockQty} ${isWarning ? styles.critical : ''}`}>
-                          {formatQty(p.stock)} {prod?.unit ?? '件'}
-                        </span>
-                        <span className={styles.stockDays}>
-                          {p.daysOfSupply !== null ? `约 ${p.daysOfSupply} 天` : '—'}
-                        </span>
-                        {isWarning && <StockBadge status={p.status} />}
-                      </div>
-                    </div>
-
-                    {/* 细动态库存条 */}
-                    <div className={styles.stockBarWrap}>
-                      <div
-                        className={`${styles.stockBarFill} ${styles[p.status]}`}
-                        style={{ width: `${fillPercent}%` }}
-                      />
-                      {thresholdPercent > 0 && (
-                        <div
-                          className={styles.stockThresholdLine}
-                          style={{ left: `${thresholdPercent}%` }}
-                          title={`预警阈值: ${p.lowStockThreshold}`}
-                        />
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </Panel>
-
-          {/* 面板 3：最近单据 */}
-          <Panel
-            title="最近单据"
-            actions={
-              <button type="button" className={styles.allLink} onClick={() => navigate('documents')}>
-                全部 <ChevronRight size={14} />
-              </button>
-            }
-            flush
-          >
-            <div className={styles.recentList}>
-              {recentDocs.length === 0 ? (
-                <div className={styles.emptyBlock}>暂无单据记录</div>
+      {/* 4. 全宽最近单据 */}
+      <Panel
+        title="最近单据"
+        actions={<RangeFilter label="最近单据日期区间" value={recentRange} onChange={setRecentRange} />}
+        flush
+      >
+        <div className={styles.tableWrap}>
+          <table className={styles.recentTable}>
+            <thead>
+              <tr>
+                <th>编号</th>
+                <th>类型</th>
+                <th>日期</th>
+                <th>渠道</th>
+                <th className={styles.num}>数量</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allDocs === null ? (
+                <TableEmpty cols={6} title="正在读取单据…" />
+              ) : recentDocs.length === 0 ? (
+                <TableEmpty cols={6} title="这个日期范围内没有单据" description="换一个日期区间，或去单据页开单" />
               ) : (
-                recentDocs.slice(0, 5).map((doc) => (
-                  <div
+                recentDocs.map((doc) => (
+                  <tr
                     key={doc.id}
-                    className={styles.recentItem}
-                    onClick={() => handleOpenDocument(doc.id)}
-                    role="button"
+                    className={`${styles.row} ${doc.status === 'voided' ? styles.voided : ''}`}
                     tabIndex={0}
+                    onClick={() => void openDocument(doc.id)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleOpenDocument(doc.id)
+                      if (e.key === 'Enter') void openDocument(doc.id)
                     }}
                   >
-                    <div className={styles.recentLeft}>
+                    <td className={styles.docNo}>{doc.docNo}</td>
+                    <td>
                       <DocTypeBadge type={doc.type} />
-                      <div className={styles.recentMain}>
-                        <span className={styles.recentDocNo}>{doc.docNo}</span>
-                        <span className={styles.recentSub}>
-                          {doc.docDate}
-                          {doc.channelName ? ` · ${doc.channelName}` : ''}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className={styles.recentRight}>
-                      <span className={styles.recentQty}>{formatQty(doc.totalQuantity)} 件</span>
+                    </td>
+                    <td className={styles.date}>{doc.docDate}</td>
+                    <td className={styles.secondary}>{doc.channelName || '—'}</td>
+                    <td className={styles.num}>{formatQty(doc.totalQuantity)}</td>
+                    <td>
                       <DocStatusBadge status={doc.status} />
-                    </div>
-                  </div>
+                    </td>
+                  </tr>
                 ))
               )}
-            </div>
-          </Panel>
+            </tbody>
+          </table>
         </div>
-      </div>
+      </Panel>
 
-      {/* 示例数据确认弹窗 */}
       <ConfirmDialog
         open={seedConfirmOpen}
         onOpenChange={setSeedConfirmOpen}
         title="载入示例数据"
         description="载入示例数据将生成预设商品、期初库存以及真实的出入库单据记录。确认载入吗？"
         confirmText="确认载入"
-        onConfirm={handleConfirmSeed}
+        onConfirm={() => void handleSeed()}
       />
     </div>
   )
 }
-
-function PackageIconPlaceholder(): React.JSX.Element {
-  return <ImageIcon size={32} style={{ color: 'var(--text-tertiary)' }} />
-}
-
-// #endregion

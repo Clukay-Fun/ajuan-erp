@@ -7,6 +7,8 @@ export interface PageActiveState {
   active: boolean
   /** 每次从隐藏变为显示时 +1；初始挂载为 0，页面可用它触发刷新 */
   activation: number
+  /** 每次导航到本页时 +1（包括再次点当前页）；初始挂载为 0，用于刷新数据 */
+  visit: number
 }
 
 /**
@@ -18,11 +20,19 @@ export function usePageActive(key: RouteKey): PageActiveState {
   const active = location.key === key
   const wasActive = useRef(active)
   const [activation, setActivation] = useState(0)
+  const [visit, setVisit] = useState(0)
+  const lastSeq = useRef(location.seq)
 
   useEffect(() => {
     if (active && !wasActive.current) setActivation((n) => n + 1)
     wasActive.current = active
   }, [active])
 
-  return { active, activation }
+  useEffect(() => {
+    if (location.key !== key || location.seq === lastSeq.current) return
+    lastSeq.current = location.seq
+    setVisit((n) => n + 1)
+  }, [key, location.key, location.seq])
+
+  return { active, activation, visit }
 }

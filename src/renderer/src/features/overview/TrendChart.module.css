@@ -5,55 +5,11 @@
   position: relative;
 }
 
-.fill {
-  flex: 1;
-  min-height: 200px;
-}
-
-.headerBar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-3);
-  font-size: var(--font-size-xs);
-}
-
-.summaryMetrics {
+.legend {
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
-}
-
-.metricItem {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-1);
-}
-
-.metricValue {
-  font-weight: var(--font-weight-semibold);
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  color: var(--text-primary);
-}
-
-.metricValue.in {
-  color: var(--status-in);
-}
-
-.metricValue.out {
-  color: var(--status-out);
-}
-
-.metricValue.profit {
-  color: var(--status-adjust);
-}
-
-.legend {
-  display: flex;
-  gap: var(--space-3);
+  margin-bottom: var(--space-2);
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
 }
@@ -61,31 +17,36 @@
 .legendItem {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
-.legendDot {
-  width: 8px;
-  height: 8px;
-  border-radius: var(--radius-xs, 2px);
+.legendLine {
+  width: 16px;
+  height: 2px;
+  border-radius: 1px;
 }
 
-.inDot {
+.inLine {
   background-color: var(--chart-in);
 }
 
-.outDot {
+.outLine {
   background-color: var(--chart-out);
+}
+
+.unit {
+  margin-left: auto;
+  color: var(--text-tertiary);
+  font-size: 11px;
 }
 
 .plot {
   position: relative;
   width: 100%;
-  height: 200px;
   overflow: visible;
 }
 
-.plot .svg {
+.svg {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -95,7 +56,7 @@
 
 .grid {
   stroke: var(--border-subtle);
-  stroke-dasharray: 2 2;
+  stroke-dasharray: 2 3;
   stroke-width: 1;
 }
 
@@ -105,36 +66,46 @@
   font-family: var(--font-mono);
 }
 
-.barGroup {
-  cursor: pointer;
-  transition: opacity var(--transition-fast);
-}
-
-.barGroup:hover {
-  opacity: 0.9;
-}
-
-.inBar {
-  fill: var(--chart-in);
-  transition:
-    height 300ms cubic-bezier(0.16, 1, 0.3, 1),
-    y 300ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.outBar {
-  fill: var(--chart-out);
-  transition:
-    height 300ms cubic-bezier(0.16, 1, 0.3, 1),
-    y 300ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
 .hoverZone {
   fill: transparent;
 }
 
-.hoverActive {
-  fill: var(--bg-subtle);
-  opacity: 0.4;
+.hoverLine {
+  stroke: var(--border-default);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  pointer-events: none;
+}
+
+.inPath {
+  fill: none;
+  stroke: var(--chart-in);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.outPath {
+  fill: none;
+  stroke: var(--chart-out);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.inDot,
+.outDot {
+  stroke: var(--bg-surface);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.inDot {
+  fill: var(--chart-in);
+}
+
+.outDot {
+  fill: var(--chart-out);
 }
 
 .tooltip {
@@ -142,17 +113,15 @@
   pointer-events: none;
   background-color: var(--bg-surface);
   border: 1px solid var(--border-default);
-  box-shadow: var(--shadow-md, none);
   border-radius: var(--radius-md, 6px);
   padding: var(--space-2) var(--space-3);
   font-size: var(--font-size-xs);
   z-index: 10;
-  min-width: 150px;
+  min-width: 132px;
   transform: translate(-50%, -100%);
-  margin-top: -8px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 2px;
 }
 
 .tooltipTitle {
@@ -161,49 +130,32 @@
   border-bottom: 1px solid var(--border-subtle);
   padding-bottom: 2px;
   margin-bottom: 2px;
+  font-family: var(--font-mono);
 }
 
 .tooltipRow {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
+  font-variant-numeric: tabular-nums;
 }
 
-.tooltipRow.in {
+.inRow {
   color: var(--status-in);
 }
 
-.tooltipRow.out {
+.outRow {
   color: var(--status-out);
 }
 
-.tooltipRow.profit {
-  color: var(--text-primary);
-  border-top: 1px dashed var(--border-subtle);
-  padding-top: 2px;
-  margin-top: 2px;
-}
-
-.emptyOverlay {
+.emptyText {
   position: absolute;
   inset: 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: var(--bg-surface);
-  border-radius: var(--radius-md, 6px);
-  z-index: 2;
-  gap: var(--space-3);
-}
-
-.emptyText {
   color: var(--text-tertiary);
-  font-size: var(--font-size-sm);
-}
-
-.emptyActions {
-  display: flex;
-  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  pointer-events: none;
 }

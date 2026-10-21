@@ -41,7 +41,7 @@ import styles from './ProductsPage.module.css'
  */
 export function ProductsPage(): React.JSX.Element {
   const toast = useToast()
-  const { activation } = usePageActive('products')
+  const { visit } = usePageActive('products')
   const { currentDrawer } = useDrawer()
   const { openProduct, newProduct, openImport } = useEntityDrawers()
 
@@ -82,8 +82,8 @@ export function ProductsPage(): React.JSX.Element {
 
   // 从别的页面切回来时刷新库存与健康度
   useEffect(() => {
-    if (activation > 0) void loadData()
-  }, [activation, loadData])
+    if (visit > 0) void loadData()
+  }, [visit, loadData])
 
   // #endregion
 

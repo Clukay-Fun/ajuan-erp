@@ -5,7 +5,7 @@
  *   - 自定义区间必填，并校验起始日期不晚于结束日期
  */
 
-import { useEffect, useState, type ReactElement } from 'react'
+import { useState, type ReactElement } from 'react'
 import { DateInput, type DateRange } from '../DatePicker'
 import { SegmentedControl } from '../SegmentedControl'
 import { shiftDate, todayString } from '@/lib/format'
@@ -37,19 +37,12 @@ export interface RangeFilterProps {
   onChange: (range: DateRange) => void
   /** 无障碍名称，如「趋势统计区间」 */
   label: string
-  /** 自定义日期的错误提示回调；父组件可据此暂停查询 */
-  onValidityChange?: (valid: boolean) => void
 }
 
-export function RangeFilter({ value, onChange, label, onValidityChange }: RangeFilterProps): ReactElement {
+export function RangeFilter({ value, onChange, label }: RangeFilterProps): ReactElement {
   const [preset, setPreset] = useState<RangePreset>(() => detectPreset(value))
   const [custom, setCustom] = useState<DateRange>(value)
   const valid = preset !== 'custom' || (!!custom.from && !!custom.to && custom.from <= custom.to)
-
-  useEffect(() => {
-    if (preset !== 'custom') setCustom(value)
-    onValidityChange?.(valid)
-  }, [preset, value, valid, onValidityChange])
 
   const choose = (next: RangePreset): void => {
     setPreset(next)
