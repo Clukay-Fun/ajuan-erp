@@ -4,6 +4,7 @@
  *   - 全应用只有这一个定时器拉 psd.getBoard()，外壳（任务提示 / 角标）、定制页、任务弹窗共用结果
  *   - 有订阅者要求快速刷新（定制页在前台、任务弹窗打开）或有任务在排队 / 运行时 1.5 秒一次，否则 10 秒一次
  *   - 操作接口返回的新看板用 publishPsdBoard() 推给所有订阅者，不必等下一次轮询
+ *   - 内容与上一份相同时不通知订阅者，避免每次轮询都让页面（包括常驻在后台的定制页）重新渲染
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -17,6 +18,7 @@ type Listener = (board: PsdBoard) => void
 
 const listeners = new Map<Listener, { fast: boolean }>()
 let last: PsdBoard | null = null
+let lastJson = ''
 let inflight: Promise<PsdBoard> | null = null
 let timer: number | null = null
 
@@ -47,9 +49,28 @@ function schedule(): void {
 
 /** 推送一份新看板给所有订阅者（例如操作接口直接返回了最新看板） */
 export function publishPsdBoard(board: PsdBoard): void {
-  last = board
-  for (const fn of listeners.keys()) fn(board)
+  const json = JSON.stringify(board)
+  if (json !== lastJson) {
+    last = board
+    lastJson = json
+    for (const fn of listeners.keys()) fn(board)
+  }
   schedule()
+}
+
+/** 当前缓存的看板（还没拉到时为 null） */
+export function currentPsdBoard(): PsdBoard | null {
+  return last
+}
+
+/** 仅供单测：清空订阅、缓存与定时器 */
+export function resetPsdBoardFeedForTest(): void {
+  if (timer !== null) window.clearTimeout(timer)
+  timer = null
+  listeners.clear()
+  last = null
+  lastJson = ''
+  inflight = null
 }
 
 /** 立即拉一次；并发调用共用同一个请求 */
@@ -86,7 +107,12 @@ export function subscribePsdBoard(listener: Listener, fast: boolean): () => void
 export function usePsdBoard(fast: boolean): [PsdBoard | null, (board: PsdBoard) => void, () => Promise<PsdBoard>] {
   const [board, setBoard] = useState<PsdBoard | null>(last)
 
-  useEffect(() => subscribePsdBoard(setBoard, fast), [fast])
+  useEffect(() => {
+    const unsubscribe = subscribePsdBoard(setBoard, fast)
+    // 渲染到订阅之间若有新看板推送，这里补上（内容相同则是同一个对象，不会多渲染）
+    setBoard(last)
+    return unsubscribe
+  }, [fast])
 
   const publish = useCallback((next: PsdBoard) => publishPsdBoard(next), [])
   return [board, publish, refreshPsdBoard]

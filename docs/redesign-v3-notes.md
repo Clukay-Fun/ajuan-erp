@@ -114,7 +114,7 @@
 | --- | --- |
 | `npm run typecheck` | 通过 |
 | `npm run lint` | 通过（颜色合规、CSS 变量、ESLint、Prettier） |
-| `npm test` | 14 个文件 / 118 项通过 |
+| `npm test` | 15 个文件 / 125 项通过 |
 | `npm run build` | 通过 |
 | `npm run e2e`（`ELECTRON_DISABLE_SANDBOX=1`） | 9 个场景通过：a11y、appearance、backup、csv、export-limit、flow、keepalive、psd、smoke |
 
@@ -124,7 +124,7 @@
 - `psd`：三选项卡、添加/删除位置、图层映射失焦保存、空素材选图弹窗、模板重命名。
 - `csv`：除导入外，新增导出当前列表 CSV 的保存对话框打桩与文件内容断言（BOM、表头、行数）；导出改由主进程序列化。
 - `export-limit`：造 1000+ 张单据，断言页面显示截断提示、导出文件仍包含全部单据。
-- 看板轮询只有一个来源（`lib/psdBoardFeed`）：定制页在前台、任务弹窗打开或有任务排队 / 运行时 1.5 秒一次，否则 10 秒一次；Shell、定制页、任务弹窗共用结果。操作接口返回的新看板会立即推给所有订阅者。
+- 看板轮询只有一个来源（`lib/psdBoardFeed`）：定制页在前台、任务弹窗打开或有任务排队 / 运行时 1.5 秒一次，否则 10 秒一次；Shell、定制页、任务弹窗共用结果。操作接口返回的新看板会立即推给所有订阅者；内容不变时不通知，后台页面不会每次轮询都重新渲染。调度逻辑由 `tests/psdBoardFeed.test.ts` 覆盖。
 - 任务完成 / 失败 Toast：由 Shell 订阅共享看板，切到任何页面都能收到。
 - 侧栏草稿角标改用 `documents.count`，不再受列表默认 200 张上限影响。
 
