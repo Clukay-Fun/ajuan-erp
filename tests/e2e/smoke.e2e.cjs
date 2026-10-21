@@ -17,11 +17,6 @@ module.exports = async () => {
     if (!b) throw new Error('找不到侧栏：' + name); b.click(); await sleep(wait)
   }`
   // 确认框里的按钮与页面上的同名按钮区分开
-  const confirmIn = `const confirmIn = async (text, wait = 600) => {
-    const b = $$('[role=alertdialog] button').find(b => b.textContent.trim() === text)
-    if (!b) throw new Error('确认框里找不到按钮：' + text); b.click(); await sleep(wait)
-  }`
-
   // 打开每个页面
   const titles = await t.ui(`
     ${go}
@@ -72,7 +67,6 @@ module.exports = async () => {
 
   // 作废刚开的出库单
   await t.ui(`
-    ${confirmIn}
     ${go}
     await go('单据')
     rows().find(r => r.innerText.includes('${newDoc.docNo}')).click(); await sleep(600)
@@ -86,7 +80,6 @@ module.exports = async () => {
   const draft = (await t.api('documents.list({ status: "draft" })'))[0]
   assert(draft, '示例数据里有草稿')
   await t.ui(`
-    ${confirmIn}
     rows().find(r => r.innerText.includes('${draft.docNo}')).click(); await sleep(600)
     await click('确认出库', 400)
     await confirmIn('确认出库', 800)

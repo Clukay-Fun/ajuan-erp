@@ -51,10 +51,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  cursor: pointer;
-}
-.name:hover {
-  text-decoration: underline;
 }
 
 .path {
@@ -64,6 +60,25 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.renameRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+}
+.renameRow > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.cardFooter {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: auto;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .meta {

@@ -14,7 +14,7 @@ export interface DocumentsView {
 
 export interface RouteParams {
   documents?: DocumentsView
-  psd?: { view?: 'production' | 'templates' }
+  psd?: { view?: 'production' | 'templates' | 'assets' }
   settings?: { section?: string }
 }
 

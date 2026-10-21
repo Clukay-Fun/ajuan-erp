@@ -67,6 +67,7 @@ const UI_HELPERS = `
   // 主内容加上当前打开的抽屉 / 浮层（它们挂在 body 下的 portal 里）
   const text = () => [$('main'), ...$$('[role=dialog],[role=alertdialog]')].filter(Boolean).map(e => e.innerText).join(' ').replace(/\\s+/g, ' ')
   const drawer = () => $$('[role=dialog]').pop()
+  const confirmIn = async (text, wait = 600) => { const b = $$('[role=alertdialog] button').find(b => b.textContent.trim() === text); if (!b) throw new Error('确认框里找不到按钮：' + text); b.click(); await sleep(wait) }
   const settingsNav = async (name, wait = 300) => { const b = $$('aside button').find(b => b.textContent.trim().startsWith(name)); if (!b) throw new Error('找不到设置分类：' + name); b.click(); await sleep(wait) }
   const key = (k, opts = {}) => window.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, ...opts }))
 `

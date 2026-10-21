@@ -1093,7 +1093,9 @@ function toItem(row: ItemRow): PsdJobItem {
     dogLayer: row.dog_layer,
     nameLayer: row.name_layer,
     dogLabel: row.dog_label,
-    nameLabel: row.name_label
+    nameLabel: row.name_label,
+    dogAssetId: row.dog_asset_id,
+    nameAssetId: row.name_asset_id
   }
 }
 

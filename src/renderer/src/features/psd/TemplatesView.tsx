@@ -1,15 +1,17 @@
 /**
  * 描述: 定制 › 模板视图 (TemplatesView)
  * 主要功能:
- *   - 模板卡片：名称、文件路径（中间省略，悬停看全路径）、文件状态、位置数
- *   - 「更多」：编辑（打开向导）、删除（确认，注明不会删除 PSD 源文件）
+ *   - 模板卡片：名称、PSD 路径（中间省略）、文件状态、位置数
+ *   - 「使用模板」切到生产页并选中；支持重命名（只改配置名称）与删除（不删 PSD）
+ *   - 新建模板是一步弹窗，由页面统一打开
  */
 
 import { useState, type ReactElement } from 'react'
-import { FileImage, MoreHorizontal, Pencil, Trash2, Plus } from 'lucide-react'
+import { FileImage, MoreHorizontal, Plus, Trash2 } from 'lucide-react'
 import type { PsdBoard, PsdTemplate } from '@shared/psd'
-import { Button, ConfirmDialog, EmptyState, IconButton, Menu } from '@/components/ui'
-import { unwrap } from '@/lib/api'
+import { Button, ConfirmDialog, EmptyState, IconButton, Input, Menu } from '@/components/ui'
+import { useToast } from '@/components/Toast'
+import { unwrap, errorMessage } from '@/lib/api'
 import { middleEllipsis } from './psdLabels'
 import styles from './TemplatesView.module.css'
 
@@ -17,13 +19,41 @@ interface Props {
   board: PsdBoard | null
   busy: boolean
   onAct: (fn: () => Promise<PsdBoard | null>, ok?: string) => Promise<void>
+  onBoard: (board: PsdBoard) => void
   onNew: () => void
-  onEdit: (template: PsdTemplate) => void
+  onUse: (template: PsdTemplate) => void
 }
 
-export function TemplatesView({ board, busy, onAct, onNew, onEdit }: Props): ReactElement {
+export function TemplatesView({ board, busy, onAct, onBoard, onNew, onUse }: Props): ReactElement {
+  const toast = useToast()
   const [deleting, setDeleting] = useState<PsdTemplate | null>(null)
+  const [renamingId, setRenamingId] = useState<number | null>(null)
+  const [renameDraft, setRenameDraft] = useState('')
+  const [savingName, setSavingName] = useState(false)
   const templates = board?.templates ?? []
+
+  async function saveRename(template: PsdTemplate): Promise<void> {
+    const name = renameDraft.trim()
+    if (!name) {
+      toast('模板名称不能为空', 'error')
+      return
+    }
+    if (name === template.name) {
+      setRenamingId(null)
+      return
+    }
+    setSavingName(true)
+    try {
+      const next = await unwrap(window.ajuan.psd.renameTemplate({ id: template.id, name }))
+      onBoard(next)
+      toast('模板已重命名', 'success')
+      setRenamingId(null)
+    } catch (err) {
+      toast(errorMessage(err), 'error')
+    } finally {
+      setSavingName(false)
+    }
+  }
 
   return (
     <div className={styles.root}>
@@ -38,46 +68,83 @@ export function TemplatesView({ board, busy, onAct, onNew, onEdit }: Props): Rea
         <EmptyState
           icon={<FileImage size={24} />}
           title="还没有模板"
-          description="选一个 PSD，告诉阿卷每个位置的狗狗图和名字图在哪个图层。"
+          description="选一个 PSD 创建模板，然后在生产页添加替换位置并选择素材。"
           actions={[{ label: '新建模板', onClick: onNew, variant: 'primary' }]}
         />
       ) : (
         <ul className={styles.grid}>
-          {templates.map((t) => (
-            <li key={t.id} className={styles.card}>
+          {templates.map((template) => (
+            <li key={template.id} className={styles.card}>
               <div className={styles.cardHead}>
-                <button type="button" className={styles.name} onClick={() => onEdit(t)}>
-                  {t.name}
-                </button>
-                <Menu
-                  align="end"
-                  trigger={<IconButton label="更多" icon={<MoreHorizontal size={16} />} size="sm" />}
-                  items={[
-                    {
-                      key: 'edit',
-                      label: '编辑',
-                      icon: <Pencil size={14} />,
-                      onClick: () => onEdit(t)
-                    },
-                    'separator',
-                    {
-                      key: 'delete',
-                      label: '删除',
-                      icon: <Trash2 size={14} />,
-                      danger: true,
-                      onClick: () => setDeleting(t)
-                    }
-                  ]}
-                />
+                {renamingId === template.id ? (
+                  <div className={styles.renameRow}>
+                    <Input
+                      value={renameDraft}
+                      autoFocus
+                      maxLength={64}
+                      aria-label="模板名称"
+                      onChange={(e) => setRenameDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          void saveRename(template)
+                        }
+                        if (e.key === 'Escape') setRenamingId(null)
+                      }}
+                    />
+                    <Button size="sm" variant="primary" loading={savingName} onClick={() => void saveRename(template)}>
+                      保存
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setRenamingId(null)}>
+                      取消
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <span className={styles.name} title={template.name}>
+                      {template.name}
+                    </span>
+                    <Menu
+                      align="end"
+                      trigger={<IconButton label="更多" icon={<MoreHorizontal size={16} />} size="sm" />}
+                      items={[
+                        {
+                          key: 'rename',
+                          label: '重命名',
+                          onClick: () => {
+                            setRenameDraft(template.name)
+                            setRenamingId(template.id)
+                          }
+                        },
+                        'separator',
+                        {
+                          key: 'delete',
+                          label: '删除模板',
+                          icon: <Trash2 size={14} />,
+                          danger: true,
+                          onClick: () => setDeleting(template)
+                        }
+                      ]}
+                    />
+                  </>
+                )}
               </div>
-              <span className={styles.path} title={t.sourcePath}>
-                {middleEllipsis(t.sourcePath, 44)}
+
+              <span className={styles.path} title={template.sourcePath}>
+                {middleEllipsis(template.sourcePath, 52)}
               </span>
+
               <div className={styles.meta}>
-                <span className={t.sourceExists ? styles.fileOk : styles.fileMissing}>
-                  {t.sourceExists ? '文件可用' : '文件缺失'}
+                <span className={template.sourceExists ? styles.fileOk : styles.fileMissing}>
+                  {template.sourceExists ? '文件可用' : '文件缺失'}
                 </span>
-                <span>{t.slots.length} 个位置</span>
+                <span>{template.slots.length} 个位置</span>
+              </div>
+
+              <div className={styles.cardFooter}>
+                <Button size="sm" variant="secondary" onClick={() => onUse(template)}>
+                  使用模板
+                </Button>
               </div>
             </li>
           ))}

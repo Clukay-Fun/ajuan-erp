@@ -2,343 +2,147 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  min-height: 100%;
+  min-height: 0;
 }
 
-/* 步骤提示 */
-.steps {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: var(--font-size-sm);
-  color: var(--text-tertiary);
-}
-.steps li {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-.steps li + li::before {
-  content: '→';
-  margin-right: var(--space-2);
-  color: var(--border-bold);
-}
-.steps li[data-active] {
-  color: var(--accent-text);
-  font-weight: var(--font-weight-medium);
-}
-.stepNo {
-  display: inline-grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 1px solid currentColor;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-
-/* 模板选择 */
+/* 当前模板 */
 .templateRow {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
 }
 .rowLabel {
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  white-space: nowrap;
 }
 .templateSelect {
-  flex: 0 0 280px;
+  flex: 0 0 260px;
 }
 .muted {
   margin: 0;
   font-size: var(--font-size-sm);
   color: var(--text-tertiary);
 }
+.fileOk {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
 .danger {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   color: var(--danger);
 }
 .link {
-  margin-left: var(--space-1);
+  margin-left: auto;
   padding: 0;
   border: 0;
   background: none;
   font: inherit;
+  font-size: var(--font-size-xs);
   color: var(--accent-text);
-  text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
 }
+.link:hover {
+  text-decoration: underline;
+}
 
-/* 主区：位置 60% / 素材库 40% */
-.split {
-  flex: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-  gap: var(--space-3);
+/* 替换位置 */
+.slotSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
   min-height: 0;
-  align-content: start;
-  align-items: start;
 }
-
-.slotsPanel {
-  min-width: 0;
-}
-.slotsEmpty {
+.sectionHead {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: var(--space-3);
-  min-height: 220px;
-  border: 1px dashed var(--border-default);
-  border-radius: var(--radius-lg);
-  font-size: var(--font-size-sm);
-  color: var(--text-tertiary);
-}
-.slotsEmpty p {
-  margin: 0;
-}
-.slotGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: var(--space-3);
-}
-.slotCard {
-  display: flex;
-  flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-3);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  transition: border-color var(--transition-fast);
 }
-.slotCard[data-selected] {
-  border-color: var(--accent);
-}
-.slotCard[data-incomplete] {
-  border-color: var(--warning-border);
-}
-.slotHead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  cursor: pointer;
-}
-.slotName {
-  font-size: var(--font-size-sm);
+.sectionTitle {
+  margin: 0;
+  font-size: var(--font-size-md, 15px);
   font-weight: var(--font-weight-semibold);
-  color: var(--accent-text);
-}
-.check {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--accent);
-  cursor: pointer;
-}
-
-.drops {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-2);
-}
-.drop {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 4px;
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  cursor: pointer;
-  min-width: 0;
-}
-.drop > :first-child {
-  aspect-ratio: 1;
-  border-radius: var(--radius-md);
-}
-.dropEmpty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: var(--space-2);
-  border: 1px dashed var(--border-default);
-  color: var(--text-tertiary);
-  font-size: 11px;
-  text-align: center;
-  transition:
-    border-color var(--transition-fast),
-    color var(--transition-fast);
-}
-.drop:hover .dropEmpty,
-.drop:focus-visible .dropEmpty {
-  border-color: var(--accent);
-  color: var(--accent-text);
-}
-.dropImg {
-  display: block;
-  width: 100%;
-  object-fit: contain;
-  background-color: var(--checker-bg);
-  background-image: var(--checker-pattern);
-  border: 1px solid var(--border-subtle);
-}
-.dropLabel {
-  font-size: 11px;
-  color: var(--text-secondary);
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.menuThumb {
-  width: 20px;
-  height: 20px;
-  object-fit: contain;
-  border-radius: 3px;
-}
-
-/* 素材库 */
-.library {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-  padding: var(--space-3);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  align-self: start;
-}
-.libHead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-.libHint {
-  margin: 0;
-  font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
-}
-.libEmpty {
-  margin: var(--space-6) 0;
-  text-align: center;
-  font-size: var(--font-size-sm);
-  color: var(--text-tertiary);
-}
-.libGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
-  gap: var(--space-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.libItem {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  cursor: grab;
-}
-.libItem:active {
-  cursor: grabbing;
-}
-.libThumb {
-  position: relative;
-  aspect-ratio: 1;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  background-color: var(--checker-bg);
-  background-image: var(--checker-pattern);
-}
-.libThumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  pointer-events: none;
-}
-.libBadge {
-  position: absolute;
-  left: 4px;
-  top: 4px;
-  padding: 1px 6px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface);
-  font-size: 11px;
-  color: var(--text-secondary);
-}
-.libBadge[data-status='ready'] {
-  background: var(--warning-bg);
-  color: var(--warning-text);
-}
-.libBadge[data-status='failed'] {
-  background: var(--danger-bg);
-  color: var(--danger);
-}
-.libName {
-  margin-top: 2px;
-  font-size: var(--font-size-xs);
   color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
-.libMeta {
-  font-size: 11px;
+.count {
+  font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
 }
-.libActions {
-  display: flex;
-  gap: 2px;
-}
-.libError {
-  font-size: 11px;
-  color: var(--danger);
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+.spacer {
+  flex: 1;
 }
 
-/* 吸底生成栏 */
-.bar {
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
+.slotGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  /* 超过 9 个位置时区域限高，内部滚动 */
+  max-height: 584px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+@media (max-width: 1200px) {
+  .slotGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .slotGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.empty {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  margin-top: auto;
-  padding: var(--space-3) var(--space-4);
-  background: var(--bg-surface);
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: 180px;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-lg);
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+}
+.empty p {
+  margin: 0;
+}
+
+/* 导出目录与格式 */
+.exportRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
+  background: var(--bg-surface);
 }
-.barRow {
+.exportItem {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-width: 0;
 }
-.titleInput {
-  flex: 0 0 260px;
+.path {
+  max-width: 420px;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .formatSelect {
-  flex: 0 0 96px;
+  width: 96px;
 }
 .info {
   display: inline-flex;
@@ -350,25 +154,42 @@
   max-width: 320px;
   line-height: 1.5;
 }
-.spacer {
-  flex: 1;
+
+/* 生成栏 */
+.generateBar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-card);
 }
-.blocker {
+.generateTop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.titleInput {
+  flex: 0 1 320px;
+  min-width: 180px;
+}
+.blockers {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   font-size: var(--font-size-xs);
   color: var(--warning-text);
-  white-space: nowrap;
 }
-.rule {
+.ready {
   margin: 0;
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
-}
-
-@media (max-width: 1100px) {
-  .split {
-    grid-template-columns: 1fr;
-  }
-  .titleInput {
-    flex-basis: 200px;
-  }
 }

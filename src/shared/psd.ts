@@ -162,6 +162,9 @@ export interface PsdJobItem {
   nameLayer: string
   dogLabel: string
   nameLabel: string
+  /** 用于检查正在排队/生成的任务是否还引用某个素材 */
+  dogAssetId: number | null
+  nameAssetId: number | null
 }
 
 export interface PsdJob {

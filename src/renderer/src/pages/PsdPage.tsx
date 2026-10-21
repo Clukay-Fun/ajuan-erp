@@ -1,10 +1,10 @@
 /**
  * 描述: 定制页 (PsdPage)
  * 主要功能:
- *   - 页头：标题 +「生产 | 模板」切换；右侧 Photoshop 状态胶囊（点了去 设置 › Photoshop 连接）与「打开 PS」
- *   - 生产视图日常出图，模板视图一次性配置；两者共用同一份看板数据，每 1.5 秒刷新
- *   - 页头「任务」按钮打开任务列表（带进行中计数）；任务完成或失败时弹 Toast
- *   - 抠白底结果出来后自动弹出预览确认
+ *   - 三个平级选项卡：生产 / 模板 / 素材库
+ *   - 页头：Photoshop 状态胶囊（去设置检查）、打开 PS、任务记录
+ *   - 看板每 1.5 秒轮询（仅当前页生效）；任务完成 / 失败弹 Toast
+ *   - 素材删除前检查排队中任务与生产页选择；抠白底结果自动弹出确认
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
@@ -17,26 +17,40 @@ import { usePageActive } from '@/app/usePageActive'
 import { unwrap, errorMessage } from '@/lib/api'
 import { ProductionView } from '@/features/psd/ProductionView'
 import { TemplatesView } from '@/features/psd/TemplatesView'
-import { TemplateWizard } from '@/features/psd/TemplateWizard'
+import { AssetLibraryView } from '@/features/psd/AssetLibraryView'
+import { NewTemplateDialog } from '@/features/psd/NewTemplateDialog'
 import { JobsPanel } from '@/features/psd/JobsPanel'
 import { CutoutReview } from '@/features/psd/CutoutReview'
 import { fileName } from '@/features/psd/psdLabels'
 import styles from './PsdPage.module.css'
 
-type View = 'production' | 'templates'
+type View = 'production' | 'templates' | 'assets'
+const TEMPLATE_KEY = 'ajuan.psdTemplateId'
+
+function readStoredTemplateId(): number | null {
+  try {
+    const v = Number(localStorage.getItem(TEMPLATE_KEY))
+    return Number.isInteger(v) && v > 0 ? v : null
+  } catch {
+    return null
+  }
+}
 
 export function PsdPage(): ReactElement {
   const toast = useToast()
   const { location, navigate } = useNav()
-  const { active } = usePageActive('psd')
   const { openDrawer } = useDrawer()
+  const { active } = usePageActive('psd')
   const [view, setView] = useState<View>(location.params.psd?.view ?? 'production')
   const [board, setBoard] = useState<PsdBoard | null>(null)
+  const [templateId, setTemplateId] = useState<number | null>(readStoredTemplateId)
   const [busy, setBusy] = useState(false)
   const [deletingAsset, setDeletingAsset] = useState<PsdAsset | null>(null)
+  const [deleteNote, setDeleteNote] = useState('')
   const [reviewId, setReviewId] = useState<number | null>(null)
   const [dismissed, setDismissed] = useState<Set<number>>(() => new Set())
   const lastStatus = useRef<Map<number, PsdJobStatus> | null>(null)
+  const selection = useRef<{ ids: Set<number>; clear: () => void }>({ ids: new Set(), clear: () => {} })
 
   const load = useCallback(async () => {
     setBoard(await unwrap(window.ajuan.psd.getBoard()))
@@ -51,7 +65,7 @@ export function PsdPage(): ReactElement {
     return () => window.clearInterval(timer)
   }, [active, load, toast])
 
-  // 其他页面带过来的选项卡指令（生产 / 模板）
+  // 其他页面带过来的选项卡指令（生产 / 模板 / 素材库）
   const appliedViewSeq = useRef(-1)
   useEffect(() => {
     if (!active || appliedViewSeq.current === location.seq) return
@@ -59,6 +73,23 @@ export function PsdPage(): ReactElement {
     const requested = location.params.psd?.view
     if (requested) setView(requested)
   }, [active, location.seq, location.params.psd?.view])
+
+  // 记住模板选择；失效时回落到第一个模板
+  const chooseTemplate = useCallback((id: number) => {
+    setTemplateId(id)
+    try {
+      localStorage.setItem(TEMPLATE_KEY, String(id))
+    } catch {
+      // 记不住也不影响本次使用
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!board) return
+    if (templateId && board.templates.some((t) => t.id === templateId)) return
+    const first = board.templates[0]
+    if (first) chooseTemplate(first.id)
+  }, [board, templateId, chooseTemplate])
 
   // 任务从排队 / 生成中变为完成或失败时提示一次
   useEffect(() => {
@@ -103,12 +134,36 @@ export function PsdPage(): ReactElement {
     [toast]
   )
 
-  function openWizard(template?: PsdTemplate): void {
+  const importAsset = useCallback(
+    async (kind: 'dog' | 'name'): Promise<void> => {
+      await act(() => unwrap(window.ajuan.psd.importAsset(kind)), kind === 'dog' ? '狗图已导入' : '名字图已导入')
+    },
+    [act]
+  )
+
+  function chooseView(next: View): void {
+    setView(next)
+  }
+
+  function useTemplate(template: PsdTemplate): void {
+    chooseTemplate(template.id)
+    setView('production')
+  }
+
+  function openNewTemplate(): void {
     openDrawer({
-      id: template ? `psd-template-${template.id}` : 'psd-template-new',
-      title: template ? `编辑模板 · ${template.name}` : '新建模板',
-      size: 'lg',
-      content: <TemplateWizard template={template} onSaved={setBoard} />
+      id: 'psd-template-new',
+      title: '新建模板',
+      size: 'sm',
+      content: (
+        <NewTemplateDialog
+          onCreated={(next, id) => {
+            setBoard(next)
+            chooseTemplate(id)
+            setView('production')
+          }}
+        />
+      )
     })
   }
 
@@ -119,6 +174,28 @@ export function PsdPage(): ReactElement {
       size: 'sm',
       content: <JobsPanel />
     })
+  }
+
+  // 删除素材前：排队 / 生成中的任务引用则拒绝；生产页选择引用则先清除并提示
+  function requestDeleteAsset(asset: PsdAsset): void {
+    const activeJob = board?.jobs.find(
+      (job) =>
+        (job.status === 'queued' || job.status === 'running') &&
+        job.items.some((item) => item.dogAssetId === asset.id || item.nameAssetId === asset.id)
+    )
+    if (activeJob) {
+      toast(`这个素材正被「${activeJob.title}」使用，等任务结束再删除`, 'error')
+      return
+    }
+    const usedInProduction = selection.current.ids.has(asset.id)
+    if (usedInProduction) {
+      selection.current.clear()
+      setDeleteNote('这个素材已在生产页选择中被清除。')
+      toast('已从生产页选择中清除这个素材', 'success')
+    } else {
+      setDeleteNote('')
+    }
+    setDeletingAsset(asset)
   }
 
   const review = board?.cutouts.find((c) => c.id === reviewId && c.status === 'ready') ?? null
@@ -137,16 +214,18 @@ export function PsdPage(): ReactElement {
 
   return (
     <div className={styles.container}>
+      <h1 className="srOnly">定制</h1>
+
       <header className={styles.header}>
         <div className={styles.headLeft}>
-          <h1 className="srOnly">定制</h1>
           <SegmentedControl
             options={[
               { value: 'production', label: '生产' },
-              { value: 'templates', label: '模板' }
+              { value: 'templates', label: '模板' },
+              { value: 'assets', label: '素材库' }
             ]}
             value={view}
-            onChange={setView}
+            onChange={(v) => chooseView(v as View)}
           />
         </div>
         <div className={styles.headRight}>
@@ -170,21 +249,46 @@ export function PsdPage(): ReactElement {
           </Button>
           <button type="button" className={styles.jobsButton} onClick={openJobs}>
             <ListChecks size={14} />
-            任务
+            任务记录
             {activeJobs > 0 && <span className={styles.jobsCount}>{activeJobs}</span>}
           </button>
         </div>
       </header>
 
       <div className={styles.body}>
-        {view === 'production' ? (
+        <div className={styles.pane} hidden={view !== 'production'}>
           <ProductionView
             board={board}
             busy={busy}
             psReady={!!psName}
+            templateId={templateId}
+            onChooseTemplate={chooseTemplate}
             onAct={act}
+            onBoard={setBoard}
+            onNewTemplate={openNewTemplate}
             onGoTemplates={() => setView('templates')}
-            onNewTemplate={() => openWizard()}
+            onImport={importAsset}
+            onSelectionChange={(ids, clear) => {
+              selection.current = { ids, clear }
+            }}
+          />
+        </div>
+        <div className={styles.pane} hidden={view !== 'templates'}>
+          <TemplatesView
+            board={board}
+            busy={busy}
+            onAct={act}
+            onBoard={setBoard}
+            onNew={openNewTemplate}
+            onUse={useTemplate}
+          />
+        </div>
+        <div className={styles.pane} hidden={view !== 'assets'}>
+          <AssetLibraryView
+            board={board}
+            busy={busy}
+            onAct={act}
+            onImport={importAsset}
             onReviewCutout={(id) => {
               setDismissed((s) => {
                 const next = new Set(s)
@@ -193,11 +297,9 @@ export function PsdPage(): ReactElement {
               })
               setReviewId(id)
             }}
-            onDeleteAsset={setDeletingAsset}
+            onDeleteAsset={requestDeleteAsset}
           />
-        ) : (
-          <TemplatesView board={board} busy={busy} onAct={act} onNew={() => openWizard()} onEdit={openWizard} />
-        )}
+        </div>
       </div>
 
       <ConfirmDialog
@@ -205,7 +307,7 @@ export function PsdPage(): ReactElement {
         onOpenChange={(open) => !open && setDeletingAsset(null)}
         danger
         title="删除素材？"
-        description={deletingAsset ? `「${deletingAsset.label}」会从素材库去掉。已经生成的文件还在。` : ''}
+        description={deletingAsset ? `${deleteNote}「${deletingAsset.label}」会从素材库去掉，已经生成的文件还在。` : ''}
         confirmText="删除"
         loading={busy}
         onConfirm={async () => {
