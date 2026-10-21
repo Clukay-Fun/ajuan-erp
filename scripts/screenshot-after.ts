@@ -156,6 +156,9 @@ async function run(): Promise<void> {
 
         if (want('settings')) {
           await nav(page, 5)
+          await page.getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: /^外观/ }).click()
+          await page.getByRole('radio', { name: theme === 'dark' ? '深色' : '浅色' }).click()
+          await sleep(250)
           await shot('page-settings')
           for (const [label, name] of [
             ['销售渠道', 'channels'],

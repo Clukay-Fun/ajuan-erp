@@ -51,9 +51,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root {
+  :root:not([data-reduce-motion='off']) {
     --motion: 0;
   }
+}
+
+:root[data-reduce-motion='true'] {
+  --motion: 0;
 }
 
 /* 焦点环 */

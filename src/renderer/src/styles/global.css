@@ -95,11 +95,20 @@ input[type='date']::-webkit-calendar-picker-indicator {
   cursor: pointer;
 }
 
-/* 系统开启「减少动态效果」时关闭所有过渡与动画（加载转圈也停住，状态靠文字表达） */
+/* 减少动态效果：设置里可覆盖系统；开启时关闭所有过渡与动画（状态靠文字表达） */
+:root[data-reduce-motion='true'] *,
+:root[data-reduce-motion='true'] *::before,
+:root[data-reduce-motion='true'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  :root:not([data-reduce-motion='off']) *,
+  :root:not([data-reduce-motion='off']) *::before,
+  :root:not([data-reduce-motion='off']) *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

@@ -3,8 +3,9 @@
 const { launch, assert, eq } = require('./harness.cjs')
 
 // 在页面里收集没有可读名字的按钮（无文字、无 aria-label、无 aria-labelledby、无 title）
-const UNNAMED = `const unnamed = () => $$('button, [role=button], a[href]')
-  .filter(b => b.offsetParent !== null)
+const UNNAMED = `const shown = (el) => el.checkVisibility ? el.checkVisibility() : el.offsetParent !== null
+  const unnamed = () => $$('button, [role=button], a[href]')
+  .filter(shown)
   .filter(b => !b.innerText.trim() && !b.getAttribute('aria-label') && !b.getAttribute('aria-labelledby') && !b.getAttribute('title'))
   .map(b => (b.closest('[role=dialog]') ? '弹窗 ' : '') + b.outerHTML.slice(0, 120))`
 
@@ -47,7 +48,7 @@ module.exports = async () => {
     for (const name of ['概览', '商品', '单据', '定制', '设置']) {
       await go(name)
       const focusables = $$('main button, main input, main select, main textarea, main a[href], main [tabindex="0"]')
-        .filter(el => el.offsetParent !== null && !el.disabled && el.tabIndex >= 0)
+        .filter(el => (el.checkVisibility ? el.checkVisibility() : el.offsetParent !== null) && !el.disabled && el.tabIndex >= 0)
       const unreachable = focusables.filter(el => el.tabIndex < 0)
       // 焦点环：键盘聚焦第一个按钮后 outline 不为 none
       const first = focusables.find(el => el.tagName === 'BUTTON')
