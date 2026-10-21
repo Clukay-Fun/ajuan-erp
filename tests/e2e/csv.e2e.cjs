@@ -1,6 +1,7 @@
 /* eslint-disable */
 // CSV 导入（含期初行、错误行、重复警告）与导出内容
 const { launch, assert, eq } = require('./harness.cjs')
+const { dialog } = require('electron')
 const fs = require('node:fs')
 const path = require('node:path')
 const os = require('node:os')
@@ -47,4 +48,24 @@ module.exports = async () => {
   )
   assert(dlg, '导入对话框应打开')
   await t.shot('csv-import-dialog.png')
+  await t.ui(`$('[aria-label="关闭抽屉 (Esc)"]')?.click(); await sleep(300)`)
+
+  // 导出当前列表 CSV（前端按筛选生成，经 csv.saveText 保存）
+  const listFile = path.join(dir, '单据列表.csv')
+  const original = dialog.showSaveDialog
+  dialog.showSaveDialog = async () => ({ canceled: false, filePath: listFile })
+  try {
+    await t.ui(`
+      $('button[aria-label=更多]').click(); await sleep(250)
+      $$('[role=menuitem]').find(m => m.textContent.includes('导出当前列表 CSV')).click(); await sleep(800)
+      return true
+    `)
+  } finally {
+    dialog.showSaveDialog = original
+  }
+  assert(fs.existsSync(listFile), '列表 CSV 已写入')
+  const text = fs.readFileSync(listFile, 'utf8')
+  assert(text.startsWith('\ufeff日期,类型,单号,状态,渠道,订单号,数量,金额,毛利,备注'), '列表 CSV 表头与 BOM')
+  assert(text.includes('CK20260911-001') && text.includes('QC20260901-001'), '列表 CSV 包含当前单据')
+  eq(text.split('\r\n').length, 3, '列表 CSV 行数')
 }

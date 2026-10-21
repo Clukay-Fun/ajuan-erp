@@ -8,9 +8,11 @@
  *   - 集成 ⌘K 全局命令中心与统一键盘快捷键流
  */
 
-import React, { useState, useEffect, type ReactNode } from 'react'
+import React, { useState, useEffect, useRef, type ReactNode } from 'react'
 import { LayoutDashboard, Package, FileText, Layers, Settings, Plus, ChevronDown } from 'lucide-react'
 import { unwrap } from '@/lib/api'
+import { useToast } from '@/components/Toast'
+import type { PsdJobStatus } from '@shared/psd'
 import { Menu, type MenuItemOption } from '@/components/ui'
 import { CommandPalette } from '@/components/CommandPalette'
 import { SettingsNav } from '@/components/SettingsNav'
@@ -54,6 +56,8 @@ export function Shell({
   const [failedJobsCount, setFailedJobsCount] = useState<number>(0)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const isSettings = route === 'settings'
+  const toast = useToast()
+  const jobStatus = useRef<Map<number, PsdJobStatus> | null>(null)
 
   // 拉取单据草稿数与定制生产失败任务数
   useEffect(() => {
@@ -68,6 +72,42 @@ export function Shell({
       })
       .catch(() => setFailedJobsCount(0))
   }, [seq, route])
+
+  // 全局轻量轮询任务状态：无论当前在哪一页，任务完成 / 失败都会弹 Toast，角标同步更新。
+  // 定制页自己的 1.5 秒轮询只负责刷新页面数据，不再重复弹提示。
+  useEffect(() => {
+    let alive = true
+    const poll = async (): Promise<void> => {
+      try {
+        const board = await unwrap(window.ajuan.psd.getBoard())
+        if (!alive) return
+        setFailedJobsCount((board.jobs || []).filter((job) => job.status === 'failed').length)
+        const prev = jobStatus.current
+        jobStatus.current = new Map(board.jobs.map((job) => [job.id, job.status]))
+        if (!prev) return
+        for (const job of board.jobs) {
+          const before = prev.get(job.id)
+          if (before !== 'queued' && before !== 'running') continue
+          if (job.status === 'done') {
+            toast(`「${job.title}」已生成`, 'success', {
+              label: '显示文件',
+              onClick: () => void window.ajuan.psd.revealJob(job.id)
+            })
+          } else if (job.status === 'failed') {
+            toast(`「${job.title}」生成失败：${job.error ?? '原因未知'}`, 'error')
+          }
+        }
+      } catch {
+        // 后台轮询失败不打断当前操作
+      }
+    }
+    void poll()
+    const timer = window.setInterval(() => void poll(), 2500)
+    return () => {
+      alive = false
+      window.clearInterval(timer)
+    }
+  }, [toast])
 
   // 全局快捷键监听 (⌘K, ⌘1~5, ⌘N, ⇧⌘N)
   useEffect(() => {

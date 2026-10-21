@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 import { ListChecks } from 'lucide-react'
-import type { PsdAsset, PsdBoard, PsdJobStatus, PsdTemplate } from '@shared/psd'
+import type { PsdAsset, PsdBoard, PsdTemplate } from '@shared/psd'
 import { Button, ConfirmDialog, SegmentedControl, useDrawer } from '@/components/ui'
 import { useToast } from '@/components/Toast'
 import { useNav } from '@/app/navigation'
@@ -49,7 +49,6 @@ export function PsdPage(): ReactElement {
   const [deleteNote, setDeleteNote] = useState('')
   const [reviewId, setReviewId] = useState<number | null>(null)
   const [dismissed, setDismissed] = useState<Set<number>>(() => new Set())
-  const lastStatus = useRef<Map<number, PsdJobStatus> | null>(null)
   const selection = useRef<{ ids: Set<number>; clear: () => void }>({ ids: new Set(), clear: () => {} })
 
   const load = useCallback(async () => {
@@ -90,26 +89,6 @@ export function PsdPage(): ReactElement {
     const first = board.templates[0]
     if (first) chooseTemplate(first.id)
   }, [board, templateId, chooseTemplate])
-
-  // 任务从排队 / 生成中变为完成或失败时提示一次
-  useEffect(() => {
-    if (!board) return
-    const prev = lastStatus.current
-    lastStatus.current = new Map(board.jobs.map((j) => [j.id, j.status]))
-    if (!prev) return
-    for (const job of board.jobs) {
-      const before = prev.get(job.id)
-      if (before !== 'queued' && before !== 'running') continue
-      if (job.status === 'done') {
-        toast(`「${job.title}」已生成`, 'success', {
-          label: '显示文件',
-          onClick: () => void window.ajuan.psd.revealJob(job.id)
-        })
-      } else if (job.status === 'failed') {
-        toast(`「${job.title}」生成失败：${job.error ?? '原因未知'}`, 'error')
-      }
-    }
-  }, [board, toast])
 
   // 抠白底结果就绪时自动弹出预览；用户关掉的不再自动弹
   useEffect(() => {

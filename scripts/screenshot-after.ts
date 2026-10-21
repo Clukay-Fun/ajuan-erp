@@ -104,11 +104,11 @@ async function run(): Promise<void> {
         if (want('documents')) {
           await nav(page, 3)
           await shot('page-documents')
-          await page.locator('main tbody tr', { hasText: '已生效' }).first().click()
+          await page.locator('main tbody tr:visible', { hasText: '已生效' }).first().click()
           await sleep(500)
           await shot('modal-document-detail')
           await closeDialog(page)
-          const draft = page.locator('main tbody tr', { hasText: '草稿' }).first()
+          const draft = page.locator('main tbody tr:visible', { hasText: '草稿' }).first()
           if (await draft.count()) {
             await draft.click()
             await sleep(500)
