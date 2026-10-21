@@ -5,12 +5,20 @@ import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statS
 import { basename, join } from 'node:path'
 import { promisify } from 'node:util'
 import type { PsdAssetKind, PsdBoard } from '@shared/psd'
-import type { PsdJobCreateInput, PsdSlotCreateInput, PsdTemplateCreateInput } from '@shared/schemas'
+import type {
+  PsdJobCreateInput,
+  PsdSlotCreateInput,
+  PsdSlotUpdateInput,
+  PsdTemplateCreateInput,
+  PsdTemplateRenameInput
+} from '@shared/schemas'
 import { state } from './appState'
 import { createLaunchGate, darwinPhotoshopPids, windowsPhotoshopPids } from './photoshopProcess'
 import { ServiceError } from './services/errors'
 import {
   addPsdSlot,
+  updatePsdSlot,
+  renamePsdTemplate,
   cancelPsdJob,
   cancelPsdCutoutJob,
   confirmPsdCutoutJob,
@@ -245,6 +253,16 @@ export function deletePsdTemplateInteractive(templateId: number): PsdBoard {
 
 export function addPsdSlotInteractive(input: PsdSlotCreateInput): PsdBoard {
   addPsdSlot(state.db, input)
+  return board()
+}
+
+export function updatePsdSlotInteractive(input: PsdSlotUpdateInput): PsdBoard {
+  updatePsdSlot(state.db, input)
+  return board()
+}
+
+export function renamePsdTemplateInteractive(input: PsdTemplateRenameInput): PsdBoard {
+  renamePsdTemplate(state.db, input)
   return board()
 }
 

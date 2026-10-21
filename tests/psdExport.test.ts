@@ -22,6 +22,7 @@ import {
   findPhotoshopApp,
   getPsdBoard,
   inspectCutoutPng,
+  renamePsdTemplate,
   importPsdAsset,
   requeueStuckPsdJobs,
   retryPsdJob,
@@ -29,6 +30,7 @@ import {
   resolvePsdOutputPath,
   syncPsdCutoutResults,
   syncPsdResults,
+  updatePsdSlot,
   type PsdPaths
 } from '../src/main/services/psdExport'
 import { createLaunchGate, darwinPhotoshopPids, windowsPhotoshopPids } from '../src/main/photoshopProcess'
@@ -492,6 +494,44 @@ describe('PSD 任务', () => {
         items: [{ slotId, dogAssetId: dogId, nameAssetId: nameId }]
       })
     ).toThrow('桥接目录以外')
+  })
+})
+
+describe('模板配置写入接口', () => {
+  it('更新位置图层映射只改配置，校验重名与进行中的任务', () => {
+    const fx = useFixture()
+    const seeded = seed(fx, ['slot_01', 'slot_02'])
+    const before = readFileSync(fx.psd)
+    updatePsdSlot(fx.db, { id: seeded.slotIds[0], dogLayer: '封面狗图', nameLayer: '封面名字' })
+    const slot = boardOf(fx).templates[0].slots.find((item) => item.id === seeded.slotIds[0])
+    expect(slot).toMatchObject({ dogLayer: '封面狗图', nameLayer: '封面名字' })
+    expect(readFileSync(fx.psd)).toEqual(before)
+
+    expect(() =>
+      updatePsdSlot(fx.db, { id: seeded.slotIds[0], dogLayer: 'slot_02_dog', nameLayer: '封面名字' })
+    ).toThrow('图层名已经用在别的位置上')
+    expect(() => updatePsdSlot(fx.db, { id: seeded.slotIds[0], dogLayer: '同名', nameLayer: '同名' })).toThrow(
+      '不能同名'
+    )
+    expect(() => updatePsdSlot(fx.db, { id: 99999, dogLayer: 'a', nameLayer: 'b' })).toThrow('位置不存在')
+
+    createPsdJob(fx.db, fx.paths, {
+      templateId: seeded.templateId,
+      title: '占用模板',
+      items: [{ slotId: seeded.slotIds[0], dogAssetId: seeded.dogId, nameAssetId: seeded.nameId }]
+    })
+    expect(() => updatePsdSlot(fx.db, { id: seeded.slotIds[0], dogLayer: '新狗图', nameLayer: '新名字' })).toThrow(
+      '等待中的导出任务'
+    )
+  })
+
+  it('重命名模板只改模板名称并做校验', () => {
+    const fx = useFixture()
+    const seeded = seed(fx)
+    renamePsdTemplate(fx.db, { id: seeded.templateId, name: '  双十一主图  ' })
+    expect(boardOf(fx).templates[0].name).toBe('双十一主图')
+    expect(() => renamePsdTemplate(fx.db, { id: seeded.templateId, name: '   ' })).toThrow('模板名称不能为空')
+    expect(() => renamePsdTemplate(fx.db, { id: 99999, name: '不存在' })).toThrow('模板不存在')
   })
 })
 

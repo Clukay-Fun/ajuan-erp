@@ -19,9 +19,13 @@ import {
   psdAssetKindSchema,
   psdJobCreateSchema,
   psdSlotCreateSchema,
+  psdSlotUpdateSchema,
+  psdTemplateRenameSchema,
   psdTemplateCreateSchema,
   type PsdJobCreateInput,
   type PsdSlotCreateInput,
+  type PsdSlotUpdateInput,
+  type PsdTemplateRenameInput,
   type PsdTemplateCreateInput
 } from '@shared/schemas'
 import {
@@ -498,6 +502,52 @@ export function deletePsdSlot(db: Db, slotId: number): void {
     throw new ServiceError('VALIDATION', '这个位置还有等待中的导出任务')
   }
   db.prepare(`DELETE FROM psd_slots WHERE id = ?`).run(slotId)
+}
+
+/** 修改已存在位置的图层映射；只写模板配置，不碰 PSD 文件 */
+export function updatePsdSlot(db: Db, input: PsdSlotUpdateInput): void {
+  const data = psdSlotUpdateSchema.parse(input)
+  const slot = db.prepare(`SELECT template_id FROM psd_slots WHERE id = ?`).get(data.id) as
+    { template_id: number } | undefined
+  if (!slot) throw new ServiceError('NOT_FOUND', '位置不存在')
+  if (
+    countOf(
+      db,
+      `SELECT COUNT(*) AS c FROM psd_jobs WHERE template_id = ? AND status IN ('queued', 'running')`,
+      slot.template_id
+    )
+  ) {
+    throw new ServiceError('VALIDATION', '还有等待中的导出任务，不能修改图层映射')
+  }
+  const rows = db
+    .prepare(`SELECT id, dog_layer, name_layer FROM psd_slots WHERE template_id = ?`)
+    .all(slot.template_id) as { id: number; dog_layer: string; name_layer: string }[]
+  if (
+    rows.some(
+      (row) =>
+        row.id !== data.id &&
+        (row.dog_layer === data.dogLayer ||
+          row.name_layer === data.dogLayer ||
+          row.dog_layer === data.nameLayer ||
+          row.name_layer === data.nameLayer)
+    )
+  ) {
+    throw new ServiceError('VALIDATION', '图层名已经用在别的位置上')
+  }
+  db.prepare(`UPDATE psd_slots SET dog_layer = ?, name_layer = ? WHERE id = ?`).run(
+    data.dogLayer,
+    data.nameLayer,
+    data.id
+  )
+  db.prepare(`UPDATE psd_templates SET updated_at = ? WHERE id = ?`).run(nowIso(), slot.template_id)
+}
+
+/** 重命名模板；只改配置里的名称，任务里的历史模板名保持不变 */
+export function renamePsdTemplate(db: Db, input: PsdTemplateRenameInput): void {
+  const data = psdTemplateRenameSchema.parse(input)
+  const row = db.prepare(`SELECT id FROM psd_templates WHERE id = ?`).get(data.id)
+  if (!row) throw new ServiceError('NOT_FOUND', '模板不存在')
+  db.prepare(`UPDATE psd_templates SET name = ?, updated_at = ? WHERE id = ?`).run(data.name, nowIso(), data.id)
 }
 
 export function importPsdAsset(

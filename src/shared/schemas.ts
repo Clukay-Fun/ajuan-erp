@@ -66,8 +66,10 @@ const psdLayerName = z
   .max(80, '图层名过长')
   .refine((name) => isSafeLayerName(name), '图层名含有不能使用的字符')
 
+const psdTemplateName = z.string().trim().min(1, '模板名称不能为空').max(64, '模板名称过长')
+
 export const psdTemplateCreateSchema = z.object({
-  name: z.string().trim().min(1, '模板名称不能为空').max(64, '模板名称过长'),
+  name: psdTemplateName,
   sourcePath: z.string().trim().min(1, '请选择 PSD')
 })
 export type PsdTemplateCreateInput = z.infer<typeof psdTemplateCreateSchema>
@@ -81,6 +83,21 @@ export const psdSlotCreateSchema = z
   })
   .refine((value) => value.dogLayer !== value.nameLayer, '狗图图层和名字图层不能同名')
 export type PsdSlotCreateInput = z.infer<typeof psdSlotCreateSchema>
+
+export const psdSlotUpdateSchema = z
+  .object({
+    id: z.number().int().positive(),
+    dogLayer: psdLayerName,
+    nameLayer: psdLayerName
+  })
+  .refine((value) => value.dogLayer !== value.nameLayer, '狗图图层和名字图层不能同名')
+export type PsdSlotUpdateInput = z.infer<typeof psdSlotUpdateSchema>
+
+export const psdTemplateRenameSchema = z.object({
+  id: z.number().int().positive(),
+  name: psdTemplateName
+})
+export type PsdTemplateRenameInput = z.infer<typeof psdTemplateRenameSchema>
 
 export const psdAssetKindSchema = z.enum(['dog', 'name'])
 

@@ -8,7 +8,9 @@ import type {
   ChannelUpdateInput,
   PsdJobCreateInput,
   PsdSlotCreateInput,
+  PsdSlotUpdateInput,
   PsdTemplateCreateInput,
+  PsdTemplateRenameInput,
   StatsSummaryInput,
   StatsSummaryResult,
   StatsDailySeriesInput,
@@ -115,6 +117,8 @@ export const IPC = {
   psdCreateTemplate: 'psd:createTemplate',
   psdDeleteTemplate: 'psd:deleteTemplate',
   psdAddSlot: 'psd:addSlot',
+  psdUpdateSlot: 'psd:updateSlot',
+  psdRenameTemplate: 'psd:renameTemplate',
   psdDeleteSlot: 'psd:deleteSlot',
   psdImportAsset: 'psd:importAsset',
   psdCreateCutout: 'psd:createCutout',
@@ -264,6 +268,9 @@ export interface AjuanApi {
     createTemplate(input: PsdTemplateCreateInput): Promise<IpcResult<PsdBoard>>
     deleteTemplate(id: number): Promise<IpcResult<PsdBoard>>
     addSlot(input: PsdSlotCreateInput): Promise<IpcResult<PsdBoard>>
+    /** 只更新模板配置里的图层映射，不修改 PSD 文件 */
+    updateSlot(input: PsdSlotUpdateInput): Promise<IpcResult<PsdBoard>>
+    renameTemplate(input: PsdTemplateRenameInput): Promise<IpcResult<PsdBoard>>
     deleteSlot(id: number): Promise<IpcResult<PsdBoard>>
     /** 取消选择时返回 null */
     importAsset(kind: PsdAssetKind): Promise<IpcResult<PsdBoard | null>>

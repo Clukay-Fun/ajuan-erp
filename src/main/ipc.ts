@@ -60,6 +60,8 @@ import {
 } from './backupIo'
 import {
   addPsdSlotInteractive,
+  updatePsdSlotInteractive,
+  renamePsdTemplateInteractive,
   cancelPsdJobInteractive,
   cancelPsdCutoutInteractive,
   confirmPsdCutoutInteractive,
@@ -204,6 +206,8 @@ export function registerIpc(): void {
   handle(IPC.psdCreateTemplate, (input) => createPsdTemplateInteractive(input))
   handle(IPC.psdDeleteTemplate, (id: number) => deletePsdTemplateInteractive(id))
   handle(IPC.psdAddSlot, (input) => addPsdSlotInteractive(input))
+  handle(IPC.psdUpdateSlot, (input) => updatePsdSlotInteractive(input))
+  handle(IPC.psdRenameTemplate, (input) => renamePsdTemplateInteractive(input))
   handle(IPC.psdDeleteSlot, (id: number) => deletePsdSlotInteractive(id))
   handle(IPC.psdImportAsset, (kind) => importPsdAssetInteractive(kind))
   handle(IPC.psdCreateCutout, (assetId: number) => createPsdCutoutInteractive(assetId))
