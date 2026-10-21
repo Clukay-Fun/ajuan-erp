@@ -104,6 +104,12 @@ export interface DocumentDetail extends DocumentSummary {
 export interface DocumentListFilter {
   type?: DocumentType
   status?: DocumentStatus
+  /** 业务日期起（YYYY-MM-DD，含） */
+  from?: string
+  /** 业务日期止（YYYY-MM-DD，含） */
+  to?: string
+  /** 单号 / 订单号 / 渠道 / 备注 的模糊搜索 */
+  q?: string
   limit?: number
 }
 

@@ -1,9 +1,9 @@
 import { stringify } from 'csv-stringify/sync'
 import type { Db } from '../db/connection'
 import { formatCents } from '@shared/money'
-import type { MovementFilter, SummaryRange } from '@shared/types'
+import type { DocumentListFilter, MovementFilter, SummaryRange } from '@shared/types'
 import { listMovements } from './movements'
-import { getDocument } from './documents'
+import { getDocument, listAllDocuments } from './documents'
 import { getSummary } from './reports'
 
 /** 带 BOM 的 UTF-8，Excel 双击打开中文不乱码。 */
@@ -69,6 +69,37 @@ export function buildSummaryCsv(db: Db, range: SummaryRange): string {
     money(s.outAmountCents)
   ]
   return CSV_BOM + stringify([header, ...lines, totalRow])
+}
+
+const DOC_TYPE_LABEL = { inbound: '入库', outbound: '出库', opening: '期初', adjustment: '调整' } as const
+const DOC_STATUS_LABEL = { draft: '草稿', confirmed: '已生效', voided: '已作废' } as const
+
+/** 当前筛选结果的全部单据（不截断到列表的 1000 张上限） */
+export function buildDocumentListCsv(db: Db, filter: DocumentListFilter = {}): { fileName: string; content: string } {
+  const rows = listAllDocuments(db, filter)
+  const header = ['日期', '类型', '单号', '状态', '渠道', '订单号', '数量', '金额', '毛利', '备注']
+  const lines = rows.map((d) => {
+    const profit =
+      d.type === 'outbound' && d.status === 'confirmed' && d.totalCostCents !== null
+        ? money(d.totalAmountCents - d.totalCostCents)
+        : ''
+    return [
+      d.docDate,
+      DOC_TYPE_LABEL[d.type],
+      d.docNo,
+      DOC_STATUS_LABEL[d.status],
+      d.channelName ?? '',
+      d.externalOrderNo,
+      String(d.totalQuantity),
+      money(d.totalAmountCents),
+      profit,
+      d.note
+    ]
+  })
+  const now = new Date()
+  const p = (n: number): string => String(n).padStart(2, '0')
+  const stamp = `${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}`
+  return { fileName: `单据列表-${stamp}.csv`, content: CSV_BOM + stringify([header, ...lines]) }
 }
 
 export function buildDocumentCsv(db: Db, id: number): { fileName: string; content: string } {

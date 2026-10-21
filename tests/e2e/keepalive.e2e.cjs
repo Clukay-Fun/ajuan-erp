@@ -61,6 +61,7 @@ module.exports = async () => {
     { settingsNav: true, query: 'CK', outbound: 'true' },
     '返回应用不丢筛选'
   )
+  eq(back.scroll, filtered.scroll, '返回应用后表格滚动位置一致')
 
   // 隐藏的单据页不响应 ⌘F
   const shortcut = await t.ui(`

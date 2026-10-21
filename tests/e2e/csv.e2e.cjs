@@ -50,7 +50,7 @@ module.exports = async () => {
   await t.shot('csv-import-dialog.png')
   await t.ui(`$('[aria-label="关闭抽屉 (Esc)"]')?.click(); await sleep(300)`)
 
-  // 导出当前列表 CSV（前端按筛选生成，经 csv.saveText 保存）
+  // 导出当前列表 CSV（主进程按筛选生成，csv.exportDocumentList）
   const listFile = path.join(dir, '单据列表.csv')
   const original = dialog.showSaveDialog
   dialog.showSaveDialog = async () => ({ canceled: false, filePath: listFile })
@@ -67,5 +67,5 @@ module.exports = async () => {
   const text = fs.readFileSync(listFile, 'utf8')
   assert(text.startsWith('\ufeff日期,类型,单号,状态,渠道,订单号,数量,金额,毛利,备注'), '列表 CSV 表头与 BOM')
   assert(text.includes('CK20260911-001') && text.includes('QC20260901-001'), '列表 CSV 包含当前单据')
-  eq(text.split('\r\n').length, 3, '列表 CSV 行数')
+  eq(text.trim().split(/\r?\n/).length, 3, '列表 CSV 行数')
 }

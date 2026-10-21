@@ -42,7 +42,8 @@
 
 | 接口 | 读 / 写 | 说明 |
 | --- | --- | --- |
-| `csv.saveText({ fileName, content })` | 写用户选择的文件 | 前端按当前筛选生成列表 CSV（含 UTF-8 BOM），复用系统保存对话框；文件名只取基名并过滤非法字符，内容上限 10MB |
+| `csv.exportDocumentList(filter)` | 写用户选择的文件 | 主进程按同一筛选条件生成全部单据 CSV（含 UTF-8 BOM），复用现有 `csv-stringify` + `formatCents`；不受列表 1000 张上限限制 |
+| `documents.count(filter)` | 只读 | 返回满足筛选条件的总数，用于提示列表是否被 1000 张上限截断 |
 | `psd.updateSlot({ id, dogLayer, nameLayer })` | 写模板配置 | 校验图层名格式、模板内不重名、有排队/生成中任务时拒绝；不改 PSD 文件 |
 | `psd.renameTemplate({ id, name })` | 写模板配置 | 只改 `psd_templates.name`，历史任务里的模板名不变 |
 | `PsdJobItem.dogAssetId / nameAssetId` | 只读模型扩展 | 让素材删除能检查排队/生成中的任务是否仍引用该素材 |
@@ -54,7 +55,7 @@
 - 全局：`app/App.tsx`、`app/usePageActive.ts`、`app/App.module.css`、`app/navigation.tsx`、`components/Shell*`、`components/SettingsNav*`、`styles/global.css`、`styles/base.css`
 - 概览：`pages/OverviewPage*`、`features/overview/TrendChart*`、`components/ui/RangeFilter/*`
 - 商品：`pages/ProductsPage*`、`features/products/ProductDrawerContent*`
-- 单据：`pages/DocumentsPage*`、`features/documents/DocumentDrawerContent*`、`main/csvIo.ts`、`main/ipc.ts`、`preload/index.ts`、`shared/ipc.ts`
+- 单据：`pages/DocumentsPage*`、`features/documents/DocumentDrawerContent*`、`main/csvIo.ts`、`main/services/csvExport.ts`、`main/services/documents.ts`、`main/ipc.ts`、`preload/index.ts`、`shared/ipc.ts`
 - 定制：`pages/PsdPage*`、`features/psd/ProductionView*`、`TemplatesView*`、`AssetLibraryView*`、`AssetPickerDialog*`、`SlotCard*`、`NewTemplateDialog*`、`main/services/psdExport.ts`、`main/psdIo.ts`、`shared/psd.ts`、`shared/schemas.ts`
 - 设置：`pages/SettingsPage*`、`features/settings/AppearanceSettings*`、`lib/appearance.ts`、`main.tsx`
 - 测试：`tests/e2e/*`（新增 `psd`、`keepalive`、`appearance`）、`tests/appearance.test.ts`、`tests/psdExport.test.ts`
@@ -83,7 +84,8 @@
 ### 单据
 - 工具条压缩为开单 / 类型 / 状态 / 日期 / 搜索 / 总数 / 更多，窄窗口换行而不是隐藏功能。
 - 保留 9 列；窗口不足时表格横向滚动。
-- 「更多」含导出当前列表 CSV 与清除筛选条件；导出按当前筛选结果生成。
+- 「更多」含导出当前列表 CSV 与清除筛选条件；导出由主进程按同一筛选条件生成，不受列表 1000 张上限影响。
+- 筛选交给主进程；列表最多显示最近 1000 张，超过时页面提示「共 N 张，只显示最近 1000 张」，导出仍包含全部 N 张。
 - 详情弹窗宽 960px、最大 90vh、内部滚动；金额汇总按 出库 / 入库 / 调整 / 期初 区分；附件、导出、作废规则不变。
 
 ### 定制
@@ -111,15 +113,16 @@
 | --- | --- |
 | `npm run typecheck` | 通过 |
 | `npm run lint` | 通过（颜色合规、CSS 变量、ESLint、Prettier） |
-| `npm test` | 14 个文件 / 113 项通过 |
+| `npm test` | 14 个文件 / 116 项通过 |
 | `npm run build` | 通过 |
-| `npm run e2e`（`ELECTRON_DISABLE_SANDBOX=1`） | 8 个场景通过：a11y、appearance、backup、csv、flow、keepalive、psd、smoke |
+| `npm run e2e`（`ELECTRON_DISABLE_SANDBOX=1`） | 9 个场景通过：a11y、appearance、backup、csv、export-limit、flow、keepalive、psd、smoke |
 
-新增 E2E 覆盖：
+新增 / 调整的验收覆盖：
 - `appearance`：墨绿 / 紫罗兰默认值、自定义颜色与对比度提示、字号、减少动效、共用配色、重载后保留。
 - `keepalive`：表格滚动位置、单据筛选、隐藏页不抢 ⌘F、回到页面刷新数据、设置来回保留未提交标题。
 - `psd`：三选项卡、添加/删除位置、图层映射失焦保存、空素材选图弹窗、模板重命名。
-- `csv`：除导入外，新增导出当前列表 CSV 的保存对话框打桩与文件内容断言（BOM、表头、行数）。
+- `csv`：除导入外，新增导出当前列表 CSV 的保存对话框打桩与文件内容断言（BOM、表头、行数）；导出改由主进程序列化。
+- `export-limit`：造 1000+ 张单据，断言页面显示截断提示、导出文件仍包含全部单据。
 - 任务完成 / 失败 Toast：由 Shell 全局轻量轮询，切到任何页面都能收到；定制页的 1.5 秒轮询只刷新页面数据。
 
 截图脚本：`node scripts/screenshot-after.ts docs/redesign/v3`，输出 84 张（页面、单据 / 商品 / 定制弹窗、设置四个分类 × 两种尺寸 × 浅深色）。

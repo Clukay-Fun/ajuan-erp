@@ -6,9 +6,9 @@
  *   - 9 列完整保留，窄窗口下表格横向滚动；点击一行打开真实单据弹窗
  */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { MoreVertical, Upload, Scale, Search, Download, FilterX } from 'lucide-react'
-import type { DocumentStatus, DocumentSummary, DocumentType } from '@shared/types'
+import type { DocumentListFilter, DocumentStatus, DocumentSummary, DocumentType } from '@shared/types'
 import {
   DateRangePicker,
   DocStatusBadge,
@@ -18,7 +18,6 @@ import {
   Menu,
   SegmentedControl,
   TableEmpty,
-  TYPE_LABEL,
   useDrawer,
   type DateRange
 } from '@/components/ui'
@@ -28,7 +27,7 @@ import { usePageActive } from '@/app/usePageActive'
 import { useEntityDrawers } from '@/app/entityDrawers'
 import { unwrap, errorMessage } from '@/lib/api'
 import { useDataChanged } from '@/lib/dataEvents'
-import { formatCents, formatQty, todayString } from '@/lib/format'
+import { formatCents, formatQty } from '@/lib/format'
 import { NewDocumentButton } from '@/features/documents/NewDocumentButton'
 import styles from './DocumentsPage.module.css'
 
@@ -42,19 +41,6 @@ const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
   { value: 'adjustment', label: '调整' },
   { value: 'opening', label: '期初' }
 ]
-
-const STATUS_LABEL: Record<DocumentStatus, string> = {
-  draft: '草稿',
-  confirmed: '已生效',
-  voided: '已作废'
-}
-
-const CSV_HEADER = ['日期', '类型', '单号', '状态', '渠道', '订单号', '数量', '金额', '毛利', '备注']
-
-function csvCell(value: string | number | null | undefined): string {
-  const text = value === null || value === undefined ? '' : String(value)
-  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
-}
 
 export function DocumentsPage(): React.JSX.Element {
   const { location } = useNav()
@@ -70,22 +56,54 @@ export function DocumentsPage(): React.JSX.Element {
   const [range, setRange] = useState<DateRange>({ from: initial.from ?? '', to: initial.to ?? '' })
   const [query, setQuery] = useState('')
   const [docs, setDocs] = useState<DocumentSummary[] | null>(null)
+  const [total, setTotal] = useState(0)
+  const [draftCount, setDraftCount] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
+  const requestId = useRef(0)
 
-  // 拉全部单据（上限 1000），类型 / 状态 / 日期 / 搜索都在本地过滤：店主一个人用，数据量很小
+  const currentFilter = useCallback(
+    (limit?: number): DocumentListFilter => ({
+      type: type === 'all' ? undefined : type,
+      status: status === 'all' ? undefined : status,
+      from: range.from || undefined,
+      to: range.to || undefined,
+      q: query.trim() || undefined,
+      ...(limit ? { limit } : {})
+    }),
+    [type, status, range.from, range.to, query]
+  )
+
+  // 筛选交给主进程：列表最多显示 1000 张，同时取总数判断是否被截断
   const load = useCallback(async () => {
+    const id = ++requestId.current
+    setLoading(true)
     try {
-      setDocs(await unwrap(window.ajuan.documents.list({ limit: 1000 })))
+      const [items, counted, drafts] = await Promise.all([
+        unwrap(window.ajuan.documents.list(currentFilter(1000))),
+        unwrap(window.ajuan.documents.count(currentFilter())),
+        unwrap(window.ajuan.documents.count({ status: 'draft' }))
+      ])
+      if (id !== requestId.current) return
+      setDocs(items)
+      setTotal(counted)
+      setDraftCount(drafts)
       setError(null)
     } catch (err) {
-      setError(errorMessage(err))
+      if (id === requestId.current) setError(errorMessage(err))
+    } finally {
+      if (id === requestId.current) setLoading(false)
     }
-  }, [])
+  }, [currentFilter])
 
+  // 搜索输入防抖；类型 / 状态 / 日期即时生效
   useEffect(() => {
-    void load()
-  }, [load])
+    const delay = query.trim() ? 220 : 0
+    const timer = window.setTimeout(() => void load(), delay)
+    return () => window.clearTimeout(timer)
+  }, [load, query])
+
   useDataChanged(() => void load())
 
   // 从别的页面切回来时刷新
@@ -118,20 +136,7 @@ export function DocumentsPage(): React.JSX.Element {
     return () => window.removeEventListener('keydown', onKey)
   }, [active])
 
-  const draftCount = useMemo(() => docs?.filter((d) => d.status === 'draft').length ?? 0, [docs])
-
-  const filtered = useMemo(() => {
-    if (!docs) return []
-    const q = query.trim().toLowerCase()
-    return docs.filter((d) => {
-      if (type !== 'all' && d.type !== type) return false
-      if (status !== 'all' && d.status !== status) return false
-      if (range.from && d.docDate < range.from) return false
-      if (range.to && d.docDate > range.to) return false
-      if (!q) return true
-      return [d.docNo, d.externalOrderNo, d.channelName ?? '', d.note].some((v) => v.toLowerCase().includes(q))
-    })
-  }, [docs, type, status, range, query])
+  const visible = docs ?? []
 
   const clearFilters = (): void => {
     setType('all')
@@ -140,36 +145,15 @@ export function DocumentsPage(): React.JSX.Element {
     setQuery('')
   }
 
-  // 按当前筛选结果在前端生成 CSV（带 UTF-8 BOM），经保存对话框写入
+  // 由主进程按同一筛选条件生成 CSV，不受列表 1000 张上限影响
   const handleExportList = async (): Promise<void> => {
-    if (filtered.length === 0) {
+    if (total === 0) {
       toast('当前筛选结果为空，没有可导出的单据', 'error')
       return
     }
     setExporting(true)
     try {
-      const rows = filtered.map((d) => {
-        const profit =
-          d.type === 'outbound' && d.status === 'confirmed' && d.totalCostCents !== null
-            ? ((d.totalAmountCents - d.totalCostCents) / 100).toFixed(2)
-            : ''
-        return [
-          d.docDate,
-          TYPE_LABEL[d.type],
-          d.docNo,
-          STATUS_LABEL[d.status],
-          d.channelName ?? '',
-          d.externalOrderNo ?? '',
-          d.totalQuantity,
-          (d.totalAmountCents / 100).toFixed(2),
-          profit,
-          d.note ?? ''
-        ]
-          .map(csvCell)
-          .join(',')
-      })
-      const content = '\ufeff' + [CSV_HEADER.map(csvCell).join(','), ...rows].join('\r\n')
-      const saved = await unwrap(window.ajuan.csv.saveText({ fileName: `单据列表-${todayString()}.csv`, content }))
+      const saved = await unwrap(window.ajuan.csv.exportDocumentList(currentFilter()))
       if (saved) toast(`已导出当前列表到: ${saved}`, 'success')
     } catch (err) {
       toast(errorMessage(err), 'error')
@@ -225,7 +209,7 @@ export function DocumentsPage(): React.JSX.Element {
               placeholder="单号 / 订单号 / 渠道 / 备注"
             />
           </div>
-          <span className={styles.count}>共 {filtered.length} 张</span>
+          <span className={styles.count}>{loading ? '正在筛选…' : `共 ${total} 张`}</span>
           <Menu
             align="end"
             trigger={<IconButton label="更多" icon={<MoreVertical size={16} />} variant="secondary" />}
@@ -234,6 +218,11 @@ export function DocumentsPage(): React.JSX.Element {
         </div>
 
         {error && <p className={styles.error}>读取失败：{error}</p>}
+        {docs && total > docs.length && (
+          <p className={styles.truncated} role="status">
+            当前筛选共 {total} 张，列表只显示最近 {docs.length} 张；导出会包含全部 {total} 张。
+          </p>
+        )}
 
         <div className={styles.tableWrap}>
           <table className={styles.table}>
@@ -253,10 +242,10 @@ export function DocumentsPage(): React.JSX.Element {
             <tbody>
               {!docs ? (
                 <TableEmpty cols={9} title="正在读取单据…" />
-              ) : filtered.length === 0 ? (
+              ) : visible.length === 0 ? (
                 <TableEmpty cols={9} title="没有符合条件的单据" description="换个筛选条件，或点左上角「开单」" />
               ) : (
-                filtered.map((d) => {
+                visible.map((d) => {
                   const profit =
                     d.type === 'outbound' && d.status === 'confirmed' && d.totalCostCents !== null
                       ? d.totalAmountCents - d.totalCostCents

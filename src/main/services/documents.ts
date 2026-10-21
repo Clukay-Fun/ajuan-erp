@@ -85,7 +85,7 @@ function toItem(r: ItemRow): DocumentItem {
   }
 }
 
-export function listDocuments(db: Db, filter: DocumentListFilter = {}): DocumentSummary[] {
+function documentWhere(filter: DocumentListFilter): { sql: string; params: (string | number)[] } {
   const where: string[] = []
   const params: (string | number)[] = []
   if (filter.type) {
@@ -96,10 +96,56 @@ export function listDocuments(db: Db, filter: DocumentListFilter = {}): Document
     where.push('d.status = ?')
     params.push(filter.status)
   }
+  if (filter.from) {
+    where.push('d.doc_date >= ?')
+    params.push(filter.from)
+  }
+  if (filter.to) {
+    where.push('d.doc_date <= ?')
+    params.push(filter.to)
+  }
+  const q = filter.q?.trim().toLowerCase()
+  if (q) {
+    where.push(
+      `(LOWER(d.doc_no) LIKE ? OR LOWER(COALESCE(d.external_order_no, '')) LIKE ?
+        OR LOWER(COALESCE(c.name, '')) LIKE ? OR LOWER(d.note) LIKE ?)`
+    )
+    const like = `%${q}%`
+    params.push(like, like, like, like)
+  }
+  return { sql: where.length ? `WHERE ${where.join(' AND ')}` : '', params }
+}
+
+function queryDocuments(db: Db, filter: DocumentListFilter, limit: number | null): DocumentSummary[] {
+  const where = documentWhere(filter)
+  const sql = `${SUMMARY_SELECT} ${where.sql}
+    GROUP BY d.id ORDER BY d.doc_date DESC, d.id DESC ${limit === null ? '' : 'LIMIT ?'}`
+  const rows = db.prepare(sql).all(...where.params, ...(limit === null ? [] : [limit])) as unknown as DocRow[]
+  return rows.map(toSummary)
+}
+
+export function listDocuments(db: Db, filter: DocumentListFilter = {}): DocumentSummary[] {
   const limit = Math.min(Math.max(filter.limit ?? 200, 1), 1000)
-  const sql = `${SUMMARY_SELECT} ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
-    GROUP BY d.id ORDER BY d.doc_date DESC, d.id DESC LIMIT ?`
-  return (db.prepare(sql).all(...params, limit) as unknown as DocRow[]).map(toSummary)
+  return queryDocuments(db, filter, limit)
+}
+
+/** 导出用：同一套筛选条件，但不截断到 1000 张 */
+export function listAllDocuments(db: Db, filter: DocumentListFilter = {}): DocumentSummary[] {
+  return queryDocuments(db, filter, null)
+}
+
+/** 满足筛选条件的单据总数，用于提示列表是否被 1000 张上限截断 */
+export function countDocuments(db: Db, filter: DocumentListFilter = {}): number {
+  const where = documentWhere(filter)
+  const row = db
+    .prepare(
+      `SELECT COUNT(DISTINCT d.id) AS c
+       FROM documents d
+       LEFT JOIN sales_channels c ON c.id = d.channel_id
+       ${where.sql}`
+    )
+    .get(...where.params) as { c: number }
+  return Number(row.c)
 }
 
 export function getDocumentSummary(db: Db, id: number): DocumentSummary {

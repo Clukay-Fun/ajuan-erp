@@ -10,6 +10,8 @@ import {
   confirmDocument,
   voidDocument,
   listDocuments,
+  listAllDocuments,
+  countDocuments,
   getDocument,
   findDuplicateOrder
 } from '../src/main/services/documents'
@@ -70,6 +72,39 @@ describe('单据草稿', () => {
     deleteDraft(db, d.id)
     expect(() => getDocument(db, d.id)).toThrow(/不存在/)
     expect(db.prepare('SELECT COUNT(*) AS c FROM document_items').get()).toEqual({ c: 0 })
+  })
+
+  it('按类型 / 日期 / 搜索筛选，并统计筛选总数', () => {
+    const channel = listChannels(db)[0]
+    const today = createDraft(db, {
+      ...outbound(1, 100, { channelId: channel.id, externalOrderNo: 'DY001' }),
+      note: '备注甲'
+    })
+    createDraft(db, inbound(1, 1, '2026-09-22'))
+    const other = createDraft(db, { ...inbound(1, 1, '2026-09-23'), note: '另一个' })
+
+    expect(countDocuments(db)).toBe(3)
+    expect(countDocuments(db, { type: 'inbound' })).toBe(2)
+    expect(countDocuments(db, { from: '2026-09-22', to: '2026-09-22' })).toBe(1)
+    expect(countDocuments(db, { q: '抖音' })).toBe(1)
+    expect(countDocuments(db, { q: '备注甲' })).toBe(1)
+    expect(countDocuments(db, { q: today.docNo })).toBe(1)
+    expect(countDocuments(db, { q: '不存在' })).toBe(0)
+    expect(listDocuments(db, { q: '另一个' }).map((d) => d.id)).toEqual([other.id])
+    expect(listAllDocuments(db, { type: 'inbound' })).toHaveLength(2)
+    expect(listAllDocuments(db, { q: 'CK' })).toHaveLength(1)
+  })
+
+  it('超过 1000 张时列表截断、总数与导出查询不截断', () => {
+    const base = Date.UTC(2024, 0, 1)
+    for (let i = 0; i < 1001; i++) {
+      // 同一天的单号最多到 999，这里每天 2 张，跨约 500 天
+      const date = new Date(base + Math.floor(i / 2) * 86_400_000).toISOString().slice(0, 10)
+      createDraft(db, inbound(1, 1, date))
+    }
+    expect(countDocuments(db)).toBe(1001)
+    expect(listDocuments(db, { limit: 1000 })).toHaveLength(1000)
+    expect(listAllDocuments(db)).toHaveLength(1001)
   })
 
   it('同日单号递增；入库不能带渠道；空明细拒绝', () => {

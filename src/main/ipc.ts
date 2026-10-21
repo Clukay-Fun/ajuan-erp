@@ -17,6 +17,7 @@ import { getStock, listStock } from './services/inventory'
 import { createOpening, getOpening } from './services/opening'
 import {
   listDocuments,
+  countDocuments,
   getDocument,
   createDraft,
   updateDraft,
@@ -36,7 +37,7 @@ import {
   previewImportFile,
   commitImportFile,
   saveTemplate,
-  saveTextFile,
+  exportDocumentList,
   exportMovements,
   exportSummary,
   exportDocument
@@ -154,6 +155,7 @@ export function registerIpc(): void {
   handle(IPC.openingGet, (skuId: number) => getOpening(state.db, skuId))
   handle(IPC.openingCreate, (input) => createOpening(state.db, input))
   handle(IPC.documentsList, (filter) => listDocuments(state.db, filter ?? {}))
+  handle(IPC.documentsCount, (filter) => countDocuments(state.db, filter ?? {}))
   handle(IPC.documentsGet, (id: number) => getDocument(state.db, id))
   handle(IPC.documentsCreateDraft, (input) => createDraft(state.db, input))
   handle(IPC.documentsUpdateDraft, (id: number, input) => updateDraft(state.db, id, input))
@@ -174,7 +176,7 @@ export function registerIpc(): void {
   handle(IPC.csvPreview, (path: string) => previewImportFile(state.db, path))
   handle(IPC.csvCommit, (path: string, ack: boolean) => commitImportFile(state.db, path, ack))
   handle(IPC.csvSaveTemplate, () => saveTemplate())
-  handle(IPC.csvSaveText, (input: { fileName: string; content: string }) => saveTextFile(input))
+  handle(IPC.csvExportDocumentList, (filter) => exportDocumentList(state.db, filter ?? {}))
   handle(IPC.csvExportMovements, (filter) => exportMovements(state.db, filter ?? {}))
   handle(IPC.csvExportSummary, (range) => exportSummary(state.db, range))
   handle(IPC.attachmentsList, (documentId: number) => listAttachments(state.db, documentId))

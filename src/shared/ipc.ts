@@ -76,6 +76,7 @@ export const IPC = {
   openingGet: 'opening:get',
   openingCreate: 'opening:create',
   documentsList: 'documents:list',
+  documentsCount: 'documents:count',
   documentsGet: 'documents:get',
   documentsCreateDraft: 'documents:createDraft',
   documentsUpdateDraft: 'documents:updateDraft',
@@ -93,7 +94,7 @@ export const IPC = {
   csvPreview: 'csv:preview',
   csvCommit: 'csv:commit',
   csvSaveTemplate: 'csv:saveTemplate',
-  csvSaveText: 'csv:saveText',
+  csvExportDocumentList: 'csv:exportDocumentList',
   csvExportMovements: 'csv:exportMovements',
   csvExportSummary: 'csv:exportSummary',
   attachmentsList: 'attachments:list',
@@ -204,8 +205,8 @@ export interface AjuanApi {
     /** 重新解析校验后在单个事务内写入；acknowledgeWarnings 为 false 且存在警告时拒绝 */
     commit(path: string, acknowledgeWarnings: boolean): Promise<IpcResult<CsvImportResult>>
     saveTemplate(): Promise<IpcResult<string | null>>
-    /** 保存任意 CSV 文本（内容自带 UTF-8 BOM）；用于导出当前列表 */
-    saveText(input: { fileName: string; content: string }): Promise<IpcResult<string | null>>
+    /** 按当前筛选导出全部单据列表（主进程生成 CSV，不受列表 1000 张上限限制） */
+    exportDocumentList(filter: DocumentListFilter): Promise<IpcResult<string | null>>
     exportMovements(filter: MovementFilter): Promise<IpcResult<string | null>>
     exportSummary(range: SummaryRange): Promise<IpcResult<string | null>>
     exportDocument(id: number): Promise<IpcResult<string | null>>
@@ -217,6 +218,8 @@ export interface AjuanApi {
   }
   documents: {
     list(filter: DocumentListFilter): Promise<IpcResult<DocumentSummary[]>>
+    /** 满足筛选条件的总数（列表最多返回 1000 张，用这个判断是否被截断） */
+    count(filter: DocumentListFilter): Promise<IpcResult<number>>
     get(id: number): Promise<IpcResult<DocumentDetail>>
     createDraft(input: DocumentDraftInput): Promise<IpcResult<DocumentDetail>>
     updateDraft(id: number, input: DocumentDraftInput): Promise<IpcResult<DocumentDetail>>

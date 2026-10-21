@@ -11,7 +11,7 @@ import {
   CSV_COLUMNS,
   LEGACY_COLUMNS
 } from '../src/main/services/csvImport'
-import { buildMovementsCsv, buildSummaryCsv } from '../src/main/services/csvExport'
+import { buildDocumentListCsv, buildMovementsCsv, buildSummaryCsv, CSV_BOM } from '../src/main/services/csvExport'
 
 const ctx = { fileName: 'test.csv', encoding: 'utf-8' as const }
 const H = LEGACY_COLUMNS.join(',')
@@ -32,6 +32,34 @@ describe('CSV 解码与模板', () => {
     expect(p.rows[0].productCode).toBe('FG001')
     expect(p.rows[0].messages[0]).toMatch(/已有库存流水/)
   })
+  it('单据列表导出使用主进程序列化，并按筛选条件包含全部行', () => {
+    const db = withOpening()
+    createDraft(db, {
+      type: 'inbound',
+      docDate: '2026-09-21',
+      channelId: null,
+      externalOrderNo: '',
+      note: '甲',
+      items: [{ skuId: 1, quantity: 2, unitPriceCents: 1050 }]
+    })
+    createDraft(db, {
+      type: 'inbound',
+      docDate: '2026-09-22',
+      channelId: null,
+      externalOrderNo: '',
+      note: '乙',
+      items: [{ skuId: 1, quantity: 1, unitPriceCents: 2000 }]
+    })
+    const all = buildDocumentListCsv(db)
+    expect(all.fileName).toMatch(/^单据列表-\d{8}\.csv$/)
+    expect(all.content.startsWith(CSV_BOM + '日期,类型,单号,状态,渠道,订单号,数量,金额,毛利,备注')).toBe(true)
+    expect(all.content).toContain('RK20260921-001')
+    expect(all.content).toContain('RK20260922-001')
+    const filtered = buildDocumentListCsv(db, { q: '乙' })
+    expect(filtered.content).toContain('RK20260922-001')
+    expect(filtered.content).not.toContain('RK20260921-001')
+  })
+
   it('UTF-8 BOM 与 GBK 都能解码', () => {
     const utf8 = new TextEncoder().encode('﻿' + csv('入库,2026-09-02,1,1,,,备注'))
     expect(decodeCsv(utf8)).toMatchObject({ encoding: 'utf-8' })

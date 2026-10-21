@@ -57,7 +57,7 @@ const api: AjuanApi = {
     preview: (path) => ipcRenderer.invoke(IPC.csvPreview, path),
     commit: (path, ack) => ipcRenderer.invoke(IPC.csvCommit, path, ack),
     saveTemplate: () => ipcRenderer.invoke(IPC.csvSaveTemplate),
-    saveText: (input) => ipcRenderer.invoke(IPC.csvSaveText, input),
+    exportDocumentList: (filter) => ipcRenderer.invoke(IPC.csvExportDocumentList, filter),
     exportMovements: (filter) => ipcRenderer.invoke(IPC.csvExportMovements, filter),
     exportSummary: (range) => ipcRenderer.invoke(IPC.csvExportSummary, range),
     exportDocument: (id) => ipcRenderer.invoke(IPC.csvExportDocument, id)
@@ -68,6 +68,7 @@ const api: AjuanApi = {
   },
   documents: {
     list: (filter) => ipcRenderer.invoke(IPC.documentsList, filter),
+    count: (filter) => ipcRenderer.invoke(IPC.documentsCount, filter),
     get: (id) => ipcRenderer.invoke(IPC.documentsGet, id),
     createDraft: (input) => ipcRenderer.invoke(IPC.documentsCreateDraft, input),
     updateDraft: (id, input) => ipcRenderer.invoke(IPC.documentsUpdateDraft, id, input),

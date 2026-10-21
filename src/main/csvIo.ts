@@ -2,10 +2,16 @@ import { app, BrowserWindow, dialog } from 'electron'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import type { Db } from './db/connection'
-import type { CsvImportPreview, CsvImportResult, MovementFilter, SummaryRange } from '@shared/types'
+import type { CsvImportPreview, CsvImportResult, DocumentListFilter, MovementFilter, SummaryRange } from '@shared/types'
 import { ServiceError } from './services/errors'
 import { buildTemplateCsv, commitImport, decodeCsv, previewImport } from './services/csvImport'
-import { buildDocumentCsv, buildMovementsCsv, buildSummaryCsv, CSV_BOM } from './services/csvExport'
+import {
+  buildDocumentCsv,
+  buildDocumentListCsv,
+  buildMovementsCsv,
+  buildSummaryCsv,
+  CSV_BOM
+} from './services/csvExport'
 
 // 文件对话框与磁盘读写只在主进程发生；renderer 只拿到路径字符串。
 
@@ -64,16 +70,9 @@ export function saveTemplate(): Promise<string | null> {
   return saveCsv('阿卷 ERP-导入模板.csv', CSV_BOM + buildTemplateCsv())
 }
 
-/** 保存 renderer 生成的 CSV 文本（当前列表导出）。文件名由调用方给出，这里只保留基名。 */
-export function saveTextFile(input: { fileName: string; content: string }): Promise<string | null> {
-  if (!input || typeof input.fileName !== 'string' || typeof input.content !== 'string') {
-    throw new ServiceError('VALIDATION', '导出内容不合法')
-  }
-  if (input.content.length > 10 * 1024 * 1024) {
-    throw new ServiceError('VALIDATION', '导出内容超过 10MB')
-  }
-  const name = basename(input.fileName).replace(/[\\/:*?"<>|]/g, '_') || '导出.csv'
-  return saveCsv(name.toLowerCase().endsWith('.csv') ? name : `${name}.csv`, input.content)
+export function exportDocumentList(db: Db, filter: DocumentListFilter): Promise<string | null> {
+  const { fileName, content } = buildDocumentListCsv(db, filter ?? {})
+  return saveCsv(fileName, content)
 }
 
 export function exportMovements(db: Db, filter: MovementFilter): Promise<string | null> {
