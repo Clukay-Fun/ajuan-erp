@@ -106,10 +106,12 @@ export function DocumentDrawerContent({ id }: { id: number }): React.JSX.Element
   return (
     <div className={styles.wrap}>
       <div className={styles.head}>
-        <div className={styles.badges}>
-          <DocTypeBadge type={doc.type} />
-          <DocStatusBadge status={doc.status} />
-          {doc.status === 'voided' && <span className={styles.voidedAt}>作废于 {formatTime(doc.voidedAt)}</span>}
+        <div className={styles.headMain}>
+          <div className={styles.badges}>
+            <DocTypeBadge type={doc.type} />
+            <DocStatusBadge status={doc.status} />
+            {doc.status === 'voided' && <span className={styles.voidedAt}>作废于 {formatTime(doc.voidedAt)}</span>}
+          </div>
         </div>
         <div className={styles.actions}>
           {doc.status !== 'draft' && (
@@ -225,14 +227,75 @@ export function DocumentDrawerContent({ id }: { id: number }): React.JSX.Element
         </table>
       </div>
 
-      {isOutbound && costCents !== null && profitCents !== null && (
-        <p className={styles.profit}>
-          {doc.status === 'draft' ? '预估成本' : '成本'} ¥{formatCents(costCents)} ·{' '}
-          {doc.status === 'draft' ? '预估毛利' : '毛利'}{' '}
-          <span className={profitCents < 0 ? styles.negative : styles.profitValue}>¥{formatCents(profitCents)}</span>
-          <span className={styles.hint}>{doc.status === 'draft' ? '（按当前平均成本）' : '（出库时成本）'}</span>
-        </p>
-      )}
+      {/* 金额汇总：按单据类型给出适用口径 */}
+      <div className={styles.summary} aria-label="金额汇总">
+        {doc.type === 'outbound' &&
+          [
+            { label: '出库金额', value: `¥${formatCents(doc.totalAmountCents)}` },
+            {
+              label: doc.status === 'draft' ? '预估成本' : '出库成本',
+              value: costCents === null ? '—' : `¥${formatCents(costCents)}`
+            },
+            {
+              label: doc.status === 'draft' ? '预估毛利' : '毛利',
+              value: profitCents === null ? '—' : `¥${formatCents(profitCents)}`,
+              tone: profitCents !== null && profitCents < 0 ? 'negative' : 'profit'
+            }
+          ].map((item) => (
+            <div key={item.label} className={styles.summaryItem}>
+              <span className={styles.summaryLabel}>{item.label}</span>
+              <span
+                className={`${styles.summaryValue} ${item.tone === 'negative' ? styles.negative : item.tone === 'profit' ? styles.profitValue : ''}`}
+              >
+                {item.value}
+              </span>
+            </div>
+          ))}
+
+        {doc.type === 'inbound' &&
+          [
+            { label: '入库数量', value: `${formatQty(doc.totalQuantity)} 件` },
+            { label: '进价合计', value: `¥${formatCents(doc.totalAmountCents)}` },
+            { label: '入库总额', value: `¥${formatCents(doc.totalAmountCents)}` }
+          ].map((item) => (
+            <div key={item.label} className={styles.summaryItem}>
+              <span className={styles.summaryLabel}>{item.label}</span>
+              <span className={styles.summaryValue}>{item.value}</span>
+            </div>
+          ))}
+
+        {doc.type === 'adjustment' && (
+          <>
+            <div className={styles.summaryItem}>
+              <span className={styles.summaryLabel}>调整数量</span>
+              <span className={styles.summaryValue}>
+                {doc.adjustDirection === 'increase' ? '+' : '−'}
+                {formatQty(doc.totalQuantity)} 件
+              </span>
+            </div>
+            <div className={styles.summaryItem}>
+              <span className={styles.summaryLabel}>成本影响</span>
+              <span className={styles.summaryValue}>
+                {doc.adjustDirection === 'increase' ? '+' : '−'}¥
+                {formatCents(doc.totalCostCents ?? doc.totalAmountCents)}
+              </span>
+            </div>
+          </>
+        )}
+
+        {doc.type === 'opening' && (
+          <>
+            <div className={styles.summaryItem}>
+              <span className={styles.summaryLabel}>期初数量</span>
+              <span className={styles.summaryValue}>{formatQty(doc.totalQuantity)} 件</span>
+            </div>
+            <div className={styles.summaryItem}>
+              <span className={styles.summaryLabel}>期初成本</span>
+              <span className={styles.summaryValue}>¥{formatCents(doc.totalCostCents ?? doc.totalAmountCents)}</span>
+            </div>
+          </>
+        )}
+      </div>
 
       <section className={styles.section}>
         <h3 className={styles.sectionTitle}>附件</h3>

@@ -22,6 +22,21 @@
   flex-wrap: wrap;
 }
 
+.headMain {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.docNo {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-md, 15px);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
 .badges {
   display: flex;
   align-items: center;
@@ -130,6 +145,37 @@
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: calc(-1 * var(--space-1)) 0 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+}
+
+.summaryItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 120px;
+  padding-right: var(--space-4);
+}
+
+.summaryLabel {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.summaryValue {
+  font-size: var(--font-size-md, 15px);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
 }
 
 .profit {

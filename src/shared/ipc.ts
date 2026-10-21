@@ -91,6 +91,7 @@ export const IPC = {
   csvPreview: 'csv:preview',
   csvCommit: 'csv:commit',
   csvSaveTemplate: 'csv:saveTemplate',
+  csvSaveText: 'csv:saveText',
   csvExportMovements: 'csv:exportMovements',
   csvExportSummary: 'csv:exportSummary',
   attachmentsList: 'attachments:list',
@@ -199,6 +200,8 @@ export interface AjuanApi {
     /** 重新解析校验后在单个事务内写入；acknowledgeWarnings 为 false 且存在警告时拒绝 */
     commit(path: string, acknowledgeWarnings: boolean): Promise<IpcResult<CsvImportResult>>
     saveTemplate(): Promise<IpcResult<string | null>>
+    /** 保存任意 CSV 文本（内容自带 UTF-8 BOM）；用于导出当前列表 */
+    saveText(input: { fileName: string; content: string }): Promise<IpcResult<string | null>>
     exportMovements(filter: MovementFilter): Promise<IpcResult<string | null>>
     exportSummary(range: SummaryRange): Promise<IpcResult<string | null>>
     exportDocument(id: number): Promise<IpcResult<string | null>>

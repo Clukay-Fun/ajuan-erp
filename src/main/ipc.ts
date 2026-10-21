@@ -36,6 +36,7 @@ import {
   previewImportFile,
   commitImportFile,
   saveTemplate,
+  saveTextFile,
   exportMovements,
   exportSummary,
   exportDocument
@@ -171,6 +172,7 @@ export function registerIpc(): void {
   handle(IPC.csvPreview, (path: string) => previewImportFile(state.db, path))
   handle(IPC.csvCommit, (path: string, ack: boolean) => commitImportFile(state.db, path, ack))
   handle(IPC.csvSaveTemplate, () => saveTemplate())
+  handle(IPC.csvSaveText, (input: { fileName: string; content: string }) => saveTextFile(input))
   handle(IPC.csvExportMovements, (filter) => exportMovements(state.db, filter ?? {}))
   handle(IPC.csvExportSummary, (range) => exportSummary(state.db, range))
   handle(IPC.attachmentsList, (documentId: number) => listAttachments(state.db, documentId))

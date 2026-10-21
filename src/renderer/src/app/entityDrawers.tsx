@@ -67,7 +67,7 @@ export function useEntityDrawers(): EntityDrawers {
       openDrawer({
         id: `document-${documentId}`,
         title: '单据',
-        size: 'md',
+        size: 'lg',
         content: <DocumentDrawerContent id={documentId} />
       })
     },

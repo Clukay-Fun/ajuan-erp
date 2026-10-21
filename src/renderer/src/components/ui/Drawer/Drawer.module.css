@@ -14,7 +14,7 @@
   left: 50%;
   transform: translate(-50%, -50%);
   max-width: calc(100vw - 48px);
-  height: min(860px, calc(100vh - 48px));
+  height: min(860px, 90vh);
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);

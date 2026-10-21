@@ -57,6 +57,7 @@ const api: AjuanApi = {
     preview: (path) => ipcRenderer.invoke(IPC.csvPreview, path),
     commit: (path, ack) => ipcRenderer.invoke(IPC.csvCommit, path, ack),
     saveTemplate: () => ipcRenderer.invoke(IPC.csvSaveTemplate),
+    saveText: (input) => ipcRenderer.invoke(IPC.csvSaveText, input),
     exportMovements: (filter) => ipcRenderer.invoke(IPC.csvExportMovements, filter),
     exportSummary: (range) => ipcRenderer.invoke(IPC.csvExportSummary, range),
     exportDocument: (id) => ipcRenderer.invoke(IPC.csvExportDocument, id)

@@ -64,6 +64,18 @@ export function saveTemplate(): Promise<string | null> {
   return saveCsv('阿卷 ERP-导入模板.csv', CSV_BOM + buildTemplateCsv())
 }
 
+/** 保存 renderer 生成的 CSV 文本（当前列表导出）。文件名由调用方给出，这里只保留基名。 */
+export function saveTextFile(input: { fileName: string; content: string }): Promise<string | null> {
+  if (!input || typeof input.fileName !== 'string' || typeof input.content !== 'string') {
+    throw new ServiceError('VALIDATION', '导出内容不合法')
+  }
+  if (input.content.length > 10 * 1024 * 1024) {
+    throw new ServiceError('VALIDATION', '导出内容超过 10MB')
+  }
+  const name = basename(input.fileName).replace(/[\\/:*?"<>|]/g, '_') || '导出.csv'
+  return saveCsv(name.toLowerCase().endsWith('.csv') ? name : `${name}.csv`, input.content)
+}
+
 export function exportMovements(db: Db, filter: MovementFilter): Promise<string | null> {
   const tag = [filter.from, filter.to].filter(Boolean).join('_')
   return saveCsv(`库存流水${tag ? `-${tag}` : ''}.csv`, buildMovementsCsv(db, filter ?? {}))

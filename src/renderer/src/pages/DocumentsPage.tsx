@@ -1,13 +1,13 @@
 /**
  * 描述: 单据列表页 (DocumentsPage)
  * 主要功能:
- *   - 页头「开单」分体按钮与「更多」菜单（导入 CSV、库存调整）
- *   - 筛选：类型、状态（草稿带计数）、日期范围、搜索（单号 / 订单号 / 渠道 / 备注）
- *   - 点击一行打开单据弹窗；已作废整行置灰；出库已生效显示毛利，负数标红
+ *   - 单行紧凑工具条：开单、类型、状态、日期、搜索、总数与「更多」
+ *   - 「更多」里提供导出当前列表 CSV（按当前筛选，前端生成）与清除筛选条件
+ *   - 9 列完整保留，窄窗口下表格横向滚动；点击一行打开真实单据弹窗
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { MoreVertical, Upload, Scale, Search } from 'lucide-react'
+import { MoreVertical, Upload, Scale, Search, Download, FilterX } from 'lucide-react'
 import type { DocumentStatus, DocumentSummary, DocumentType } from '@shared/types'
 import {
   DateRangePicker,
@@ -18,15 +18,17 @@ import {
   Menu,
   SegmentedControl,
   TableEmpty,
+  TYPE_LABEL,
   useDrawer,
   type DateRange
 } from '@/components/ui'
+import { useToast } from '@/components/Toast'
 import { useNav } from '@/app/navigation'
 import { usePageActive } from '@/app/usePageActive'
 import { useEntityDrawers } from '@/app/entityDrawers'
 import { unwrap, errorMessage } from '@/lib/api'
 import { useDataChanged } from '@/lib/dataEvents'
-import { formatCents, formatQty } from '@/lib/format'
+import { formatCents, formatQty, todayString } from '@/lib/format'
 import { NewDocumentButton } from '@/features/documents/NewDocumentButton'
 import styles from './DocumentsPage.module.css'
 
@@ -41,13 +43,27 @@ const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
   { value: 'opening', label: '期初' }
 ]
 
+const STATUS_LABEL: Record<DocumentStatus, string> = {
+  draft: '草稿',
+  confirmed: '已生效',
+  voided: '已作废'
+}
+
+const CSV_HEADER = ['日期', '类型', '单号', '状态', '渠道', '订单号', '数量', '金额', '毛利', '备注']
+
+function csvCell(value: string | number | null | undefined): string {
+  const text = value === null || value === undefined ? '' : String(value)
+  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
+}
+
 export function DocumentsPage(): React.JSX.Element {
   const { location } = useNav()
   const { active, visit } = usePageActive('documents')
-  const initial = location.params.documents ?? {}
   const { currentDrawer } = useDrawer()
   const { openDocument, openAdjustment, openImport } = useEntityDrawers()
+  const toast = useToast()
   const searchRef = useRef<HTMLInputElement>(null)
+  const initial = location.params.documents ?? {}
 
   const [type, setType] = useState<TypeFilter>(initial.type ?? 'all')
   const [status, setStatus] = useState<StatusFilter>(initial.status ?? 'all')
@@ -55,6 +71,7 @@ export function DocumentsPage(): React.JSX.Element {
   const [query, setQuery] = useState('')
   const [docs, setDocs] = useState<DocumentSummary[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
 
   // 拉全部单据（上限 1000），类型 / 状态 / 日期 / 搜索都在本地过滤：店主一个人用，数据量很小
   const load = useCallback(async () => {
@@ -116,25 +133,77 @@ export function DocumentsPage(): React.JSX.Element {
     })
   }, [docs, type, status, range, query])
 
+  const clearFilters = (): void => {
+    setType('all')
+    setStatus('all')
+    setRange({ from: '', to: '' })
+    setQuery('')
+  }
+
+  // 按当前筛选结果在前端生成 CSV（带 UTF-8 BOM），经保存对话框写入
+  const handleExportList = async (): Promise<void> => {
+    if (filtered.length === 0) {
+      toast('当前筛选结果为空，没有可导出的单据', 'error')
+      return
+    }
+    setExporting(true)
+    try {
+      const rows = filtered.map((d) => {
+        const profit =
+          d.type === 'outbound' && d.status === 'confirmed' && d.totalCostCents !== null
+            ? ((d.totalAmountCents - d.totalCostCents) / 100).toFixed(2)
+            : ''
+        return [
+          d.docDate,
+          TYPE_LABEL[d.type],
+          d.docNo,
+          STATUS_LABEL[d.status],
+          d.channelName ?? '',
+          d.externalOrderNo ?? '',
+          d.totalQuantity,
+          (d.totalAmountCents / 100).toFixed(2),
+          profit,
+          d.note ?? ''
+        ]
+          .map(csvCell)
+          .join(',')
+      })
+      const content = '\ufeff' + [CSV_HEADER.map(csvCell).join(','), ...rows].join('\r\n')
+      const saved = await unwrap(window.ajuan.csv.saveText({ fileName: `单据列表-${todayString()}.csv`, content }))
+      if (saved) toast(`已导出当前列表到: ${saved}`, 'success')
+    } catch (err) {
+      toast(errorMessage(err), 'error')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const moreItems = [
+    {
+      key: 'export-list',
+      label: exporting ? '正在导出…' : '导出当前列表 CSV',
+      icon: <Download size={14} />,
+      disabled: exporting,
+      onClick: handleExportList
+    },
+    {
+      key: 'clear-filters',
+      label: '清除筛选条件',
+      icon: <FilterX size={14} />,
+      onClick: clearFilters
+    },
+    'separator' as const,
+    { key: 'import', label: '导入 CSV', icon: <Upload size={14} />, onClick: openImport },
+    { key: 'adjust', label: '库存调整', icon: <Scale size={14} />, onClick: () => openAdjustment() }
+  ]
+
   return (
     <div className={styles.container}>
-      <header className={styles.headerRow}>
-        <h1 className="srOnly">单据</h1>
-        <div className={styles.headerActions}>
-          <NewDocumentButton />
-          <Menu
-            align="end"
-            trigger={<IconButton label="更多" icon={<MoreVertical size={16} />} variant="secondary" />}
-            items={[
-              { key: 'import', label: '导入 CSV', icon: <Upload size={14} />, onClick: openImport },
-              { key: 'adjust', label: '库存调整', icon: <Scale size={14} />, onClick: () => openAdjustment() }
-            ]}
-          />
-        </div>
-      </header>
+      <h1 className="srOnly">单据</h1>
 
       <main className={styles.mainPanel}>
         <div className={styles.toolbar}>
+          <NewDocumentButton />
           <SegmentedControl options={TYPE_OPTIONS} value={type} onChange={setType} />
           <SegmentedControl
             options={[
@@ -157,6 +226,11 @@ export function DocumentsPage(): React.JSX.Element {
             />
           </div>
           <span className={styles.count}>共 {filtered.length} 张</span>
+          <Menu
+            align="end"
+            trigger={<IconButton label="更多" icon={<MoreVertical size={16} />} variant="secondary" />}
+            items={moreItems}
+          />
         </div>
 
         {error && <p className={styles.error}>读取失败：{error}</p>}
@@ -180,7 +254,7 @@ export function DocumentsPage(): React.JSX.Element {
               {!docs ? (
                 <TableEmpty cols={9} title="正在读取单据…" />
               ) : filtered.length === 0 ? (
-                <TableEmpty cols={9} title="没有符合条件的单据" description="换个筛选条件，或点右上角「开单」" />
+                <TableEmpty cols={9} title="没有符合条件的单据" description="换个筛选条件，或点左上角「开单」" />
               ) : (
                 filtered.map((d) => {
                   const profit =
